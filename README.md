@@ -27,5 +27,13 @@ How to actually use for you, the end user.
 12. Add a USB port to the device by making a hole and adding a USB-C breakout
 13. Solder the 4 USB points of the breakout to the Teensy
 14. Reassemble and test
-
 15. You should now have a CyberG that outputs the correct midi for the piano and it plays specific notes for the neck. Other buttons have unique midi signals which can be assigned via VSTs.
+
+
+Why does this mod exist?
+
+1. Cyber G requires an app to work
+2. The App requires online, meaning this is ewaste in a few years
+3. Only the keyboard has MIDI but you literally have to remove it from the device to use it (unless you are crazy and put a USB-C connector in front like I did)
+4. The sounds are really bad and they want me to pay $60 to unlock 12 sounds in the Chinese app
+5. I got the Chinese version, which is Chinese only
