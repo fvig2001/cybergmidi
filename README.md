@@ -10,3 +10,22 @@ Rocker sends change program on up or down. No return to middle action is sent by
 Change Command is set for left, right, circle on, circle off buttons on the keyboard.
 
 I might consider adding analog  stick for pitch bend but it's not really supported on the device, so I might not do it.
+
+How to actually use for you, the end user.
+
+1. Open up your Cyber G Guitar. Start by removing the rubber cover where the logo is lit
+2. Unscrew that lone screw and then remove the 5 screws under (disconnect the ribbon cable behind the metal buttons
+3. Remove all the screws under the keyboard
+4. You can now remove the top but be careful of the ribbon cable
+5. Look at the wiring diagram and prepare to solder GND, Guitar to CyberG, Keyboard to CyberG, Silence and change logo color
+6. Program the Teensy 4.1 with the ino I provided
+7. Connect Neck to CyberG to pin 1
+8. Connect Keyboard to CyberG to pin 7
+9. Connect Gnd to Gnd
+10. Connect Silence to Pin 10
+11. Connect logo color change to Pin 11
+12. Add a USB port to the device by making a hole and adding a USB-C breakout
+13. Solder the 4 USB points of the breakout to the Teensy
+14. Reassemble and test
+
+15. You should now have a CyberG that outputs the correct midi for the piano and it plays specific notes for the neck. Other buttons have unique midi signals which can be assigned via VSTs.
