@@ -228,10 +228,10 @@ std::vector<Chord> chords = {
 std::vector<AssignedPattern> assignedFretPatterns;
 void prepareChords()
 {
-  uint8_t rootNotes[] = {48, 50, 52, 53, 55, 57, 59, 60, 62, 64, 65, 67, 69, 71, 72, 74, 75, 77, 79, 81, 83, 84};
-
+  //uint8_t rootNotes[] = {48, 50, 52, 53, 55, 57, 59, 60, 62, 64, 65, 67, 69, 71, 72, 74, 75, 77, 79, 81, 83, 84};
+  uint8_t rootNotes[] = {48, 50, 52, 53, 55, 57, 59};
     // Populate the assignedFretPatterns with the chords for each root note
-    for (int i = 0; i < 12; ++i) {
+    for (int i = 0; i < 7; ++i) {
         assignedFretPatterns.push_back(AssignedPattern(true, majorChord, rootNotes[i], false));
         assignedFretPatterns.push_back(AssignedPattern(true, minorChord, rootNotes[i], false));
         assignedFretPatterns.push_back(AssignedPattern(true, dominant7thChord, rootNotes[i], false));
