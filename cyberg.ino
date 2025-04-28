@@ -1,5 +1,7 @@
 #include <usb_midi.h>
 #include <vector>
+#include <SD.h>
+
 extern "C" char* sbrk(int incr); // Get current heap end
 
 class Chord {
@@ -78,11 +80,13 @@ class AssignedPattern
 // --- PIN DEFINITIONS ---
 const int NOTE_OFF_PIN = 10;     // Digital input for turning off all notes
 const int START_TRIGGER_PIN = 11;   // Digital input for triggering CC message
-
+const int BT_ON_PIN = 19;
+const int BT_STATUS_PIN = 20;
 const int BUTTON_1_PIN = 4;
 const int BUTTON_2_PIN = 5;
 const int BUTTON_3_PIN = 6;
 
+bool prevButtonBTState = HIGH;
 bool prevButton1State = HIGH;
 bool prevButton2State = HIGH;
 bool prevButton3State = HIGH;
@@ -95,11 +99,14 @@ const int KEYBOARD_CHANNEL = 1;
 bool prevNoteOffState = LOW;
 bool prevCCState = LOW;
 std::vector<uint8_t> lastGuitarNotes;
+std::vector<uint8_t> lastGuitarNotesButtons;
 #define MAX_BUFFER_SIZE 150
 uint8_t bufferLen2 = 0;
 char dataBuffer1[MAX_BUFFER_SIZE + 1];  // +1 for null terminator
 char dataBuffer2[MAX_BUFFER_SIZE + 1];  // +1 for null terminator
+char dataBuffer3[MAX_BUFFER_SIZE + 1];  // +1 for null terminator
 uint8_t bufferLen1 = 0;
+uint8_t bufferLen3 = 0;
 bool lastSimple = false;
 
 // --- HEX TO MIDI NOTE MAP ---
@@ -340,15 +347,50 @@ void setup() {
   pinMode(BUTTON_1_PIN, INPUT_PULLUP);
   pinMode(BUTTON_2_PIN, INPUT_PULLUP);
   pinMode(BUTTON_3_PIN, INPUT_PULLUP);
-  Serial.println("HM-10 Bluetooth Initialized");
+  pinMode(BT_ON_PIN, OUTPUT);  // Set pin 19 as output
+  pinMode(BT_STATUS_PIN, INPUT);  // Set pin 18 as output
+
+  
+  
+  
+  digitalWrite(BT_ON_PIN, HIGH);  // Set pin 19 to high
+  
   Serial1.begin(250000); // Guitar
   Serial2.begin(250000); // Keyboard
-    //HM10_BLUETOOTH.begin(HM10_BAUD); //BT
+  Serial3.begin(9600);  // BT
+      //HM10_BLUETOOTH.begin(HM10_BAUD); //BT
   Serial.begin(115200);  // USB debug monitor
 
   usbMIDI.begin();
   while (!Serial && millis() < 3000);  // Wait for Serial Monitor
   Serial.println("Teensy MIDI Debug Start");
+  Serial3.println("AT");  // Send AT command
+
+ Serial.println("SD card initialized.");
+
+ if (!SD.begin(BUILTIN_SDCARD)) {
+    Serial.println("SD card failed to initialize!");
+    return;
+  }
+  // File file = SD.open("config.ini", FILE_WRITE);
+  // if (file) {
+  //   file.println("Hello from Teensy!");
+  //   file.close();
+  //   Serial.println("Data written to SD.");
+  // } else {
+  //   Serial.println("Failed to open file.");
+  // }
+
+ File file = SD.open("config.ini");
+  if (file) {
+    Serial.println("Reading back file contents:");
+    while (file.available()) {
+      Serial.write(file.read());
+    }
+    file.close();
+  } else {
+    Serial.println("Failed to open file for reading.");
+  }
   printChords();  
   prepareChords();
 }
@@ -470,61 +512,6 @@ void checkSerialGuitar(HardwareSerial& serialPort, char* buffer, uint8_t& buffer
     }
     if (bufferLen >= 22 and !matched) 
     {
-#ifdef USE_AND              
-      for (const MidiMessage& msg : hexToNote) 
-      {
-        size_t len = strlen(msg.hex);  // length in hex characters
-        last_len = len;
-
-        if (bufferLen >= len && hexStringAndMatches(buffer, msg.hex, len)) 
-        {
-          if (msg.note != 255) 
-          {
-            Serial.printf("Get simple %d\n",assignedFretPatterns[msg.note].getSimple())
-            if (assignedFretPatterns[msg.note].getSimple())
-            {
-              lastSimple = true;
-              rootNote = assignedFretPatterns[msg.note].getRootNote();
-              Serial.printf("Root note is %d\n", rootNote);
-              sendNoteOn(channel, rootNote);
-              lastGuitarNotes.push_back(rootNote);
-              for (uint8_t note : assignedFretPatterns[msg.note].getChords().getChordNotes()) 
-              {
-                sendNoteOn(channel, rootNote + note);
-                lastGuitarNotes.push_back(rootNote+note);
-              }
-            }
-            else
-            {
-              lastSimple = false;
-              Serial.printf("Not simple!");
-            }
-             
-          }
-            
-          matched = true;
-          processed = true;
-        } 
-        else 
-        {
-          // Clear all currently active guitar notes
-          while (!lastGuitarNotes.empty()) {
-            sendNoteOff(channel, lastGuitarNotes.back());
-            lastGuitarNotes.pop_back();
-            matched = true;
-            processed = true;
-            break;
-          }
-        }
-      }
-    }
-
-    // Move buffer forward only if we matched something
-    if (matched) {
-      memmove(buffer, buffer + last_len, bufferLen - last_len + 1);
-      bufferLen -= last_len;
-    }
-#else
     for (const MidiMessage& msg : hexToNote) {
       size_t len = strlen(msg.hex);
       last_len = len;
@@ -552,7 +539,8 @@ void checkSerialGuitar(HardwareSerial& serialPort, char* buffer, uint8_t& buffer
             lastSimple = false;
             Serial.printf("Not simple!");
           }
-            
+          sendNoteOn(channel+1, msg.note,1); //play the specific note on another channel at minimum non 0 volume
+          lastGuitarNotesButtons.push_back(msg.note);
         }
         else
         {
@@ -560,6 +548,11 @@ void checkSerialGuitar(HardwareSerial& serialPort, char* buffer, uint8_t& buffer
           {
             sendNoteOff(channel, lastGuitarNotes.back());
             lastGuitarNotes.pop_back();
+          }
+          while (lastGuitarNotesButtons.size() > 0)
+          {
+            sendNoteOff(channel, lastGuitarNotesButtons.back());
+            lastGuitarNotesButtons.pop_back();
           }
         }
         memmove(buffer, buffer + len, bufferLen - len + 1);
@@ -569,7 +562,6 @@ void checkSerialGuitar(HardwareSerial& serialPort, char* buffer, uint8_t& buffer
         break;
       }
     }
-#endif
       if (matched) continue;
       else
       {
@@ -591,6 +583,32 @@ void checkSerialGuitar(HardwareSerial& serialPort, char* buffer, uint8_t& buffer
 
 bool ignoringIdlePing = false;
 
+void checkSerialBT(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen) 
+{
+
+  bool buttonBTState = digitalRead(BT_STATUS_PIN);
+  if (prevButtonBTState != buttonBTState)
+  {
+
+    Serial.printf("BT is %d\n", buttonBTState?1:0);
+    if (buttonBTState)
+    {
+      digitalWrite(BT_ON_PIN, LOW);  // Set pin 19 to high
+    }
+    else
+    {
+      digitalWrite(BT_ON_PIN, HIGH);  // Set pin 19 to high
+    }
+    prevButtonBTState = buttonBTState;
+    
+  }
+  while (serialPort.available()) {
+    char c = serialPort.read();
+    Serial.print(c);
+  }
+  
+    
+}
 void checkSerialKB(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen, uint8_t channel) {
   // --- Step 1: Read bytes into buffer ---
   while (serialPort.available() && bufferLen < MAX_BUFFER_SIZE - 1) {
@@ -744,7 +762,7 @@ void checkSerialKB(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen,
 void loop() {
   checkSerialGuitar(Serial1, dataBuffer1, bufferLen1, GUITAR_CHANNEL);
   checkSerialKB(Serial2, dataBuffer2, bufferLen2, KEYBOARD_CHANNEL);
-
+  checkSerialBT(Serial3, dataBuffer3, bufferLen3);
   bool noteOffState = digitalRead(NOTE_OFF_PIN);
   if (noteOffState != prevNoteOffState && noteOffState == LOW) {
     Serial.println("NOTE_OFF_PIN pressed → All notes off");
