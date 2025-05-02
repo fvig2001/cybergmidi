@@ -22,7 +22,9 @@ class SequencerNote
     velocity = newvelocity;
   }
 };
-
+bool muteWhenLetGo;
+int strum;
+int lastStrum;
 
 class Chord {
 public:
@@ -180,6 +182,7 @@ const int BUTTON_3_PIN = 6;
 
 int neckButtonPressed = -1;
 int lastNeckButtonPressed = -1;
+int lastValidNeckButtonPressed = -1;
 bool isKeyboard = false;
 bool prevButtonBTState = HIGH;
 bool prevButton1State = HIGH;
@@ -1059,6 +1062,8 @@ void setNewBPM(int newBPM) {
 }
 
 void setup() {
+  muteWhenLetGo = false;
+  strum = 0;
   pinMode(NOTE_OFF_PIN, INPUT_PULLUP);
   pinMode(START_TRIGGER_PIN, INPUT_PULLUP);
   pinMode(BUTTON_1_PIN, INPUT_PULLUP);
@@ -1232,6 +1237,10 @@ void checkSerialGuitar(HardwareSerial& serialPort, char* buffer, uint8_t& buffer
         if (bufferLen >= len && strncmp(buffer, msg.hex, len) == 0) 
         {
           lastNeckButtonPressed = neckButtonPressed;
+          if (lastNeckButtonPressed != -1)
+          {
+            lastValidNeckButtonPressed = neckButtonPressed;
+          }
           if (msg.note != 255) 
           {
             neckButtonPressed = msg.note;
@@ -1270,30 +1279,61 @@ void checkSerialGuitar(HardwareSerial& serialPort, char* buffer, uint8_t& buffer
             }
             else //using paddle adapter
             {
+              //mutes previous if another button is pressed
+              if (lastValidNeckButtonPressed >= 0  && !muteWhenLetGo) 
+              {
+                //cancelGuitarChordNotes(assignedFretPatternsByPreset[preset][lastNeckButtonPressed].assignedGuitarChord);
+                //for paddle we actually stop playing when user lets go of "strings"
+                while (lastGuitarNotes.size() > 0)
+                {
+                  sendNoteOff(channel, lastGuitarNotes.back());
+                  lastGuitarNotes.pop_back();
+                }
+                while (lastGuitarNotesButtons.size() > 0)
+                {
+                  sendNoteOff(channel, lastGuitarNotesButtons.back());
+                  lastGuitarNotesButtons.pop_back();
+                }
+
+                //handle string let go case and turn off all notes
+                for (uint8_t i = 0; i < SequencerNotes.size(); i++)
+                {
+                  if (SequencerNotes[i].channel == GUITAR_CHANNEL)
+                  {
+                    SequencerNotes[i].offset = 0;
+                    SequencerNotes[i].holdTime = 0;
+                  }
+                }
+
+              }
               //do nothing as we only care about neck tracking
             }
           }
           else
           {
+            lastNeckButtonPressed = neckButtonPressed;
             neckButtonPressed = -1;
-            //for paddle we actually stop playing when user lets go of "strings"
-            while (lastGuitarNotes.size() > 0)
+            if (muteWhenLetGo)
             {
-              sendNoteOff(channel, lastGuitarNotes.back());
-              lastGuitarNotes.pop_back();
-            }
-            while (lastGuitarNotesButtons.size() > 0)
-            {
-              sendNoteOff(channel, lastGuitarNotesButtons.back());
-              lastGuitarNotesButtons.pop_back();
-            }
-            if (lastNeckButtonPressed != -1 && !isKeyboard)
-            {
-              //handle string let go case and turn off all notes
-              for (uint8_t i = 0; i < SequencerNotes.size(); i++)
+              //for paddle we actually stop playing when user lets go of "strings"
+              while (lastGuitarNotes.size() > 0)
               {
-                SequencerNotes[i].offset = 0;
-                SequencerNotes[i].holdTime = 0;
+                sendNoteOff(channel, lastGuitarNotes.back());
+                lastGuitarNotes.pop_back();
+              }
+              while (lastGuitarNotesButtons.size() > 0)
+              {
+                sendNoteOff(channel, lastGuitarNotesButtons.back());
+                lastGuitarNotesButtons.pop_back();
+              }
+              if (lastNeckButtonPressed != -1 && !isKeyboard)
+              {
+                //handle string let go case and turn off all notes
+                for (uint8_t i = 0; i < SequencerNotes.size(); i++)
+                {
+                  SequencerNotes[i].offset = 0;
+                  SequencerNotes[i].holdTime = 0;
+                }
               }
             }
           }
@@ -1450,26 +1490,27 @@ void checkSerialKB(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen,
     uint16_t value = 0;
     sscanf(buffer + 12, "%04hx", &value);
 
-    int strum = 0;
-    if (neckButtonPressed > -1)
-    {
+    
+    //if (neckButtonPressed > -1)
+    //{
+      lastStrum = strum;
       Serial.printf("Preset is %d\n", preset);
-      if (value >= 0x200) { 
+      if (value >= 0x200 && neckButtonPressed > -1) { 
           strum = -1; // up
           cancelGuitarChordNotes(assignedFretPatternsByPreset[preset][neckButtonPressed].assignedGuitarChord);
           buildGuitarSequencerNotes(assignedFretPatternsByPreset[preset][neckButtonPressed].assignedGuitarChord, true);
           //queue buttons to be played
-      } else if (value >= 0x100) {
+      } else if (value >= 0x100 && neckButtonPressed > -1) {
           strum = 1;//down
           cancelGuitarChordNotes(assignedFretPatternsByPreset[preset][neckButtonPressed].assignedGuitarChord);
           buildGuitarSequencerNotes(assignedFretPatternsByPreset[preset][neckButtonPressed].assignedGuitarChord, false);
           //queue buttons to be played
       } else if (value == 0x000) {
-          strum = 0; //neutral 
-          Serial.printf("Strum 0 is %d\n", value);
-          //do nothing
+        strum = 0; //neutral 
+        Serial.printf("Strum 0 is %d\n", value);
+        //do nothing
       }
-    }
+    //}
     Serial.printf("strum is %d\n", strum);
     memmove(buffer, buffer + 16, bufferLen - 15);
     bufferLen -= 16;
