@@ -4,6 +4,26 @@
 
 extern "C" char* sbrk(int incr); // Get current heap end
 
+class SequencerNote
+{
+  public:
+    uint8_t note;
+    uint16_t holdTime;
+    uint16_t offset;
+    uint8_t channel;
+    uint8_t velocity;
+  
+  SequencerNote(uint8_t newNote, int newholdTime, uint16_t newoffset, uint8_t newchannel, uint8_t newvelocity = 127)
+  {
+    note = newNote;
+    holdTime = newholdTime;
+    offset = newoffset;
+    channel = newchannel;
+    velocity = newvelocity;
+  }
+};
+
+
 class Chord {
 public:
     uint8_t rootNote;
@@ -43,27 +63,99 @@ public:
         Serial.println();
     }
 
-private:
     std::vector<uint8_t> notes;  // A vector of intervals relative to the root note
 };
+
+class PatternNote
+{
+  public:
+    uint8_t degree;
+    uint16_t holdTime;
+    uint16_t offset;
+    
+    uint8_t velocity;
+    PatternNote()
+    {
+      degree = 255;
+      holdTime = 65535;
+      offset = 65535;
+    
+      velocity = 127;
+    }
+    PatternNote(uint8_t newDegree, int newholdTime, uint16_t newoffset, uint8_t newvelocity = 127)
+    {
+      degree = newDegree;
+      holdTime = newholdTime;
+      offset = newoffset;
+      velocity = newvelocity;
+    }
+    std::vector<SequencerNote> GetSequencerNote(Chord basis, std::vector<PatternNote>& SequencerPattern, uint8_t channel)
+    {
+      std::vector<SequencerNote> result;
+      std::vector<uint8_t> notes;
+      notes.push_back(basis.rootNote);
+      
+      for (uint8_t i = 0; i < basis.notes.size(); i++)
+      {
+        notes.push_back(basis.notes[i]);
+      }
+      uint8_t chordSize = notes.size();
+      for (uint8_t i = 0; i < SequencerPattern.size(); i++)
+      {
+        if (SequencerPattern[i].degree <= chordSize) //1 base
+        {
+          SequencerNote n (notes[SequencerPattern[i].degree-1], SequencerPattern[i].holdTime, SequencerPattern[i].offset, channel, SequencerPattern[i].velocity);
+          result.push_back(n);
+        }
+        else
+        {
+          //ignore or assume error
+        }
+      }
+      return result;
+    }
+ 
+};
+
+std::vector<SequencerNote> SequencerNotes;
+//patterns in terms of Sequencer note
+std::vector<PatternNote> SequencerPatternA;
+std::vector<PatternNote> SequencerPatternB;
+std::vector<PatternNote> SequencerPatternC;
+
 
 class AssignedPattern
 {
   
   public:
-    AssignedPattern(bool isBasic, Chord toAssign, uint8_t rootNote, bool ignored)
+    AssignedPattern(bool isBasic, Chord toAssign, std::vector<uint8_t> newGuitarChord, uint8_t rootNote, bool ignored)
     {
       isSimple = isBasic;
       assignedChord = toAssign;
       assignedChord.setRootNote(rootNote);
+      assignedGuitarChord = newGuitarChord;
       isIgnored = ignored;
     }
+    
     bool isIgnored;
     bool isSimple;
     Chord assignedChord;
+    std::vector<uint8_t> assignedGuitarChord;
+    void setChords(Chord newChord)
+    {
+      assignedChord = newChord;
+    }
+    void setGuitarChords(std::vector<uint8_t> newGuitarChord)
+    {
+      assignedGuitarChord = newGuitarChord;
+    }
     Chord getChords() const
     {
       return assignedChord;
+    }
+    Chord getGuitarChords() const
+    {
+      return assignedGuitarChord;
     }
     bool getSimple() const
     {
@@ -86,12 +178,28 @@ const int BUTTON_1_PIN = 4;
 const int BUTTON_2_PIN = 5;
 const int BUTTON_3_PIN = 6;
 
+int neckButtonPressed = -1;
+int lastNeckButtonPressed = -1;
+bool isKeyboard = false;
 bool prevButtonBTState = HIGH;
 bool prevButton1State = HIGH;
 bool prevButton2State = HIGH;
 bool prevButton3State = HIGH;
+int deviceBPM = 128;
+const int QUARTERNOTETICKS = 48; //1/48 notes
+int TimeNumerator = 4; //4 beats
+int TimeDenominator = 12; // in terms of 1/48 notes
+int MaxBeatsPerBar = TimeNumerator * TimeDenominator;
+volatile bool sendClockTick = false;
+IntervalTimer tickTimer;
+
+unsigned int computeTickInterval(int bpm) {
+  // 60,000,000 microseconds per minute / (BPM * 48 ticks per quarter note)
+  return 60000000UL / (bpm * QUARTERNOTETICKS);
+}
 
 // --- MIDI CONSTANTS ---
+const int GUITAR_BUTTON_CHANNEL = 3;
 const int GUITAR_CHANNEL = 2;
 const int KEYBOARD_CHANNEL = 1;
 
@@ -114,10 +222,16 @@ struct MidiMessage {
   const char* hex;
   uint8_t note;
 };
+Chord lastPressedChord;
+std::vector<uint8_t> lastPressedGuitarChord;
 int transpose = 0;
-int preset = 0;
+uint8_t preset = 0;
+const uint8_t MAX_PRESET = 3;
+const uint8_t NECK_COLUMNS = 3;
+const uint8_t NECK_ROWS = 7;
+const uint8_t NECK_ACTUALROWS = 9;
 int curProgram = 0;
-int playMode = 0;
+uint8_t playMode = 0;
 bool hexStringAndMatches(const char* input, const char* target, int hexLen) {
   // hexLen = number of hex characters (should be even)
   if (hexLen % 2 != 0) return false;
@@ -184,12 +298,14 @@ struct HexToControl {
   uint8_t cc;
 };
 
+
 HexToControl hexToControl[] = {
   {"f5550003201401", 2},  // Right
   {"f5550003201402", 1},  // Left
   {"f5550003201403", 5},  // Both
   {"f5550003201000", 4},  // Circle not Lit
   {"f5550003201001", 3},  // Circle Lit
+  
   {"f5550003201400", 0} //ignore
 };
 
@@ -207,7 +323,6 @@ HexToControl hexToControl[] = {
     Chord suspended4Chord({5, 7});
     Chord add9Chord({4, 7, 2});
     Chord add11Chord({4, 7, 11});
-    Chord add6Chord({4, 7, 9});
     Chord ninthChord({4, 7, 10, 14});    
     Chord eleventhChord({4, 7, 10, 14, 17});    
     Chord thirteenthChord({4, 7, 10, 14, 17, 21});    
@@ -227,28 +342,615 @@ std::vector<Chord> chords = {
         suspended4Chord,
         add9Chord,
         add11Chord,
-        add6Chord,
         ninthChord,
         eleventhChord,
         thirteenthChord
     };
-std::vector<AssignedPattern> assignedFretPatterns;
+
+std::vector<std::vector<uint8_t>> majorChordGuitar = {
+    {48, 52, 55, 60, 64},   // C Major x
+    {49, 56, 61, 65, 68},   // C# Major x
+    {50, 57, 62, 66},       // D Major x
+    {51, 58, 63, 67, 70},   // D# Major x
+    {40, 47, 52, 56, 59, 64}, // E Major x
+    {41, 48, 53, 57, 60, 65},   // F Major x
+    {42, 49, 54, 58, 61, 66},   // F# Major x
+    {43, 47, 50, 55, 59, 67},   // G Major x
+    {44, 51, 56, 60, 63, 68},   // G# Major x
+    {45, 52, 57, 61, 64},   // A Major x
+    {46, 50, 58, 65, 70},       // A# Major x
+    {47, 54, 59, 63, 66},   // B Major x
+};
+
+std::vector<std::vector<uint8_t>> minorChordGuitar = {
+    {48, 51, 60, 63, 67},   // C Minor x
+    {49, 54, 61, 64, 68},   // C# Minor x
+    {50, 57, 62, 65},   // D Minor x
+    {51, 58, 63, 66, 70},       // D# Minor x
+    {40, 47, 52, 55, 59, 64},   // E Minor x
+    {41, 48, 53, 56, 60},       // F Minor x
+    {42, 49, 54, 57, 61},       // F# Minor x lowered
+    {43, 50, 55, 58, 62},       // G Minor x lowered
+    {44, 51, 56, 59, 63},       // G# Minor x lowered
+    {45, 52, 57, 60, 64},       // A Minor x
+    {46, 53, 58, 61, 65},       // A# Minor x 
+    {47, 54, 59, 62, 66},       // B Minor x
+};
+
+std::vector<std::vector<uint8_t>> diminishedChordGuitar = {
+    {60, 63, 66},   // C Diminished x
+    {61, 64, 67},     
+    {62, 65, 68},     
+    {63, 66, 69},     
+    {64, 67, 70},     
+    {65, 68, 71},     
+    {66, 69, 72},     
+    {67, 70, 73},     
+    {68, 71, 74},     
+    {69, 72, 75},     
+    {70, 73, 76},     
+    {71, 74, 77},     
+
+};
+
+std::vector<std::vector<uint8_t>> augmentedChordGuitar = {
+    {48, 52, 56, 60, 64},   // C Augmented x
+    {49, 53, 57, 61, 65},
+    {50, 54, 58, 62, 66},
+    {51, 55, 59, 63, 67},
+    {52, 56, 60, 64, 68},
+    {53, 57, 61, 65, 69},
+    {54, 58, 62, 66, 70},
+    {55, 59, 63, 67, 71},
+    {56, 60, 64, 68, 72},
+    {57, 61, 65, 69, 73},
+    {58, 62, 66, 70, 74},
+    {59, 63, 67, 71, 75},
+};
+
+std::vector<std::vector<uint8_t>> major7thChordGuitar = {
+    {48, 52, 55, 71, 64},   // C Major7 x
+    {49, 53, 56, 72, 65},
+    {50, 54, 57, 73, 66},
+    {51, 55, 58, 74, 67},
+    {52, 56, 59, 75, 68},
+    {53, 57, 60, 76, 69},
+    {54, 58, 61, 77, 70},
+    {55, 59, 62, 78, 71},
+    {56, 60, 63, 79, 72},
+    {57, 61, 64, 80, 73},
+    {58, 62, 65, 81, 74},
+    {59, 63, 66, 82, 75},
+
+};
+
+std::vector<std::vector<uint8_t>> minor7thChordGuitar = {
+    {48, 55, 58, 63, 67},   // C Minor7 x
+    {49, 56, 59, 64, 68},
+    {50, 57, 60, 65, 69},
+    {51, 58, 61, 66, 70},
+    {52, 59, 62, 67, 71},
+    {53, 60, 63, 68, 72},
+    {54, 61, 64, 69, 73},
+    {55, 62, 65, 70, 74},
+    {56, 63, 66, 71, 75},
+    {57, 64, 67, 72, 76},
+    {58, 65, 68, 73, 77},
+    {59, 66, 69, 74, 78},
+
+};
+
+std::vector<std::vector<uint8_t>> dominant7thChordGuitar = {
+    {48, 52, 58, 60, 64},   // C Dominant7 x
+    {49, 56, 59, 65, 68},   // C# Dominant7 x
+    {50, 57, 60, 66},   // D Dominant7 x
+    {51, 58, 61, 67, 68},   // D# Dominant7 x
+    {40, 47, 52, 56, 62, 64},   // E Dominant7 x
+    {41, 48, 51, 57, 60},   // F Dominant7 x lowered
+    {42, 46, 49, 52},   // F# Dominant7 x lowered
+    //{55, 59, 62, 55, 59, 65},   // G Dominant7 x
+    {43, 47, 50, 55, 59, 65},   // G Dominant7 x lowered
+    {56, 63, 66, 72, 75},   // G# Dominant7 x
+    {45, 52, 55, 61, 64},   // A Dominant7 x
+    {46, 53, 56, 62, 65},   // A# Dominant7 x
+    {47, 51, 57, 59, 66},   // B Dominant7 x
+};
+
+std::vector<std::vector<uint8_t>> minor7Flat5ChordGuitar = {
+    {48, 51, 58, 60, 66},   // C Minor7Flat5 x
+    {49, 52, 59, 61, 67},
+    {50, 53, 60, 62, 68},
+    {51, 54, 61, 63, 69},
+    {52, 55, 62, 64, 70},
+    {53, 56, 63, 65, 71},
+    {54, 57, 64, 66, 72},
+    {55, 58, 65, 67, 73},
+    {56, 59, 66, 68, 74},
+    {57, 60, 67, 69, 75},
+    {58, 61, 68, 70, 76},
+    {59, 62, 69, 71, 77},
+};
+
+std::vector<std::vector<uint8_t>> major6thChordGuitar = {
+    {48, 52, 57, 60, 64},   // C Major6 x
+    {49, 53, 58, 61, 65},
+    {50, 54, 59, 62, 66},
+    {51, 55, 60, 63, 67},
+    {52, 56, 61, 64, 68},
+    {53, 57, 62, 65, 69},
+    {54, 58, 63, 66, 70},
+    {55, 59, 64, 67, 71},
+    {56, 60, 65, 68, 72},
+    {57, 61, 66, 69, 73},
+    {58, 62, 67, 70, 74},
+    {59, 63, 68, 71, 75},
+
+};
+
+std::vector<std::vector<uint8_t>> minor6thChordGuitar = {
+    {48, 51, 57, 60, 67},   // C Minor6 x
+    {49, 52, 58, 61, 68},
+    {50, 53, 59, 62, 69},
+    {51, 54, 60, 63, 70},
+    {52, 55, 61, 64, 71},
+    {53, 56, 62, 65, 72},
+    {54, 57, 63, 66, 73},
+    {55, 58, 64, 67, 74},
+    {56, 59, 65, 68, 75},
+    {57, 60, 66, 69, 76},
+    {58, 61, 67, 70, 77},
+    {59, 62, 68, 71, 78},
+   
+};
+
+std::vector<std::vector<uint8_t>> suspended2ChordGuitar = {
+    {48, 50, 55, 62, 67},   // C Suspended2 x
+    {49, 51, 56, 63, 68},
+    {50, 52, 57, 64, 69},
+    {51, 53, 58, 65, 70},
+    {52, 54, 59, 66, 71},
+    {53, 55, 60, 67, 72},
+    {54, 56, 61, 68, 73},
+    {55, 57, 62, 69, 74},
+    {56, 58, 63, 70, 75},
+    {57, 59, 64, 71, 76},
+    {58, 60, 65, 72, 77},
+    {59, 61, 66, 73, 78},
+
+};
+
+std::vector<std::vector<uint8_t>> suspended4ChordGuitar = {
+    {48, 53, 55, 60, 65},   // C Suspended4 x
+    {49, 56, 61, 66, 68},   // C# Suspended4 x
+    {50, 57, 62, 67},       // D Suspende d4 x
+    {51, 58, 63, 68, 70},   // D# Suspended4 x
+    {40, 47, 52, 57, 59, 64},   // E Suspended4 x
+    {53, 60, 65, 70, 72},   // F Suspended4 x
+    {54, 61, 66, 71, 73},   // F# Suspended4 x
+    {43, 50, 55, 60, 67},   // G Suspended4 x
+    {56, 63, 68, 73, 75},   // G# Suspended4 x
+    {45, 52, 57, 62, 64},   // A Suspended4 x
+    {46, 53, 58, 63, 65},   // A# Suspended4 x
+    {47, 54, 59, 64},   // B Suspended4, removed extra 59 x
+};
+
+std::vector<std::vector<uint8_t>> add9ChordGuitar = {
+    {48, 52, 55, 62, 64},   // C Add9 x
+    {49, 53, 56, 63, 65},
+    {50, 54, 57, 64, 66},
+    {51, 55, 58, 65, 67},
+    {52, 56, 59, 66, 68},
+    {53, 57, 60, 67, 69},
+    {54, 58, 61, 68, 70},
+    {55, 59, 62, 69, 71},
+    {56, 60, 63, 70, 72},
+    {57, 61, 64, 71, 73},
+    {58, 62, 65, 72, 74},
+    {59, 63, 66, 73, 75},
+
+};
+
+std::vector<std::vector<uint8_t>> add11ChordGuitar = {
+    {48, 52, 55, 60, 65},   // C Add11 x
+    {50, 54, 57, 62, 67},
+    {51, 55, 58, 63, 68},
+    {52, 56, 59, 64, 69},
+    {53, 57, 60, 65, 70},
+    {54, 58, 61, 66, 71},
+    {55, 59, 62, 67, 72},
+    {56, 60, 63, 68, 73},
+    {57, 61, 64, 69, 74},
+    {58, 62, 65, 70, 75},
+    {59, 63, 66, 71, 76},
+
+};
+
+std::vector<std::vector<uint8_t>> ninthChordGuitar = {
+    {48, 55, 58, 64, 70, 74},   // C Ninth x
+    {49, 56, 59, 65, 71, 75},
+    {50, 57, 60, 66, 72, 76},
+    {51, 58, 61, 67, 73, 77},
+    {52, 59, 62, 68, 74, 78},
+    {53, 60, 63, 69, 75, 79},
+    {54, 61, 64, 70, 76, 80},
+    {55, 62, 65, 71, 77, 81},
+    {56, 63, 66, 72, 78, 82},
+    {57, 64, 67, 73, 79, 83},
+    {58, 65, 68, 74, 80, 84},
+    {59, 66, 69, 75, 81, 85},
+
+};
+
+std::vector<std::vector<uint8_t>> eleventhChordGuitar = {
+    {43, 53, 58, 60, 64},   // C Eleventh x, but added E4
+    {44, 54, 59, 61, 65},
+    {45, 55, 60, 62, 66},
+    {46, 56, 61, 63, 67},
+    {47, 57, 62, 64, 68},
+    {48, 58, 63, 65, 69},
+    {49, 59, 64, 66, 70},
+    {50, 60, 65, 67, 71},
+    {51, 61, 66, 68, 72},
+    {52, 62, 67, 69, 73},
+    {53, 63, 68, 70, 74},
+    {54, 64, 69, 71, 75},
+
+};
+
+std::vector<std::vector<uint8_t>> thirteenthChordGuitar = {
+    {60, 62, 64, 57, 58},   // C Thirteenth X but AI
+    {61, 63, 65, 58, 59},
+    {62, 64, 66, 59, 60},
+    {63, 65, 67, 60, 61},
+    {64, 66, 68, 61, 62},
+    {65, 67, 69, 62, 63},
+    {66, 68, 70, 63, 64},
+    {67, 69, 71, 64, 65},
+    {68, 70, 72, 65, 66},
+    {69, 71, 73, 66, 67},
+    {70, 72, 74, 67, 68},
+    {71, 73, 75, 68, 69},
+
+};
+std::vector<std::vector<std::vector<uint8_t>>> allChordsGuitar = {
+    majorChordGuitar,
+    minorChordGuitar,
+    diminishedChordGuitar,
+    augmentedChordGuitar,
+    major7thChordGuitar,
+    minor7thChordGuitar,
+    dominant7thChordGuitar,
+    minor7Flat5ChordGuitar,
+    major6thChordGuitar,
+    minor6thChordGuitar,
+    suspended2ChordGuitar,
+    suspended4ChordGuitar,
+    add9ChordGuitar,
+    add11ChordGuitar,
+    ninthChordGuitar,
+    eleventhChordGuitar,
+    thirteenthChordGuitar
+};
+
+//std::vector<AssignedPattern> assignedFretPatterns;
+std::vector<std::vector<AssignedPattern>> assignedFretPatternsByPreset;
+//
+void preparePatterns()
+{
+  SequencerPatternA.clear();
+  SequencerPatternB.clear();
+  SequencerPatternC.clear();
+  PatternNote p;
+  //pattern 1
+  p.degree = 1;
+  p.offset = 1;
+  p.velocity = 127;
+  p.holdTime = 48;
+  SequencerPatternA.push_back(p);
+  p.degree = 2;
+  p.offset = 25;
+  p.velocity = 127;
+  p.holdTime = 24;
+  SequencerPatternA.push_back(p);
+  p.degree = 3;
+  p.offset = 37;
+  p.velocity = 127;
+  p.holdTime = 36;
+  SequencerPatternA.push_back(p);
+
+  //pattern 2
+  p.degree = 3;
+  p.offset = 1;
+  p.velocity = 127;
+  p.holdTime = 48;
+  SequencerPatternB.push_back(p);
+  p.degree = 2;
+  p.offset = 25;
+  p.velocity = 127;
+  p.holdTime = 24;
+  SequencerPatternB.push_back(p);
+  p.degree = 1;
+  p.offset = 37;
+  p.velocity = 127;
+  p.holdTime = 36;
+  SequencerPatternB.push_back(p);
+  
+  //pattern 3
+  p.degree = 2;
+  p.offset = 1;
+  p.velocity = 127;
+  p.holdTime = 48;
+  SequencerPatternC.push_back(p);
+  p.degree = 3;
+  p.offset = 25;
+  p.velocity = 127;
+  p.holdTime = 24;
+  SequencerPatternC.push_back(p);
+  p.degree = 1;
+  p.offset = 37;
+  p.velocity = 127;
+  p.holdTime = 36;
+  SequencerPatternC.push_back(p);
+}
+enum ChordType {
+    majorChordType = 0,
+    minorChordType,
+    diminishedChordType,
+    augmentedChordType,
+    major7thChordType,
+    minor7thChordType,
+    dominant7thChordType,
+    minor7Flat5ChordType,
+    major6thChordType,
+    minor6thChordType,
+    suspended2ChordType,
+    suspended4ChordType,
+    add9ChordType,
+    add11ChordType,
+    ninthChordType,
+    eleventhChordType,
+    thirteenthChordType
+};
+
+enum Note {
+    NO_NOTE = -1,
+    C = 0,
+    CSharp,
+    D,
+    DSharp,
+    E,
+    F,
+    FSharp,
+    G,
+    GSharp,
+    A,
+    ASharp,
+    B
+};
+class neckAssignment
+{
+  public:
+    Note key;
+    ChordType chordType;
+    neckAssignment()
+    {
+      key = NO_NOTE;
+      chordType = majorChordType;
+    }
+};
+std::vector<std::vector<neckAssignment>> neckAssignments;
+const uint8_t ACTUAL_NECKBUTTONS = 27;
+const uint8_t NECKBUTTONS = 21;
+void prepareNeck()
+{
+  Note myN;
+  neckAssignments.clear();
+  std::vector<neckAssignment> tempNeck;
+
+  tempNeck.clear();
+  for (int i = 0; i < NECK_ACTUALROWS; i++)
+  {
+    
+    switch(i)
+    {
+      case 0:
+        myN = C; // C
+        break;
+      case 1:
+        myN = D;
+        break;
+      case 2:
+        myN = E;
+        break;
+      case 3:
+        myN = F;
+        break;
+      case 4:
+        myN = G;
+        break;
+      case 5:
+        myN = A;
+        break;
+      case 6:
+        myN = B;
+        break;
+      default:
+        myN = C;
+    }
+    for (uint8_t j = 0; j < NECK_COLUMNS; j++)
+    {
+      neckAssignment n;
+      switch(j)
+      {
+        case 0:
+          n.chordType = majorChordType;
+          break;
+        case 1:
+          n.chordType = minorChordType;
+          break;
+        default:
+          n.chordType = dominant7thChordType;
+      }
+      n.key = myN;
+      tempNeck.push_back(n);
+    }
+    
+  }
+  // for (uint8_t i = 0; i < tempNeck.size(); i++)
+  // {
+  //     Serial.printf("Num %d, note %d, chord %d\n", i, (int) tempNeck[i].key, (int) tempNeck[i].chordType);
+
+  // }
+  neckAssignments.push_back(tempNeck);
+  //preset 2
+  tempNeck.clear();
+  for (int i = 0; i < NECK_ACTUALROWS; i++)
+  {
+    neckAssignment n;
+    switch(i)
+    {
+      case 0:
+        n.key = C; // C
+        break;
+        case 1:
+        n.key = D;
+        break;
+        case 2:
+        n.key = E;
+        break;
+        case 3:
+        n.key = F;
+        break;
+        case 4:
+        n.key = G;
+        break;
+        case 5:
+        n.key = A;
+        break;
+        case 6:
+        n.key = B;
+        break;
+        default:
+        n.key = C;
+    }
+    for (uint8_t j = 0; j < NECK_COLUMNS; j++)
+    {
+      switch(j)
+      {
+        case 0:
+          n.chordType = majorChordType;
+          break;
+        case 1:
+          n.chordType = minorChordType;
+          break;
+        default:
+          n.chordType = suspended4ChordType;
+      }
+      tempNeck.push_back(n);
+    }
+
+    
+  }
+  neckAssignments.push_back(tempNeck);
+  //preset 3
+  tempNeck.clear();
+  for (int i = 0; i < NECK_ACTUALROWS; i++)
+  {
+    neckAssignment n;
+    switch(i)
+    {
+      case 0:
+        n.key = C; // C
+        break;
+        case 1:
+        n.key = D;
+        break;
+        case 2:
+        n.key = E;
+        break;
+        case 3:
+        n.key = F;
+        break;
+        case 4:
+        n.key = G;
+        break;
+        case 5:
+        n.key = A;
+        break;
+        case 6:
+        n.key = B;
+        break;
+        default:
+        n.key = C;
+    }
+    for (uint8_t j = 0; j < NECK_COLUMNS; j++)
+    {
+      switch(j)
+      {
+        case 0:
+          n.chordType = majorChordType;
+          break;
+        case 1:
+          n.chordType = minorChordType;
+          break;
+        default:
+          n.chordType = major6thChordType;
+      }
+      tempNeck.push_back(n);
+    }
+
+  }
+  neckAssignments.push_back(tempNeck);
+  Serial.printf("neckAssignments size = %d\n", neckAssignments.size());
+}
+
+std::vector<uint8_t> getGuitarChordNotesFromNeck(uint8_t row, uint8_t column, uint8_t usePreset)
+{
+  //given preset get neck Assignment:
+  neckAssignment n = neckAssignments[usePreset][row * NECK_COLUMNS + column]; 
+  Serial.printf("GT row %d col %d preset %d\n",row, column, usePreset);
+  Serial.printf("ChordType GT to chord = %d\n",(int)n.chordType);
+  Serial.printf("ChordType GT to key = %d\n",(int)n.key);
+  //now based on neck assignment, we will need to determine enum value then return the value
+  return allChordsGuitar[(uint8_t)n.chordType][(uint8_t)n.key];
+}
+
+Chord getKeyboardChordNotesFromNeck(uint8_t row, uint8_t column, uint8_t usePreset)
+{
+  //given preset get neck Assignment:
+  //Serial.printf("KB row %d col %d preset %d index %d\n",row, column, usePreset, row * NECK_COLUMNS + column);
+
+  neckAssignment n = neckAssignments[usePreset][row * NECK_COLUMNS + column]; 
+  Serial.printf("ChordType KB to row = %d\n",(int)n.chordType);
+  //now based on neck assignment, we will need to determine enum value then return the value
+  return chords[(uint8_t)n.chordType];
+}
+
 void prepareChords()
 {
-  //uint8_t rootNotes[] = {48, 50, 52, 53, 55, 57, 59, 60, 62, 64, 65, 67, 69, 71, 72, 74, 75, 77, 79, 81, 83, 84};
+  std::vector<AssignedPattern> assignedFretPatterns;
+
+  assignedFretPatterns.clear();
   uint8_t rootNotes[] = {48, 50, 52, 53, 55, 57, 59};
-    // Populate the assignedFretPatterns with the chords for each root note
-    for (int i = 0; i < 7; ++i) {
-        assignedFretPatterns.push_back(AssignedPattern(true, majorChord, rootNotes[i], false));
-        assignedFretPatterns.push_back(AssignedPattern(true, minorChord, rootNotes[i], false));
-        assignedFretPatterns.push_back(AssignedPattern(true, dominant7thChord, rootNotes[i], false));
+  // Populate the assignedFretPatterns with the chords for each root note
+  for (int x = 0; x < MAX_PRESET; x++)
+  {
+    for (int i = 0; i < 7; i++) 
+    {
+      for (int j = 0; j < 3; j++)
+      {
+        assignedFretPatterns.push_back(AssignedPattern(true, getKeyboardChordNotesFromNeck(i,j,x), getGuitarChordNotesFromNeck(i,j,x), rootNotes[i], false));
+      }
     }
+    lastPressedChord = assignedFretPatterns[0].assignedChord;
+    lastPressedGuitarChord = allChordsGuitar[0][0]; // c major default strum
     //other ignored
     for (int i = 0; i < 2; ++i) 
     {
-        assignedFretPatterns.push_back(AssignedPattern(true, majorChord, rootNotes[i], true));
-        assignedFretPatterns.push_back(AssignedPattern(true, minorChord, rootNotes[i], true));
-        assignedFretPatterns.push_back(AssignedPattern(true, dominant7thChord, rootNotes[i], true));
+        for (int j = 0; j < 3; j++)
+      {
+        assignedFretPatterns.push_back(AssignedPattern(true, getKeyboardChordNotesFromNeck(i,j,x), getGuitarChordNotesFromNeck(i+7,j,x), rootNotes[i], true));
+      } 
     }
     for (const AssignedPattern& pattern : assignedFretPatterns) 
     {
@@ -264,7 +966,11 @@ void prepareChords()
       }
       Serial.println();
     }
+    assignedFretPatternsByPreset.push_back(assignedFretPatterns);
+  }
+ 
 }
+
 void printChords()
 {
   // Major (Maj) - [4, 7]
@@ -323,10 +1029,6 @@ void printChords()
 
     add11Chord.printChordInfo();  // C Add11 chord (relative intervals)
 
-    // Add 6 - [4, 7, 9]
-
-    add6Chord.printChordInfo();  // C Add6 chord (relative intervals)
-
     // 9th (9) - [4, 7, 10, 14]
 
     ninthChord.printChordInfo();  // C 9th chord (relative intervals)
@@ -339,6 +1041,21 @@ void printChords()
 
     thirteenthChord.printChordInfo();  // C 13th chord (relative intervals)
 
+}
+
+// Interrupt Service Routine: set flag to send clock
+void clockISR() {
+  sendClockTick = true;
+}
+
+void tickISR() {
+  sendClockTick = true;
+}
+
+void setNewBPM(int newBPM) {
+  deviceBPM = newBPM;
+  unsigned int newInterval = computeTickInterval(deviceBPM);
+  tickTimer.begin(tickISR, newInterval); // restart timer with new interval
 }
 
 void setup() {
@@ -362,6 +1079,7 @@ void setup() {
   Serial.begin(115200);  // USB debug monitor
 
   usbMIDI.begin();
+  tickTimer.begin(clockISR, computeTickInterval(deviceBPM)); // in microseconds
   while (!Serial && millis() < 3000);  // Wait for Serial Monitor
   Serial.println("Teensy MIDI Debug Start");
   Serial3.println("AT");  // Send AT command
@@ -372,14 +1090,6 @@ void setup() {
     Serial.println("SD card failed to initialize!");
     return;
   }
-  // File file = SD.open("config.ini", FILE_WRITE);
-  // if (file) {
-  //   file.println("Hello from Teensy!");
-  //   file.close();
-  //   Serial.println("Data written to SD.");
-  // } else {
-  //   Serial.println("Failed to open file.");
-  // }
 
  File file = SD.open("config.ini");
   if (file) {
@@ -391,17 +1101,19 @@ void setup() {
   } else {
     Serial.println("Failed to open file for reading.");
   }
-  printChords();  
+  //printChords();  
+  prepareNeck();
   prepareChords();
+  preparePatterns();
 }
 
 void sendNoteOn(uint8_t channel, uint8_t note, uint8_t velocity = 127) {
-  usbMIDI.sendNoteOn(note+transpose, velocity, channel);
+  usbMIDI.sendNoteOn(note, velocity, channel);
   Serial.printf("Note ON: ch=%d note=%d vel=%d\n", channel, note, velocity);
 }
 
 void sendNoteOff(uint8_t channel, uint8_t note, uint8_t velocity = 0) {
-  usbMIDI.sendNoteOff(note+transpose, velocity, channel);
+  usbMIDI.sendNoteOff(note, velocity, channel);
   Serial.printf("Note OFF: ch=%d note=%d vel=%d\n", channel, note, velocity);
 }
 void sendStart() 
@@ -492,6 +1204,7 @@ void checkSerialGuitar(HardwareSerial& serialPort, char* buffer, uint8_t& buffer
   // --- Step 5: Main parser loop ---
   while (true) 
   {
+    uint8_t myTranspose = transpose;
     bool processed = false;
     bool matched = false;
     if (bufferLen > 12)
@@ -512,56 +1225,86 @@ void checkSerialGuitar(HardwareSerial& serialPort, char* buffer, uint8_t& buffer
     }
     if (bufferLen >= 22 and !matched) 
     {
-    for (const MidiMessage& msg : hexToNote) {
-      size_t len = strlen(msg.hex);
-      last_len = len;
-      if (bufferLen >= len && strncmp(buffer, msg.hex, len) == 0) 
+      for (const MidiMessage& msg : hexToNote) 
       {
-
-        if (msg.note != 255) 
+        size_t len = strlen(msg.hex);
+        last_len = len;
+        if (bufferLen >= len && strncmp(buffer, msg.hex, len) == 0) 
         {
-          Serial.printf("Get simple %d\n",assignedFretPatterns[msg.note].getSimple());
-          if (assignedFretPatterns[msg.note].getSimple())
+          lastNeckButtonPressed = neckButtonPressed;
+          if (msg.note != 255) 
           {
-            lastSimple = true;
-            rootNote = assignedFretPatterns[msg.note].getChords().getRootNote();
-            Serial.printf("Root note is %d\n", rootNote);
-            sendNoteOn(channel, rootNote);
-            lastGuitarNotes.push_back(rootNote);
-            for (uint8_t note : assignedFretPatterns[msg.note].getChords().getChordNotes()) 
+            neckButtonPressed = msg.note;
+
+            if (!isKeyboard)
             {
-              sendNoteOn(channel, rootNote + note);
-              lastGuitarNotes.push_back(rootNote+note);
+              myTranspose = 0;
+            }
+            else
+            {
+              myTranspose = transpose;
+            }
+            Serial.printf("Get simple %d\n",assignedFretPatternsByPreset[preset][msg.note].getSimple());
+            if (isKeyboard)
+            {
+              if (assignedFretPatternsByPreset[preset][msg.note].getSimple())
+              {
+                lastSimple = true;
+                rootNote = assignedFretPatternsByPreset[preset][msg.note].getChords().getRootNote();
+                Serial.printf("Root note is %d\n", rootNote);
+                sendNoteOn(channel, rootNote + myTranspose);
+                lastGuitarNotes.push_back(rootNote + myTranspose);
+                for (uint8_t note : assignedFretPatternsByPreset[preset][msg.note].getChords().getChordNotes()) 
+                {
+                  sendNoteOn(channel, rootNote + note + myTranspose);
+                  lastGuitarNotes.push_back(rootNote+note + myTranspose);
+                }
+              }
+              else
+              {
+                lastSimple = false;
+                Serial.printf("Not simple!");
+              }
+              sendNoteOn(GUITAR_BUTTON_CHANNEL, msg.note,1); //play the specific note on another channel at minimum non 0 volume
+              lastGuitarNotesButtons.push_back(msg.note);
+            }
+            else //using paddle adapter
+            {
+              //do nothing as we only care about neck tracking
             }
           }
           else
           {
-            lastSimple = false;
-            Serial.printf("Not simple!");
+            neckButtonPressed = -1;
+            //for paddle we actually stop playing when user lets go of "strings"
+            while (lastGuitarNotes.size() > 0)
+            {
+              sendNoteOff(channel, lastGuitarNotes.back());
+              lastGuitarNotes.pop_back();
+            }
+            while (lastGuitarNotesButtons.size() > 0)
+            {
+              sendNoteOff(channel, lastGuitarNotesButtons.back());
+              lastGuitarNotesButtons.pop_back();
+            }
+            if (lastNeckButtonPressed != -1 && !isKeyboard)
+            {
+              //handle string let go case and turn off all notes
+              for (uint8_t i = 0; i < SequencerNotes.size(); i++)
+              {
+                SequencerNotes[i].offset = 0;
+                SequencerNotes[i].holdTime = 0;
+              }
+            }
           }
-          sendNoteOn(channel+1, msg.note,1); //play the specific note on another channel at minimum non 0 volume
-          lastGuitarNotesButtons.push_back(msg.note);
+         
+          memmove(buffer, buffer + len, bufferLen - len + 1);
+          bufferLen -= len;
+          matched = true;
+          processed = true; //did something
+          break;
         }
-        else
-        {
-          while (lastGuitarNotes.size() > 0)
-          {
-            sendNoteOff(channel, lastGuitarNotes.back());
-            lastGuitarNotes.pop_back();
-          }
-          while (lastGuitarNotesButtons.size() > 0)
-          {
-            sendNoteOff(channel, lastGuitarNotesButtons.back());
-            lastGuitarNotesButtons.pop_back();
-          }
-        }
-        memmove(buffer, buffer + len, bufferLen - len + 1);
-        bufferLen -= len;
-        matched = true;
-        processed = true; //did something
-        break;
       }
-    }
       if (matched) continue;
       else
       {
@@ -609,6 +1352,49 @@ void checkSerialBT(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen)
   
     
 }
+
+void cancelGuitarChordNotes(const std::vector<uint8_t>& chordNotes) {
+  // If the input chord is empty, there's nothing to cancel
+  if (chordNotes.empty()) {
+    return;
+  }
+
+  // For each note in the chord, look for matching notes in SequencerNotes
+  for (uint8_t chordNote : chordNotes) {
+    for (auto& seqNote : SequencerNotes) {
+      if (seqNote.note == chordNote && seqNote.channel == GUITAR_CHANNEL) {
+        // Match found — cancel the note
+        seqNote.offset = 0;
+        seqNote.holdTime = 0;
+      }
+    }
+  }
+}
+
+
+// This function builds a list of SequencerNotes from a given chord.
+// If 'reverse' is true, the notes are added in reverse order.
+void buildGuitarSequencerNotes(const std::vector<uint8_t>& chordNotes, bool reverse = false) {
+  
+  uint8_t currentOffset = 1;
+  
+  if (reverse) {
+    // Loop through the chord notes in reverse
+    for (auto it = chordNotes.rbegin(); it != chordNotes.rend(); ++it) {
+      SequencerNote note(*it, 65535, currentOffset, GUITAR_CHANNEL);
+      SequencerNotes.push_back(note);
+      currentOffset += 1;
+    }
+  } else {
+    // Loop through the chord notes in normal order
+    for (uint8_t midiNote : chordNotes) {
+      SequencerNote note(midiNote, 65535, currentOffset, GUITAR_CHANNEL);
+      SequencerNotes.push_back(note);
+      currentOffset += 1; 
+    }
+  }
+}
+
 void checkSerialKB(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen, uint8_t channel) {
   // --- Step 1: Read bytes into buffer ---
   while (serialPort.available() && bufferLen < MAX_BUFFER_SIZE - 1) {
@@ -650,10 +1436,46 @@ void checkSerialKB(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen,
   // --- Step 3: Check for idle ping pattern and enter ignore mode ---
   if (bufferLen >= 12 && strncmp(buffer, "f55500282000", 12) == 0) {
     ignoringIdlePing = true;
+    isKeyboard = true;
     memmove(buffer, buffer + 12, bufferLen - 11);
     bufferLen -= 12;
     buffer[bufferLen] = '\0';
     return;
+  }
+  //handling for guitar strum attachment
+  if (bufferLen >= 16 && strncmp(buffer, "f55500042017", 12) == 0)
+  {
+    isKeyboard = false;
+    // Get the value of the last 2 bytes
+    uint16_t value = 0;
+    sscanf(buffer + 12, "%04hx", &value);
+
+    int strum = 0;
+    if (neckButtonPressed > -1)
+    {
+      Serial.printf("Preset is %d\n", preset);
+      if (value >= 0x200) { 
+          strum = -1; // up
+          cancelGuitarChordNotes(assignedFretPatternsByPreset[preset][neckButtonPressed].assignedGuitarChord);
+          buildGuitarSequencerNotes(assignedFretPatternsByPreset[preset][neckButtonPressed].assignedGuitarChord, true);
+          //queue buttons to be played
+      } else if (value >= 0x100) {
+          strum = 1;//down
+          cancelGuitarChordNotes(assignedFretPatternsByPreset[preset][neckButtonPressed].assignedGuitarChord);
+          buildGuitarSequencerNotes(assignedFretPatternsByPreset[preset][neckButtonPressed].assignedGuitarChord, false);
+          //queue buttons to be played
+      } else if (value == 0x000) {
+          strum = 0; //neutral 
+          Serial.printf("Strum 0 is %d\n", value);
+          //do nothing
+      }
+    }
+    Serial.printf("strum is %d\n", strum);
+    memmove(buffer, buffer + 16, bufferLen - 15);
+    bufferLen -= 16;
+    buffer[bufferLen] = '\0';
+    return;
+
   }
 
   // --- Step 4: Clean junk at start ---
@@ -680,8 +1502,14 @@ void checkSerialKB(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen,
       temp[0] = buffer[2]; temp[1] = buffer[3]; uint8_t note   = strtol(temp, NULL, 16);
       temp[0] = buffer[4]; temp[1] = buffer[5]; uint8_t vel    = strtol(temp, NULL, 16);
 
-      if ((status & 0xF0) == 0x90) sendNoteOn(channel, note, vel);
-      else                         sendNoteOff(channel, note, vel);
+      if ((status & 0xF0) == 0x90) 
+      {
+        sendNoteOn(channel, note+transpose, vel);
+      }
+      else
+      {
+        sendNoteOff(channel, note+transpose, vel);
+      } 
 
       memmove(buffer, buffer + 6, bufferLen - 5);
       bufferLen -= 6;
@@ -757,9 +1585,63 @@ void checkSerialKB(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen,
   }
 }
 
+void advanceSequencerStep() {
+  for (auto it = SequencerNotes.begin(); it != SequencerNotes.end(); ) 
+  {
+    SequencerNote& note = *it; // Reference to current note
 
+    if (note.offset == 1) {
+      sendNoteOn(note.channel, note.note, note.velocity);
+      note.offset = 0;
+    } else if (note.offset > 1) 
+    {
+      note.offset--;
+    }
+    // count down to playing the note
+    if (note.offset == 0 && note.holdTime != 65535 && note.holdTime > 0) 
+    {
+      note.holdTime--;
+    }
+    //note is done playing, delete the note
+    if (note.offset == 0 && note.holdTime == 0) {
+      sendNoteOff(note.channel, note.note);
+      
+      // Remove the note from the vector
+      it = SequencerNotes.erase(it); // `erase` returns the next iterator
+    } 
+    else 
+    {
+      ++it; // Only increment if we didn’t erase the note
+    }
+  }
+}
+
+int tickCount = 0;
+void onTick48() 
+{
+  tickCount++;
+
+  // Send MIDI Clock every 1/24 note (i.e., every other 1/48 tick)
+  if (tickCount % 2 == 0) {
+    usbMIDI.sendRealTime(usbMIDI.Clock);
+  }
+  //if note queue is not empty
+  if (SequencerNotes.size() > 0)
+  {
+    advanceSequencerStep(); // or send a note, etc.
+  }
+  
+  // Optional: wrap counter
+  if (tickCount >= 4800) tickCount = 0;
+}
 
 void loop() {
+    if (sendClockTick) 
+    {
+      sendClockTick = false;
+      onTick48();
+    }
+  
   checkSerialGuitar(Serial1, dataBuffer1, bufferLen1, GUITAR_CHANNEL);
   checkSerialKB(Serial2, dataBuffer2, bufferLen2, KEYBOARD_CHANNEL);
   checkSerialBT(Serial3, dataBuffer3, bufferLen3);
@@ -804,7 +1686,7 @@ void loop() {
   if (button2State != prevButton2State && button2State == LOW) {
     Serial.println("Button 2 Pressed");
     preset +=1;
-    if (preset >= 3)
+    if (preset >= MAX_PRESET)
     {
       preset = 0;
     }
@@ -826,7 +1708,7 @@ void loop() {
   //   Serial.println(c); // You can customize this later (e.g., trigger MIDI)
   // }
   usbMIDI.read();
-  delayMicroseconds(10); 
+  delayMicroseconds(5); 
  // printMemoryUsage();
 }
 
