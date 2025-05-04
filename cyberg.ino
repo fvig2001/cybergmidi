@@ -1,6 +1,8 @@
 #include <usb_midi.h>
 #include <vector>
 #include <SD.h>
+#include <map>
+#include <algorithm>
 
 extern "C" char* sbrk(int incr); // Get current heap end
 
@@ -22,10 +24,6 @@ class SequencerNote
     velocity = newvelocity;
   }
 };
-bool muteWhenLetGo;
-int strum;
-int lastStrum;
-
 class Chord {
 public:
     uint8_t rootNote;
@@ -47,6 +45,15 @@ public:
     // Get the relative notes of the chord
     std::vector<uint8_t> getChordNotes() const {
         return notes;
+    }
+    std::vector<uint8_t> getCompleteChordNotes() const {
+        std::vector<uint8_t> complete;
+        complete.push_back(rootNote);
+        for (uint8_t i = 0; i < notes.size();i++)
+        {
+          complete.push_back(notes[i] + rootNote);
+        }
+        return complete;
     }
     uint8_t getRootNote() const {
       return rootNote;
@@ -120,6 +127,7 @@ class PatternNote
 };
 
 std::vector<SequencerNote> SequencerNotes;
+
 //patterns in terms of Sequencer note
 std::vector<PatternNote> SequencerPatternA;
 std::vector<PatternNote> SequencerPatternB;
@@ -180,6 +188,15 @@ const int BUTTON_1_PIN = 4;
 const int BUTTON_2_PIN = 5;
 const int BUTTON_3_PIN = 6;
 
+//state
+int strum;
+int lastStrum;
+bool ignoringIdlePing = false;
+int tickCount = 0;
+int transpose = 0;
+uint8_t preset = 0;
+int curProgram = 0;
+uint8_t playMode = 0;
 int neckButtonPressed = -1;
 int lastNeckButtonPressed = -1;
 int lastValidNeckButtonPressed = -1;
@@ -188,23 +205,128 @@ bool prevButtonBTState = HIGH;
 bool prevButton1State = HIGH;
 bool prevButton2State = HIGH;
 bool prevButton3State = HIGH;
-int deviceBPM = 128;
-const int QUARTERNOTETICKS = 48; //1/48 notes
-int TimeNumerator = 4; //4 beats
-int TimeDenominator = 12; // in terms of 1/48 notes
-int MaxBeatsPerBar = TimeNumerator * TimeDenominator;
 volatile bool sendClockTick = false;
 IntervalTimer tickTimer;
+int lastTransposeValueDetected = 0;
+
+//config
+bool midiClockEnable = true;
+uint16_t deviceBPM = 128;
+std::vector<uint8_t> omniChordModeGuitar;
+std::vector<bool> muteWhenLetGo;
+std::vector<uint16_t> presetBPM;
+std::vector<uint16_t> QUARTERNOTETICKS;
+std::vector<uint8_t> TimeNumerator;
+std::vector<uint8_t> TimeDenominator; // in terms of 1/48 notes
+std::vector<uint16_t> MaxBeatsPerBar;
+std::vector<bool> chordHold;
+std::vector<uint8_t> simpleChordSetting;
+std::vector<uint8_t> strumSeparation; //time unit separation between notes //default 1
 
 unsigned int computeTickInterval(int bpm) {
   // 60,000,000 microseconds per minute / (BPM * 48 ticks per quarter note)
-  return 60000000UL / (bpm * QUARTERNOTETICKS);
+  return 60000000UL / (bpm * QUARTERNOTETICKS[preset]);
 }
 
 // --- MIDI CONSTANTS ---
 const int GUITAR_BUTTON_CHANNEL = 3;
 const int GUITAR_CHANNEL = 2;
 const int KEYBOARD_CHANNEL = 1;
+
+std::vector<uint8_t> omniChordOrigNotes = {65,67,69,71,72,74,76,77,79,81,83,84};
+std::vector<uint8_t> omniChordNewNotes;
+
+class TranspositionDetector 
+{
+    
+  uint8_t lowest = omniChordOrigNotes[0] ;
+  uint8_t highest = omniChordOrigNotes[omniChordOrigNotes.size()-1];
+  int offset = 0;
+  int octaveShift = 0;
+  
+  public:
+    void transposeUp()
+    {
+      octaveShift += 1;
+      if (octaveShift > 2)
+      {
+        octaveShift = 2;
+      }
+    }
+    void transposeDown()
+    {
+      octaveShift -= 1;
+      if (octaveShift < -2)
+      {
+        octaveShift = -2;
+      }
+    }
+    void transposeReset()
+    {
+      octaveShift = 0;
+    }
+
+    void noteOn(int midiNote) {
+        if (midiNote < lowest)
+        {
+          Serial.printf("New Low = Lowest %d Old %d\n", midiNote, lowest);          
+          //53 is found instead of 65
+          offset = omniChordOrigNotes[0] - midiNote; //12
+          lowest = midiNote;
+          highest = omniChordOrigNotes[omniChordOrigNotes.size()-1] - offset; //84 -12 
+        }
+        else if (midiNote > highest)
+        {
+          Serial.printf("New High = Highest %d Old %d\n", midiNote, highest);          
+          //96 is found instead of 84
+          offset = midiNote - omniChordOrigNotes[omniChordOrigNotes.size()-1]; //12
+          highest = midiNote;
+          lowest = omniChordOrigNotes[0] + offset;
+        }
+    }
+
+    uint8_t getBestNote(uint8_t note)
+    {
+      //given a transpose
+      //uint8_t newNote = note - transpose;
+      uint8_t newNote = note - offset;
+      uint8_t bestNote = 0;
+      bool found = false;
+      // assumption is newNote is reverted to its original form
+      for (uint8_t i = 0; i < omniChordOrigNotes.size() && !found; i++)
+      {
+        if (i + 1 >= (int) omniChordOrigNotes.size())
+        {
+          //best Note is last note
+          found = true;
+          bestNote = omniChordNewNotes[i];
+        }
+        else if (omniChordOrigNotes[i] == newNote) 
+        {
+          bestNote = omniChordNewNotes[i];
+          found = true;
+        }
+        //assume if in between, use current note
+        else if (i + 1 < (int) omniChordOrigNotes.size() && omniChordOrigNotes[i] < newNote && omniChordOrigNotes[i + 1] > newNote) 
+        {
+          bestNote = omniChordNewNotes[i];
+          found = true;
+        }
+        else
+        {
+          //do nothing
+        }
+      }
+      return bestNote + 12 * octaveShift;
+    }
+    int getBestTranspose() const {
+      return offset;
+    }
+};
+
+// Other constants
+const uint8_t ACTUAL_NECKBUTTONS = 27;
+const uint8_t NECKBUTTONS = 21;
 
 // --- STATE TRACKING ---
 bool prevNoteOffState = LOW;
@@ -219,6 +341,7 @@ char dataBuffer3[MAX_BUFFER_SIZE + 1];  // +1 for null terminator
 uint8_t bufferLen1 = 0;
 uint8_t bufferLen3 = 0;
 bool lastSimple = false;
+TranspositionDetector detector; 
 
 // --- HEX TO MIDI NOTE MAP ---
 struct MidiMessage {
@@ -227,14 +350,12 @@ struct MidiMessage {
 };
 Chord lastPressedChord;
 std::vector<uint8_t> lastPressedGuitarChord;
-int transpose = 0;
-uint8_t preset = 0;
-const uint8_t MAX_PRESET = 3;
+
+const uint8_t MAX_PRESET = 5;
 const uint8_t NECK_COLUMNS = 3;
 const uint8_t NECK_ROWS = 7;
 const uint8_t NECK_ACTUALROWS = 9;
-int curProgram = 0;
-uint8_t playMode = 0;
+
 bool hexStringAndMatches(const char* input, const char* target, int hexLen) {
   // hexLen = number of hex characters (should be even)
   if (hexLen % 2 != 0) return false;
@@ -615,6 +736,8 @@ std::vector<std::vector<uint8_t>> thirteenthChordGuitar = {
     {71, 73, 75, 68, 69},
 
 };
+
+//[chordtype][key] = actual note vector
 std::vector<std::vector<std::vector<uint8_t>>> allChordsGuitar = {
     majorChordGuitar,
     minorChordGuitar,
@@ -635,7 +758,7 @@ std::vector<std::vector<std::vector<uint8_t>>> allChordsGuitar = {
     thirteenthChordGuitar
 };
 
-//std::vector<AssignedPattern> assignedFretPatterns;
+//[preset][buttonpressed]
 std::vector<std::vector<AssignedPattern>> assignedFretPatternsByPreset;
 //
 void preparePatterns()
@@ -741,15 +864,14 @@ class neckAssignment
       chordType = majorChordType;
     }
 };
-std::vector<std::vector<neckAssignment>> neckAssignments;
-const uint8_t ACTUAL_NECKBUTTONS = 27;
-const uint8_t NECKBUTTONS = 21;
+std::vector<std::vector<neckAssignment>> neckAssignments; //[preset][neck assignment 0-27]
+
 void prepareNeck()
 {
   Note myN;
   neckAssignments.clear();
   std::vector<neckAssignment> tempNeck;
-
+  //preset 1
   tempNeck.clear();
   for (int i = 0; i < NECK_ACTUALROWS; i++)
   {
@@ -904,6 +1026,105 @@ void prepareNeck()
 
   }
   neckAssignments.push_back(tempNeck);
+  //preset 4
+  tempNeck.clear();
+  for (int i = 0; i < NECK_ACTUALROWS; i++)
+  {
+    neckAssignment n;
+    n.chordType = majorChordType;
+    switch(i)
+    {
+      case 0:
+        n.key = C; // C
+        
+        break;
+        case 1:
+        n.key = D;
+        n.chordType = minorChordType;
+        break;
+        case 2:
+        n.key = E;
+        n.chordType = minorChordType;
+        break;
+        case 3:
+        n.key = F;
+        break;
+        case 4:
+        n.key = G;
+        break;
+        case 5:
+        n.key = A;
+        n.chordType = minorChordType;
+        break;
+        case 6:
+        n.key = B;
+        n.chordType = diminishedChordType;
+        break;
+        case 8:
+        n.key = D;
+        n.chordType = minorChordType;
+        break;
+        default:
+        n.key = C;
+    }
+    for (uint8_t j = 0; j < NECK_COLUMNS; j++)
+    {
+      tempNeck.push_back(n);
+    }
+  }
+  neckAssignments.push_back(tempNeck);
+
+  //preset 5
+  tempNeck.clear();
+  for (int i = 0; i < NECK_ACTUALROWS; i++)
+  {
+    
+    switch(i)
+    {
+      case 0:
+        myN = C; // C
+        break;
+      case 1:
+        myN = D;
+        break;
+      case 2:
+        myN = E;
+        break;
+      case 3:
+        myN = F;
+        break;
+      case 4:
+        myN = G;
+        break;
+      case 5:
+        myN = A;
+        break;
+      case 6:
+        myN = B;
+        break;
+      default:
+        myN = C;
+    }
+    for (uint8_t j = 0; j < NECK_COLUMNS; j++)
+    {
+      neckAssignment n;
+      switch(j)
+      {
+        case 0:
+          n.chordType = majorChordType;
+          break;
+        case 1:
+          n.chordType = minorChordType;
+          break;
+        default:
+          n.chordType = dominant7thChordType;
+      }
+      n.key = myN;
+      tempNeck.push_back(n);
+    }
+    
+  }
+  neckAssignments.push_back(tempNeck);
   Serial.printf("neckAssignments size = %d\n", neckAssignments.size());
 }
 
@@ -924,25 +1145,61 @@ Chord getKeyboardChordNotesFromNeck(uint8_t row, uint8_t column, uint8_t usePres
   //Serial.printf("KB row %d col %d preset %d index %d\n",row, column, usePreset, row * NECK_COLUMNS + column);
 
   neckAssignment n = neckAssignments[usePreset][row * NECK_COLUMNS + column]; 
-  Serial.printf("ChordType KB to row = %d\n",(int)n.chordType);
+  Serial.printf("ChordType KB to row = %d preset = %d\n",(int)n.chordType, usePreset);
   //now based on neck assignment, we will need to determine enum value then return the value
   return chords[(uint8_t)n.chordType];
 }
 
+void prepareConfig()
+{
+  Serial.printf("prepareConfig! Enter\n");
+  uint8_t temp8;
+  uint16_t temp16;
+  for (uint8_t i = 0; i< MAX_PRESET; i++)
+  {
+    //set default values first:
+    temp16 = 128 + i * 12;
+    presetBPM.push_back(temp16);
+    if (i == 4)
+    {
+      omniChordModeGuitar.push_back(1);
+    }
+    else
+    {
+      omniChordModeGuitar.push_back(0);
+    }
+    temp8 = 4;
+    TimeNumerator.push_back(temp8);
+    temp8 = 12;
+    TimeDenominator.push_back(temp8);
+    MaxBeatsPerBar.push_back(TimeNumerator.back() * TimeDenominator.back());
+    temp8 = 1;
+    strumSeparation.push_back(temp8);
+    temp16 = 48;
+    QUARTERNOTETICKS.push_back(temp16);
+    muteWhenLetGo.push_back(false);
+    chordHold.push_back(true);
+    simpleChordSetting.push_back(true);
+  }
+  Serial.printf("prepareConfig! Exit\n");
+}
+
 void prepareChords()
 {
+  //todo update based on config (simple) + patterns set based on presets
   std::vector<AssignedPattern> assignedFretPatterns;
 
-  assignedFretPatterns.clear();
+
   uint8_t rootNotes[] = {48, 50, 52, 53, 55, 57, 59};
   // Populate the assignedFretPatterns with the chords for each root note
   for (int x = 0; x < MAX_PRESET; x++)
   {
+    assignedFretPatterns.clear();
     for (int i = 0; i < 7; i++) 
     {
       for (int j = 0; j < 3; j++)
       {
-        assignedFretPatterns.push_back(AssignedPattern(true, getKeyboardChordNotesFromNeck(i,j,x), getGuitarChordNotesFromNeck(i,j,x), rootNotes[i], false));
+        assignedFretPatterns.push_back(AssignedPattern(simpleChordSetting[x], getKeyboardChordNotesFromNeck(i,j,x), getGuitarChordNotesFromNeck(i,j,x), rootNotes[i], false));
       }
     }
     lastPressedChord = assignedFretPatterns[0].assignedChord;
@@ -952,26 +1209,28 @@ void prepareChords()
     {
         for (int j = 0; j < 3; j++)
       {
-        assignedFretPatterns.push_back(AssignedPattern(true, getKeyboardChordNotesFromNeck(i,j,x), getGuitarChordNotesFromNeck(i+7,j,x), rootNotes[i], true));
+        assignedFretPatterns.push_back(AssignedPattern(simpleChordSetting[x], getKeyboardChordNotesFromNeck(i,j,x), getGuitarChordNotesFromNeck(i+7,j,x), rootNotes[i], true));
       } 
     }
-    for (const AssignedPattern& pattern : assignedFretPatterns) 
-    {
-      Serial.print("Pattern Simple: ");
-      Serial.print(pattern.getSimple() ? "Yes" : "No");
-      Serial.print(", Root Note: ");
-      Serial.print(pattern.assignedChord.getRootNote());
-      Serial.print(" Chord Notes: ");
-      for (uint8_t note : pattern.assignedChord.getChordNotes()) 
-      {
-          Serial.print(note);
-          Serial.print(" ");
-      }
-      Serial.println();
-    }
+
+    // for (const AssignedPattern& pattern : assignedFretPatterns) 
+    // {
+    //   Serial.print("Pattern Simple: ");
+    //   Serial.print(pattern.getSimple() ? "Yes" : "No");
+    //   Serial.print(", Root Note: ");
+    //   Serial.print(pattern.assignedChord.getRootNote());
+    //   Serial.print(" Chord Notes: ");
+    //   for (uint8_t note : pattern.assignedChord.getChordNotes()) 
+    //   {
+    //       Serial.print(note);
+    //       Serial.print(" ");
+    //   }
+    //   Serial.println();
+    // }
+    Serial.printf("assignedFretPatterns size is %d\n", assignedFretPatterns.size());
     assignedFretPatternsByPreset.push_back(assignedFretPatterns);
   }
- 
+  Serial.printf("assignedFretPatternsByPreset size is %d\n", assignedFretPatternsByPreset.size());
 }
 
 void printChords()
@@ -1061,8 +1320,16 @@ void setNewBPM(int newBPM) {
   tickTimer.begin(tickISR, newInterval); // restart timer with new interval
 }
 
+//generic preset Change handler when vectors aren't enough
+void presetChanged()
+{
+  setNewBPM(presetBPM[preset]);
+  omniChordNewNotes.clear();
+  detector.transposeReset();
+  neckButtonPressed = -1; // set last button is null
+}
+
 void setup() {
-  muteWhenLetGo = false;
   strum = 0;
   pinMode(NOTE_OFF_PIN, INPUT_PULLUP);
   pinMode(START_TRIGGER_PIN, INPUT_PULLUP);
@@ -1071,9 +1338,6 @@ void setup() {
   pinMode(BUTTON_3_PIN, INPUT_PULLUP);
   pinMode(BT_ON_PIN, OUTPUT);  // Set pin 19 as output
   pinMode(BT_STATUS_PIN, INPUT);  // Set pin 18 as output
-
-  
-  
   
   digitalWrite(BT_ON_PIN, HIGH);  // Set pin 19 to high
   
@@ -1084,19 +1348,17 @@ void setup() {
   Serial.begin(115200);  // USB debug monitor
 
   usbMIDI.begin();
-  tickTimer.begin(clockISR, computeTickInterval(deviceBPM)); // in microseconds
+
   while (!Serial && millis() < 3000);  // Wait for Serial Monitor
   Serial.println("Teensy MIDI Debug Start");
   Serial3.println("AT");  // Send AT command
 
- Serial.println("SD card initialized.");
-
- if (!SD.begin(BUILTIN_SDCARD)) {
+  if (!SD.begin(BUILTIN_SDCARD)) {
     Serial.println("SD card failed to initialize!");
     return;
   }
 
- File file = SD.open("config.ini");
+  File file = SD.open("config.ini");
   if (file) {
     Serial.println("Reading back file contents:");
     while (file.available()) {
@@ -1106,10 +1368,13 @@ void setup() {
   } else {
     Serial.println("Failed to open file for reading.");
   }
+
+  prepareConfig();
   //printChords();  
   prepareNeck();
   prepareChords();
   preparePatterns();
+  tickTimer.begin(clockISR, computeTickInterval(deviceBPM)); // in microseconds
 }
 
 void sendNoteOn(uint8_t channel, uint8_t note, uint8_t velocity = 127) {
@@ -1253,9 +1518,45 @@ void checkSerialGuitar(HardwareSerial& serialPort, char* buffer, uint8_t& buffer
             {
               myTranspose = transpose;
             }
-            Serial.printf("Get simple %d\n",assignedFretPatternsByPreset[preset][msg.note].getSimple());
-            if (isKeyboard)
+            Serial.printf("Get simple %d button = %d\n",assignedFretPatternsByPreset[preset][msg.note].getSimple(), msg.note);
+            if (isKeyboard || omniChordModeGuitar[preset] > 0)
             {
+              if (omniChordModeGuitar[preset] > 0 && !isKeyboard)
+              {
+                //check if button rpessed is the same
+                if (lastNeckButtonPressed != neckButtonPressed || omniChordNewNotes.size() == 0)
+                {
+                  //need to create a note list
+                  omniChordNewNotes.clear();
+                  int offset = -12;
+                  
+                  std::vector<uint8_t> chordNotes = assignedFretPatternsByPreset[preset][msg.note].getChords().getCompleteChordNotes(); //get notes
+                  
+                  Serial.printf("chordNotes = ");
+                  for (uint8_t i = 0; i < chordNotes.size(); i++)
+                  {
+                    Serial.printf("%d ", chordNotes[i]);
+                  }
+                  Serial.printf("\n");
+                  while (omniChordNewNotes.size() < omniChordOrigNotes.size())
+                  {
+                    if (omniChordNewNotes.size() != 0)
+                    {
+                      offset += 12;
+                    }
+                    for (uint8_t i = 0; i < chordNotes.size() && omniChordNewNotes.size() < omniChordOrigNotes.size(); i++)
+                    {
+                      omniChordNewNotes.push_back(chordNotes[i] + offset);
+                    }
+                  }
+                  Serial.printf("OmnichordnewNotes = ");
+                  for (uint8_t i = 0; i < omniChordNewNotes.size(); i++)
+                  {
+                    Serial.printf("%d ", omniChordNewNotes[i]);
+                  }
+                  Serial.printf("\n");
+                }
+              }
               if (assignedFretPatternsByPreset[preset][msg.note].getSimple())
               {
                 lastSimple = true;
@@ -1280,7 +1581,7 @@ void checkSerialGuitar(HardwareSerial& serialPort, char* buffer, uint8_t& buffer
             else //using paddle adapter
             {
               //mutes previous if another button is pressed
-              if (lastValidNeckButtonPressed >= 0  && !muteWhenLetGo) 
+              if (lastValidNeckButtonPressed >= 0 && !muteWhenLetGo[preset]) 
               {
                 //cancelGuitarChordNotes(assignedFretPatternsByPreset[preset][lastNeckButtonPressed].assignedGuitarChord);
                 //for paddle we actually stop playing when user lets go of "strings"
@@ -1313,7 +1614,7 @@ void checkSerialGuitar(HardwareSerial& serialPort, char* buffer, uint8_t& buffer
           {
             lastNeckButtonPressed = neckButtonPressed;
             neckButtonPressed = -1;
-            if (muteWhenLetGo)
+            if (muteWhenLetGo[preset])
             {
               //for paddle we actually stop playing when user lets go of "strings"
               while (lastGuitarNotes.size() > 0)
@@ -1363,8 +1664,6 @@ void checkSerialGuitar(HardwareSerial& serialPort, char* buffer, uint8_t& buffer
     buffer[bufferLen] = '\0';
   }
 }
-
-bool ignoringIdlePing = false;
 
 void checkSerialBT(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen) 
 {
@@ -1423,19 +1722,21 @@ void buildGuitarSequencerNotes(const std::vector<uint8_t>& chordNotes, bool reve
     for (auto it = chordNotes.rbegin(); it != chordNotes.rend(); ++it) {
       SequencerNote note(*it, 65535, currentOffset, GUITAR_CHANNEL);
       SequencerNotes.push_back(note);
-      currentOffset += 1;
+      currentOffset += strumSeparation[preset];
     }
   } else {
     // Loop through the chord notes in normal order
     for (uint8_t midiNote : chordNotes) {
       SequencerNote note(midiNote, 65535, currentOffset, GUITAR_CHANNEL);
       SequencerNotes.push_back(note);
-      currentOffset += 1; 
+      currentOffset += strumSeparation[preset]; 
     }
   }
 }
 
 void checkSerialKB(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen, uint8_t channel) {
+  
+
   // --- Step 1: Read bytes into buffer ---
   while (serialPort.available() && bufferLen < MAX_BUFFER_SIZE - 1) {
     char c = serialPort.read();
@@ -1490,20 +1791,42 @@ void checkSerialKB(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen,
     uint16_t value = 0;
     sscanf(buffer + 12, "%04hx", &value);
 
-    
-    //if (neckButtonPressed > -1)
+    // we don't care about this in omnichord mode
+    //if (omniChordModeGuitar[preset] == 0)
     //{
       lastStrum = strum;
       Serial.printf("Preset is %d\n", preset);
-      if (value >= 0x200 && neckButtonPressed > -1) { 
+      int lastPressed = neckButtonPressed;
+      if (chordHold[preset])
+      {
+        if (lastPressed == -1 && lastValidNeckButtonPressed != -1)
+        {
+          lastPressed = lastValidNeckButtonPressed;            
+        }
+      }
+      if (value >= 0x200 && (lastPressed > -1)) { 
           strum = -1; // up
-          cancelGuitarChordNotes(assignedFretPatternsByPreset[preset][neckButtonPressed].assignedGuitarChord);
-          buildGuitarSequencerNotes(assignedFretPatternsByPreset[preset][neckButtonPressed].assignedGuitarChord, true);
+          if (omniChordModeGuitar[preset] == 0)
+          {
+            cancelGuitarChordNotes(assignedFretPatternsByPreset[preset][lastPressed].assignedGuitarChord);
+            buildGuitarSequencerNotes(assignedFretPatternsByPreset[preset][lastPressed].assignedGuitarChord, true);
+          }
+          else
+          {
+            detector.transposeUp();
+          }
           //queue buttons to be played
-      } else if (value >= 0x100 && neckButtonPressed > -1) {
+      } else if (value >= 0x100 && lastPressed > -1) {
           strum = 1;//down
-          cancelGuitarChordNotes(assignedFretPatternsByPreset[preset][neckButtonPressed].assignedGuitarChord);
-          buildGuitarSequencerNotes(assignedFretPatternsByPreset[preset][neckButtonPressed].assignedGuitarChord, false);
+          if (omniChordModeGuitar[preset] == 0)
+          {
+            cancelGuitarChordNotes(assignedFretPatternsByPreset[preset][lastPressed].assignedGuitarChord);
+            buildGuitarSequencerNotes(assignedFretPatternsByPreset[preset][lastPressed].assignedGuitarChord, false);
+          }
+          else
+          {
+            detector.transposeDown();
+          }
           //queue buttons to be played
       } else if (value == 0x000) {
         strum = 0; //neutral 
@@ -1533,9 +1856,10 @@ void checkSerialKB(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen,
   }
 
   // --- Step 5: Main parser loop ---
+  bool skipNote;
   while (true) {
     bool processed = false;
-
+    skipNote = false;
     if (bufferLen >= 6 && (strncmp(buffer, "80", 2) == 0 || strncmp(buffer, "90", 2) == 0)) 
     {
       char temp[3]; temp[2] = '\0';
@@ -1543,15 +1867,33 @@ void checkSerialKB(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen,
       temp[0] = buffer[2]; temp[1] = buffer[3]; uint8_t note   = strtol(temp, NULL, 16);
       temp[0] = buffer[4]; temp[1] = buffer[5]; uint8_t vel    = strtol(temp, NULL, 16);
 
-      if ((status & 0xF0) == 0x90) 
+      if (omniChordModeGuitar[preset] > 0)
       {
-        sendNoteOn(channel, note+transpose, vel);
+        if (omniChordNewNotes.size() == 0) //no guitar button pressed
+        {
+          skipNote = true;
+        }
+        else
+        {
+          Serial.printf("Original Note is %d\n", note);
+          detector.noteOn(note);
+          //lastTransposeValueDetected = detector.getBestTranspose();
+          //Serial.printf("lastTransposeValueDetected = %d\n", lastTransposeValueDetected);
+          note = detector.getBestNote(note);
+        }
       }
-      else
+      if (!skipNote)
       {
-        sendNoteOff(channel, note+transpose, vel);
-      } 
-
+        if ((status & 0xF0) == 0x90) 
+        {
+          
+          sendNoteOn(channel, note+transpose, vel);
+        }
+        else
+        {
+          sendNoteOff(channel, note+transpose, vel);
+        } 
+      }
       memmove(buffer, buffer + 6, bufferLen - 5);
       bufferLen -= 6;
       buffer[bufferLen] = '\0';
@@ -1657,13 +1999,13 @@ void advanceSequencerStep() {
   }
 }
 
-int tickCount = 0;
+
 void onTick48() 
 {
   tickCount++;
 
   // Send MIDI Clock every 1/24 note (i.e., every other 1/48 tick)
-  if (tickCount % 2 == 0) {
+  if (midiClockEnable && tickCount % 2 == 0) {
     usbMIDI.sendRealTime(usbMIDI.Clock);
   }
   //if note queue is not empty
@@ -1692,6 +2034,11 @@ void loop() {
     for (int n = 0; n < 127; n++) {
       sendNoteOff(GUITAR_CHANNEL, n);
       sendNoteOff(KEYBOARD_CHANNEL, n);
+    }
+    if (omniChordModeGuitar[preset] > 0)
+    {
+      omniChordNewNotes.clear();
+      //set last pressed to -1
     }
   }
   prevNoteOffState = noteOffState;
@@ -1731,6 +2078,7 @@ void loop() {
     {
       preset = 0;
     }
+    presetChanged();
     //add preset handling here
     Serial.printf("Preset is now %d\n", preset);
   }
