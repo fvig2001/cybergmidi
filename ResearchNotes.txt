@@ -1,6 +1,6 @@
 Notes/Things I discovered
 
-1. Electronically, knob button and connecting button are connected to the same test point. Knob is connected when device is off. Connecting is connected when device is on. Sadly this is the only usable button of the 3.
+1. Electronically, knob button and connecting button are connected to the same test point. Knob is shorted to the test point but when you press the knob button when the device is off, it triggers the TP. When device is on, mode triggers TP. Sadly this is the only usable button of the 3.
 2. Connecting to knob's test point (where it shorts normally on the TP) causes the device to turn on even if you turn it off.
 3. Connecting to mode's test point works but if you turn off the device and turn it on, it hangs and makes the knob a rainbow colored mess.
 4. Cyber G to Neck's UART doesn't seem to have any real data. I never got any valid data regardless of what I did. I guess the data from the keyboard is enough for the colors.
@@ -11,3 +11,5 @@ b. MIDI off is treated as separate channels
 c. Pitch bend is not supported
 d. Change mode/program messages do nothing
 e. Not sure if because I had low battery but sometimes the first note is ignored even after last note was played 5 seconds before
+7. Still not sure on the purpose of the button of the logo but at least the 2 logo buttons are simple points that short to ground when pressed.
+8. Guitar neck uses capacitative buttons and they support multiple button presses but it's not easy to actually press them at the same time where the device registers them as pressed.
