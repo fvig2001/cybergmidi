@@ -1,8 +1,6 @@
 #include <usb_midi.h>
 #include <vector>
 #include <SD.h>
-#include <map>
-#include <algorithm>
 
 extern "C" char* sbrk(int incr); // Get current heap end
 
@@ -338,8 +336,10 @@ uint8_t bufferLen2 = 0;
 char dataBuffer1[MAX_BUFFER_SIZE + 1];  // +1 for null terminator
 char dataBuffer2[MAX_BUFFER_SIZE + 1];  // +1 for null terminator
 char dataBuffer3[MAX_BUFFER_SIZE + 1];  // +1 for null terminator
+//char dataBuffer4[MAX_BUFFER_SIZE + 1];  // +1 for null terminator
 uint8_t bufferLen1 = 0;
 uint8_t bufferLen3 = 0;
+//uint8_t bufferLen4 = 0;
 bool lastSimple = false;
 TranspositionDetector detector; 
 
@@ -351,7 +351,7 @@ struct MidiMessage {
 Chord lastPressedChord;
 std::vector<uint8_t> lastPressedGuitarChord;
 
-const uint8_t MAX_PRESET = 5;
+const uint8_t MAX_PRESET = 6;
 const uint8_t NECK_COLUMNS = 3;
 const uint8_t NECK_ROWS = 7;
 const uint8_t NECK_ACTUALROWS = 9;
@@ -818,6 +818,14 @@ void preparePatterns()
   p.holdTime = 36;
   SequencerPatternC.push_back(p);
 }
+
+enum OmniChordModeType {
+  OmniChordOffType = 0,
+  OmniChordStandardType,
+  OmniChordStandardHoldType,
+  OmniChordGuitarType,
+};
+
 enum ChordType {
     majorChordType = 0,
     minorChordType,
@@ -866,6 +874,13 @@ class neckAssignment
 };
 std::vector<std::vector<neckAssignment>> neckAssignments; //[preset][neck assignment 0-27]
 
+//current presets:
+// 1 standard
+// 2 standard but different 3rd column sus4
+// 3 standard but different 3rd column major 6th
+// 4 simple mode
+// 5 omnichord mode
+// 6 omnichord mode but hybrid mode
 void prepareNeck()
 {
   Note myN;
@@ -1125,6 +1140,59 @@ void prepareNeck()
     
   }
   neckAssignments.push_back(tempNeck);
+
+  //preset 6
+  tempNeck.clear();
+  for (int i = 0; i < NECK_ACTUALROWS; i++)
+  {
+    
+    switch(i)
+    {
+      case 0:
+        myN = C; // C
+        break;
+      case 1:
+        myN = D;
+        break;
+      case 2:
+        myN = E;
+        break;
+      case 3:
+        myN = F;
+        break;
+      case 4:
+        myN = G;
+        break;
+      case 5:
+        myN = A;
+        break;
+      case 6:
+        myN = B;
+        break;
+      default:
+        myN = C;
+    }
+    for (uint8_t j = 0; j < NECK_COLUMNS; j++)
+    {
+      neckAssignment n;
+      switch(j)
+      {
+        case 0:
+          n.chordType = majorChordType;
+          break;
+        case 1:
+          n.chordType = minorChordType;
+          break;
+        default:
+          n.chordType = dominant7thChordType;
+      }
+      n.key = myN;
+      tempNeck.push_back(n);
+    }
+    
+  }
+  
+  neckAssignments.push_back(tempNeck);
   Serial.printf("neckAssignments size = %d\n", neckAssignments.size());
 }
 
@@ -1162,7 +1230,11 @@ void prepareConfig()
     presetBPM.push_back(temp16);
     if (i == 4)
     {
-      omniChordModeGuitar.push_back(1);
+      omniChordModeGuitar.push_back(OmniChordStandardType);
+    }
+    else if (i == 5)
+    {
+      omniChordModeGuitar.push_back(OmniChordGuitarType);
     }
     else
     {
@@ -1344,6 +1416,8 @@ void setup() {
   Serial1.begin(250000); // Guitar
   Serial2.begin(250000); // Keyboard
   Serial3.begin(9600);  // BT
+  //Serial4.begin(250000); // Cyber G to Piano
+
       //HM10_BLUETOOTH.begin(HM10_BAUD); //BT
   Serial.begin(115200);  // USB debug monitor
 
@@ -1470,10 +1544,11 @@ void checkSerialGuitar(HardwareSerial& serialPort, char* buffer, uint8_t& buffer
     bufferLen -= 2;
     buffer[bufferLen] = '\0';
   }
-
+  bool ignore;
   // --- Step 5: Main parser loop ---
   while (true) 
   {
+    ignore = false;
     uint8_t myTranspose = transpose;
     bool processed = false;
     bool matched = false;
@@ -1519,8 +1594,10 @@ void checkSerialGuitar(HardwareSerial& serialPort, char* buffer, uint8_t& buffer
               myTranspose = transpose;
             }
             Serial.printf("Get simple %d button = %d\n",assignedFretPatternsByPreset[preset][msg.note].getSimple(), msg.note);
-            if (isKeyboard || omniChordModeGuitar[preset] > 0)
+            //guitar plays chord on button press
+            if (isKeyboard || omniChordModeGuitar[preset] > OmniChordOffType) 
             {
+              ignore = true;
               if (omniChordModeGuitar[preset] > 0 && !isKeyboard)
               {
                 //check if button rpessed is the same
@@ -1557,7 +1634,7 @@ void checkSerialGuitar(HardwareSerial& serialPort, char* buffer, uint8_t& buffer
                   Serial.printf("\n");
                 }
               }
-              if (assignedFretPatternsByPreset[preset][msg.note].getSimple())
+              if (assignedFretPatternsByPreset[preset][msg.note].getSimple() && omniChordModeGuitar[preset] != OmniChordGuitarType)
               {
                 lastSimple = true;
                 rootNote = assignedFretPatternsByPreset[preset][msg.note].getChords().getRootNote();
@@ -1570,15 +1647,22 @@ void checkSerialGuitar(HardwareSerial& serialPort, char* buffer, uint8_t& buffer
                   lastGuitarNotes.push_back(rootNote+note + myTranspose);
                 }
               }
-              else
+              else if (omniChordModeGuitar[preset] != OmniChordGuitarType)
               {
                 lastSimple = false;
                 Serial.printf("Not simple!");
+                //play pattern here
+              }
+              else
+              {
+                ignore = false; //force to still use paddle
+                //do nothing
               }
               sendNoteOn(GUITAR_BUTTON_CHANNEL, msg.note,1); //play the specific note on another channel at minimum non 0 volume
               lastGuitarNotesButtons.push_back(msg.note);
             }
-            else //using paddle adapter
+            //else //using paddle adapter
+            if (!ignore)
             {
               //mutes previous if another button is pressed
               if (lastValidNeckButtonPressed >= 0 && !muteWhenLetGo[preset]) 
@@ -1736,7 +1820,6 @@ void buildGuitarSequencerNotes(const std::vector<uint8_t>& chordNotes, bool reve
 
 void checkSerialKB(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen, uint8_t channel) {
   
-
   // --- Step 1: Read bytes into buffer ---
   while (serialPort.available() && bufferLen < MAX_BUFFER_SIZE - 1) {
     char c = serialPort.read();
@@ -1806,7 +1889,7 @@ void checkSerialKB(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen,
       }
       if (value >= 0x200 && (lastPressed > -1)) { 
           strum = -1; // up
-          if (omniChordModeGuitar[preset] == 0)
+          if (omniChordModeGuitar[preset] == OmniChordOffType || omniChordModeGuitar[preset] == OmniChordGuitarType)
           {
             cancelGuitarChordNotes(assignedFretPatternsByPreset[preset][lastPressed].assignedGuitarChord);
             buildGuitarSequencerNotes(assignedFretPatternsByPreset[preset][lastPressed].assignedGuitarChord, true);
@@ -1818,7 +1901,7 @@ void checkSerialKB(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen,
           //queue buttons to be played
       } else if (value >= 0x100 && lastPressed > -1) {
           strum = 1;//down
-          if (omniChordModeGuitar[preset] == 0)
+          if (omniChordModeGuitar[preset] == OmniChordOffType || omniChordModeGuitar[preset] == OmniChordGuitarType)
           {
             cancelGuitarChordNotes(assignedFretPatternsByPreset[preset][lastPressed].assignedGuitarChord);
             buildGuitarSequencerNotes(assignedFretPatternsByPreset[preset][lastPressed].assignedGuitarChord, false);
@@ -1866,9 +1949,10 @@ void checkSerialKB(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen,
       temp[0] = buffer[0]; temp[1] = buffer[1]; uint8_t status = strtol(temp, NULL, 16);
       temp[0] = buffer[2]; temp[1] = buffer[3]; uint8_t note   = strtol(temp, NULL, 16);
       temp[0] = buffer[4]; temp[1] = buffer[5]; uint8_t vel    = strtol(temp, NULL, 16);
-
-      if (omniChordModeGuitar[preset] > 0)
+      
+      if (omniChordModeGuitar[preset] != OmniChordOffType)
       {
+        Serial.printf("omniChordNewNotes.size() %d\n", omniChordNewNotes.size());
         if (omniChordNewNotes.size() == 0) //no guitar button pressed
         {
           skipNote = true;
@@ -1886,7 +1970,6 @@ void checkSerialKB(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen,
       {
         if ((status & 0xF0) == 0x90) 
         {
-          
           sendNoteOn(channel, note+transpose, vel);
         }
         else
@@ -1968,6 +2051,27 @@ void checkSerialKB(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen,
   }
 }
 
+// void checkSerialG2Piano(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen, uint8_t channel) {
+//   size_t last_len = 0;
+//   uint8_t rootNote = 0;
+//   // --- Step 1: Read bytes into buffer ---
+//   while (serialPort.available() && bufferLen < MAX_BUFFER_SIZE - 1) {
+//     char c = serialPort.read();
+//     sprintf(&buffer[bufferLen], "%02x", (unsigned char)c);
+//     bufferLen += 2;
+//   }
+//   buffer[bufferLen] = '\0';
+  
+//   // --- Step 2: Print and clear the buffer ---
+//   if (bufferLen > 0) {
+//     Serial.print("Buffer: ");
+//     Serial.println(buffer);  // Print hex data as string
+//     bufferLen = 0;           // Clear buffer by resetting length
+//     buffer[0] = '\0';        // Optional: clear first byte explicitly
+//   }
+
+// }
+
 void advanceSequencerStep() {
   for (auto it = SequencerNotes.begin(); it != SequencerNotes.end(); ) 
   {
@@ -2028,6 +2132,7 @@ void loop() {
   checkSerialGuitar(Serial1, dataBuffer1, bufferLen1, GUITAR_CHANNEL);
   checkSerialKB(Serial2, dataBuffer2, bufferLen2, KEYBOARD_CHANNEL);
   checkSerialBT(Serial3, dataBuffer3, bufferLen3);
+  //checkSerialG2Piano(Serial4, dataBuffer4, bufferLen4, 3);
   bool noteOffState = digitalRead(NOTE_OFF_PIN);
   if (noteOffState != prevNoteOffState && noteOffState == LOW) {
     Serial.println("NOTE_OFF_PIN pressed → All notes off");
@@ -2035,7 +2140,7 @@ void loop() {
       sendNoteOff(GUITAR_CHANNEL, n);
       sendNoteOff(KEYBOARD_CHANNEL, n);
     }
-    if (omniChordModeGuitar[preset] > 0)
+    if (omniChordModeGuitar[preset] != OmniChordOffType)
     {
       omniChordNewNotes.clear();
       //set last pressed to -1
