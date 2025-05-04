@@ -1,13 +1,13 @@
 Notes/Things I discovered
 
-1. Electronically, knob button and connecting button are connected to the same test point. Knob is connected when device is off. Connecting is connected when device is on.
-2. Connecting to knob's test point when on causes the device to turn on, annoyingly
+1. Electronically, knob button and connecting button are connected to the same test point. Knob is connected when device is off. Connecting is connected when device is on. Sadly this is the only usable button of the 3.
+2. Connecting to knob's test point (where it shorts normally on the TP) causes the device to turn on even if you turn it off.
 3. Connecting to mode's test point works but if you turn off the device and turn it on, it hangs and makes the knob a rainbow colored mess.
-4. Cyber G to Neck's UART doesn't seem to have any real data
-5. Cyber G to keyboard's UART only has messages specifically f5550003001200 - f5550003001207 to basically denote which octave shift group is used on the keyboard. Which may be useful only for my Omnichord mode to reduce guessing.
-6. Tyring to send midi on/off notes on the keyboard side has annoying results
-a. MIDI On is always treated as 1 channel - plays whatever instrument sound you picked
+4. Cyber G to Neck's UART doesn't seem to have any real data. I never got any valid data regardless of what I did. I guess the data from the keyboard is enough for the colors.
+5. Cyber G to keyboard's UART only has messages specifically f5550003001200 (lowest) - f5550003001207 (highest) to basically denote which octave shift group is used on the keyboard. Which may be useful only for my Omnichord mode to reduce guessing.
+6. Trying to send midi on/off notes on the keyboard side has annoying results
+a. MIDI On is always treated as 1 channel - plays whatever instrument sound you picked.
 b. MIDI off is treated as separate channels
 c. Pitch bend is not supported
-d. Change mode/program does nothing
+d. Change mode/program messages do nothing
 e. Not sure if because I had low battery but sometimes the first note is ignored even after last note was played 5 seconds before
