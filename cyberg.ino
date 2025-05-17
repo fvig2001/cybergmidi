@@ -212,12 +212,14 @@ bool midiClockEnable = true;
 uint16_t deviceBPM = 128;
 std::vector<uint8_t> omniChordModeGuitar;
 std::vector<bool> muteWhenLetGo;
+std::vector<bool> ignoreSameChord;
 std::vector<uint16_t> presetBPM;
 std::vector<uint16_t> QUARTERNOTETICKS;
 std::vector<uint8_t> TimeNumerator;
 std::vector<uint8_t> TimeDenominator; // in terms of 1/48 notes
 std::vector<uint16_t> MaxBeatsPerBar;
 std::vector<bool> chordHold;
+std::vector<bool> chordHoldStrict;
 std::vector<uint8_t> simpleChordSetting;
 std::vector<uint8_t> strumSeparation; //time unit separation between notes //default 1
 
@@ -1088,7 +1090,6 @@ void prepareNeck()
     }
   }
   neckAssignments.push_back(tempNeck);
-
   //preset 5
   tempNeck.clear();
   for (int i = 0; i < NECK_ACTUALROWS; i++)
@@ -1193,6 +1194,7 @@ void prepareNeck()
   }
   
   neckAssignments.push_back(tempNeck);
+  
   Serial.printf("neckAssignments size = %d\n", neckAssignments.size());
 }
 
@@ -1250,7 +1252,9 @@ void prepareConfig()
     temp16 = 48;
     QUARTERNOTETICKS.push_back(temp16);
     muteWhenLetGo.push_back(false);
+    ignoreSameChord.push_back(true);
     chordHold.push_back(true);
+    chordHoldStrict.push_back(false);
     simpleChordSetting.push_back(true);
   }
   Serial.printf("prepareConfig! Exit\n");
@@ -1425,7 +1429,7 @@ void setup() {
 
   while (!Serial && millis() < 3000);  // Wait for Serial Monitor
   Serial.println("Teensy MIDI Debug Start");
-  Serial3.println("AT");  // Send AT command
+  Serial3.println("AT\r\n");  // Send AT command
 
   if (!SD.begin(BUILTIN_SDCARD)) {
     Serial.println("SD card failed to initialize!");
@@ -1524,6 +1528,55 @@ void trimBuffer(String& buffer) {
   }
 }
 
+#define MAX_SERIAL_FIELDS 49         // Max number of comma-separated fields, worst case is 16*3+1
+#define MAX_SERIAL_FIELD_LENGTH 3
+void handleSerialCommand(HardwareSerial &port, const char* label = "") {
+  static String inputBuffer[2];  // One buffer per port (0: Serial, 1: Serial1)
+  uint8_t index = (&port == &Serial3) ? 1 : 0;
+
+  while (port.available()) {
+    char c = port.read();
+    inputBuffer[index] += c;
+
+    if (inputBuffer[index].endsWith("\n\r")) {
+      inputBuffer[index].trim();
+
+      String fields[MAX_SERIAL_FIELDS];
+      uint8_t fieldCount = 0;
+      uint8_t start = 0;
+      for (uint8_t i = 0; i <= inputBuffer[index].length(); i++) {
+        if (inputBuffer[index][i] == ',' || i == inputBuffer[index].length()) {
+          if (fieldCount < MAX_SERIAL_FIELDS) {
+            fields[fieldCount] = inputBuffer[index].substring(start, i);
+            if (fields[fieldCount].length() > MAX_SERIAL_FIELD_LENGTH)
+              fields[fieldCount] = fields[fieldCount].substring(0, MAX_SERIAL_FIELD_LENGTH);
+            fieldCount++;
+          }
+          start = i + 1;
+        }
+      }
+
+      // Print with port label
+      for (uint8_t i = 0; i < fieldCount; i++) {
+        port.print(label); port.print("Field ");
+        port.print(i); port.print(": ");
+        port.println(fields[i]);
+      }
+
+      // Send ACK
+      port.println("OK00");
+
+      // Reset buffer
+      inputBuffer[index] = "";
+    }
+
+    if (inputBuffer[index].length() > 512) {
+      inputBuffer[index] = "";
+    }
+  }
+}
+
+
 void checkSerialGuitar(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen, uint8_t channel) {
   size_t last_len = 0;
   uint8_t rootNote = 0;
@@ -1600,8 +1653,9 @@ void checkSerialGuitar(HardwareSerial& serialPort, char* buffer, uint8_t& buffer
               ignore = true;
               if (omniChordModeGuitar[preset] > 0 && !isKeyboard)
               {
-                //check if button rpessed is the same
-                if (lastNeckButtonPressed != neckButtonPressed || omniChordNewNotes.size() == 0)
+                //check if button pressed is the same
+                //if (lastNeckButtonPressed != neckButtonPressed || omniChordNewNotes.size() == 0)
+                if (lastValidNeckButtonPressed != neckButtonPressed || omniChordNewNotes.size() == 0)
                 {
                   //need to create a note list
                   omniChordNewNotes.clear();
@@ -1637,6 +1691,14 @@ void checkSerialGuitar(HardwareSerial& serialPort, char* buffer, uint8_t& buffer
               if (assignedFretPatternsByPreset[preset][msg.note].getSimple() && omniChordModeGuitar[preset] != OmniChordGuitarType)
               {
                 lastSimple = true;
+                if (lastGuitarNotes.size() > 0)
+                {
+                  for (uint8_t i = 0; i < lastGuitarNotes[i]; i++) 
+                  {
+                    sendNoteOff(channel, lastGuitarNotes[i]);
+                  }  
+                  lastGuitarNotes.clear();
+                }
                 rootNote = assignedFretPatternsByPreset[preset][msg.note].getChords().getRootNote();
                 Serial.printf("Root note is %d\n", rootNote);
                 sendNoteOn(channel, rootNote + myTranspose);
@@ -1665,31 +1727,65 @@ void checkSerialGuitar(HardwareSerial& serialPort, char* buffer, uint8_t& buffer
             if (!ignore)
             {
               //mutes previous if another button is pressed
+              Serial.printf("MuteWhenLetGo %d, ignoreSameChord[preset] %d, LastValidpressed = %d neckPressed = %d\n", muteWhenLetGo[preset]?1:0, ignoreSameChord[preset]?1:0, lastValidNeckButtonPressed, neckButtonPressed);
               if (lastValidNeckButtonPressed >= 0 && !muteWhenLetGo[preset]) 
               {
-                //cancelGuitarChordNotes(assignedFretPatternsByPreset[preset][lastNeckButtonPressed].assignedGuitarChord);
-                //for paddle we actually stop playing when user lets go of "strings"
-                while (lastGuitarNotes.size() > 0)
+                //std::vector<uint8_t> chordNotes = assignedFretPatternsByPreset[preset][msg.note].getChords().getCompleteChordNotes(); //get notes
+                //check if same notes are to be played
+                bool ignorePress = false;
+                Serial.printf("Paco 1\n");
+                if (ignoreSameChord[preset])
                 {
-                  sendNoteOff(channel, lastGuitarNotes.back());
-                  lastGuitarNotes.pop_back();
-                }
-                while (lastGuitarNotesButtons.size() > 0)
-                {
-                  sendNoteOff(channel, lastGuitarNotesButtons.back());
-                  lastGuitarNotesButtons.pop_back();
-                }
-
-                //handle string let go case and turn off all notes
-                for (uint8_t i = 0; i < SequencerNotes.size(); i++)
-                {
-                  if (SequencerNotes[i].channel == GUITAR_CHANNEL)
+                  Serial.printf("lastGuitarNotes size %d SequencerNotes size %d\n", lastGuitarNotes.size(), SequencerNotes.size());
+                  Serial.printf("Paco 2\n");
+                  bool isEqual = true;
+                  Serial.printf("Paco 3\n");
+                  std::vector<uint8_t> chordNotesA = assignedFretPatternsByPreset[preset][lastValidNeckButtonPressed].getChords().getCompleteChordNotes(); //get notes
+                  Serial.printf("Paco 4 chordNotesA size %d\n", chordNotesA.size());
+                  std::vector<uint8_t> chordNotesB = assignedFretPatternsByPreset[preset][neckButtonPressed].getChords().getCompleteChordNotes(); //get notes
+                  Serial.printf("Paco 5 chordNotesB.size()\n", chordNotesB.size());
+                  for (uint8_t i = 0; i < chordNotesA.size() && i <chordNotesB.size(); i++)
                   {
-                    SequencerNotes[i].offset = 0;
-                    SequencerNotes[i].holdTime = 0;
+                    if (chordNotesA[i] != chordNotesB[i])
+                    {
+                      Serial.printf("Chords are not the same! %d vs %d\n", chordNotesA[i], chordNotesB[i]);
+                      isEqual = false;
+                      break;
+                    }
+                  }
+                  Serial.printf("Paco 6\n");
+                  if (isEqual)
+                  {
+                    ignorePress = true;
                   }
                 }
 
+                Serial.printf("ignorePress = %d\n", ignorePress?1:0);
+                //cancelGuitarChordNotes(assignedFretPatternsByPreset[preset][lastNeckButtonPressed].assignedGuitarChord);
+                //for paddle we actually stop playing when user lets go of "strings"
+                if (!ignorePress)
+                {
+                  while (lastGuitarNotes.size() > 0)
+                  {
+                    sendNoteOff(channel, lastGuitarNotes.back());
+                    lastGuitarNotes.pop_back();
+                  }
+                  while (lastGuitarNotesButtons.size() > 0)
+                  {
+                    sendNoteOff(channel, lastGuitarNotesButtons.back());
+                    lastGuitarNotesButtons.pop_back();
+                  }
+                  
+                  //handle string let go case and turn off all notes
+                  for (uint8_t i = 0; i < SequencerNotes.size(); i++)
+                  {
+                    if (SequencerNotes[i].channel == GUITAR_CHANNEL)
+                    {
+                      SequencerNotes[i].offset = 0;
+                      SequencerNotes[i].holdTime = 0;
+                    }
+                  }
+                }
               }
               //do nothing as we only care about neck tracking
             }
