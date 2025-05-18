@@ -4,7 +4,6 @@
 
 extern "C" char* sbrk(int incr); // Get current heap end
 
-
 struct noteShift {
   uint8_t paddleNote;
   uint8_t assignedNote;
@@ -136,7 +135,6 @@ std::vector<SequencerNote> SequencerNotes;
 std::vector<PatternNote> SequencerPatternA;
 std::vector<PatternNote> SequencerPatternB;
 std::vector<PatternNote> SequencerPatternC;
-
 
 class AssignedPattern
 {
@@ -336,6 +334,7 @@ const uint8_t ACTUAL_NECKBUTTONS = 27;
 const uint8_t NECKBUTTONS = 21;
 
 // --- STATE TRACKING ---
+bool b2Ignored = false;
 bool prevNoteOffState = LOW;
 bool prevCCState = LOW;
 std::vector<uint8_t> lastGuitarNotes;
@@ -346,10 +345,10 @@ uint8_t bufferLen2 = 0;
 char dataBuffer1[MAX_BUFFER_SIZE + 1];  // +1 for null terminator
 char dataBuffer2[MAX_BUFFER_SIZE + 1];  // +1 for null terminator
 char dataBuffer3[MAX_BUFFER_SIZE + 1];  // +1 for null terminator
-//char dataBuffer4[MAX_BUFFER_SIZE + 1];  // +1 for null terminator
+char dataBuffer4[MAX_BUFFER_SIZE + 1];  // +1 for null terminator
 uint8_t bufferLen1 = 0;
 uint8_t bufferLen3 = 0;
-//uint8_t bufferLen4 = 0;
+uint8_t bufferLen4 = 0;
 bool lastSimple = false;
 TranspositionDetector detector; 
 
@@ -365,6 +364,7 @@ const uint8_t MAX_PRESET = 6;
 const uint8_t NECK_COLUMNS = 3;
 const uint8_t NECK_ROWS = 7;
 const uint8_t NECK_ACTUALROWS = 9;
+
 
 bool hexStringAndMatches(const char* input, const char* target, int hexLen) {
   // hexLen = number of hex characters (should be even)
@@ -1203,16 +1203,16 @@ void prepareNeck()
   
   neckAssignments.push_back(tempNeck);
   
-  Serial.printf("neckAssignments size = %d\n", neckAssignments.size());
+  //Serial.printf("neckAssignments size = %d\n", neckAssignments.size());
 }
 
 std::vector<uint8_t> getGuitarChordNotesFromNeck(uint8_t row, uint8_t column, uint8_t usePreset)
 {
   //given preset get neck Assignment:
   neckAssignment n = neckAssignments[usePreset][row * NECK_COLUMNS + column]; 
-  Serial.printf("GT row %d col %d preset %d\n",row, column, usePreset);
-  Serial.printf("ChordType GT to chord = %d\n",(int)n.chordType);
-  Serial.printf("ChordType GT to key = %d\n",(int)n.key);
+  //Serial.printf("GT row %d col %d preset %d\n",row, column, usePreset);
+  //Serial.printf("ChordType GT to chord = %d\n",(int)n.chordType);
+  //Serial.printf("ChordType GT to key = %d\n",(int)n.key);
   //now based on neck assignment, we will need to determine enum value then return the value
   return allChordsGuitar[(uint8_t)n.chordType][(uint8_t)n.key];
 }
@@ -1223,14 +1223,14 @@ Chord getKeyboardChordNotesFromNeck(uint8_t row, uint8_t column, uint8_t usePres
   //Serial.printf("KB row %d col %d preset %d index %d\n",row, column, usePreset, row * NECK_COLUMNS + column);
 
   neckAssignment n = neckAssignments[usePreset][row * NECK_COLUMNS + column]; 
-  Serial.printf("ChordType KB to row = %d preset = %d\n",(int)n.chordType, usePreset);
+  //Serial.printf("ChordType KB to row = %d preset = %d\n",(int)n.chordType, usePreset);
   //now based on neck assignment, we will need to determine enum value then return the value
   return chords[(uint8_t)n.chordType];
 }
 
 void prepareConfig()
 {
-  Serial.printf("prepareConfig! Enter\n");
+  //Serial.printf("prepareConfig! Enter\n");
   uint8_t temp8;
   uint16_t temp16;
   for (uint8_t i = 0; i< MAX_PRESET; i++)
@@ -1266,23 +1266,22 @@ void prepareConfig()
     chordHoldStrict.push_back(false);
     simpleChordSetting.push_back(true);
   }
-  Serial.printf("prepareConfig! Exit\n");
+  //Serial.printf("prepareConfig! Exit\n");
 }
 
 void prepareChords()
 {
   //todo update based on config (simple) + patterns set based on presets
   std::vector<AssignedPattern> assignedFretPatterns;
-
-
+  assignedFretPatternsByPreset.clear();
   uint8_t rootNotes[] = {48, 50, 52, 53, 55, 57, 59};
   // Populate the assignedFretPatterns with the chords for each root note
   for (int x = 0; x < MAX_PRESET; x++)
   {
     assignedFretPatterns.clear();
-    for (int i = 0; i < 7; i++) 
+    for (int i = 0; i < NECK_ROWS; i++) 
     {
-      for (int j = 0; j < 3; j++)
+      for (int j = 0; j < NECK_COLUMNS; j++)
       {
         assignedFretPatterns.push_back(AssignedPattern(simpleChordSetting[x], getKeyboardChordNotesFromNeck(i,j,x), getGuitarChordNotesFromNeck(i,j,x), rootNotes[i], false));
       }
@@ -1290,32 +1289,18 @@ void prepareChords()
     lastPressedChord = assignedFretPatterns[0].assignedChord;
     lastPressedGuitarChord = allChordsGuitar[0][0]; // c major default strum
     //other ignored
-    for (int i = 0; i < 2; ++i) 
+    for (int i = 0; i < NECK_ACTUALROWS - NECK_ROWS; ++i) 
     {
-        for (int j = 0; j < 3; j++)
+        for (int j = 0; j < NECK_COLUMNS; j++)
       {
         assignedFretPatterns.push_back(AssignedPattern(simpleChordSetting[x], getKeyboardChordNotesFromNeck(i,j,x), getGuitarChordNotesFromNeck(i+7,j,x), rootNotes[i], true));
       } 
     }
 
-    // for (const AssignedPattern& pattern : assignedFretPatterns) 
-    // {
-    //   Serial.print("Pattern Simple: ");
-    //   Serial.print(pattern.getSimple() ? "Yes" : "No");
-    //   Serial.print(", Root Note: ");
-    //   Serial.print(pattern.assignedChord.getRootNote());
-    //   Serial.print(" Chord Notes: ");
-    //   for (uint8_t note : pattern.assignedChord.getChordNotes()) 
-    //   {
-    //       Serial.print(note);
-    //       Serial.print(" ");
-    //   }
-    //   Serial.println();
-    // }
-    Serial.printf("assignedFretPatterns size is %d\n", assignedFretPatterns.size());
+    //Serial.printf("assignedFretPatterns size is %d\n", assignedFretPatterns.size());
     assignedFretPatternsByPreset.push_back(assignedFretPatterns);
   }
-  Serial.printf("assignedFretPatternsByPreset size is %d\n", assignedFretPatternsByPreset.size());
+  //Serial.printf("assignedFretPatternsByPreset size is %d\n", assignedFretPatternsByPreset.size());
 }
 
 void printChords()
@@ -1450,23 +1435,17 @@ void setup() {
     Serial.println("SD card failed to initialize!");
     return;
   }
-
-  File file = SD.open("config.ini");
-  if (file) {
-    Serial.println("Reading back file contents:");
-    while (file.available()) {
-      Serial.write(file.read());
-    }
-    file.close();
-  } else {
-    Serial.println("Failed to open file for reading.");
-  }
-
+  
   prepareConfig();
   //printChords();  
   prepareNeck();
-  prepareChords();
+  
   preparePatterns();
+  if (!loadSettings())
+  {
+    Serial.println("Failed to open file for reading.");
+  }
+  prepareChords();
   tickTimer.begin(clockISR, computeTickInterval(deviceBPM)); // in microseconds
 }
 
@@ -1534,7 +1513,7 @@ void sendCC(uint8_t channel, uint8_t cc, uint8_t value) {
       transpose--;
     }
   }
-  Serial.printf("Transpose: ch=%d transpose=%d\n", channel, transpose);
+  //Serial.printf("Transpose: ch=%d transpose=%d\n", channel, transpose);
 }
 
 void trimBuffer(String& buffer) {
@@ -1590,7 +1569,6 @@ void handleSerialCommand(HardwareSerial &port, const char* label = "") {
     }
   }
 }
-
 
 void checkSerialGuitar(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen, uint8_t channel) {
   size_t last_len = 0;
@@ -1678,12 +1656,12 @@ void checkSerialGuitar(HardwareSerial& serialPort, char* buffer, uint8_t& buffer
                   
                   std::vector<uint8_t> chordNotes = assignedFretPatternsByPreset[preset][msg.note].getChords().getCompleteChordNotes(); //get notes
                   
-                  Serial.printf("chordNotes = ");
-                  for (uint8_t i = 0; i < chordNotes.size(); i++)
-                  {
-                    Serial.printf("%d ", chordNotes[i]);
-                  }
-                  Serial.printf("\n");
+                  //Serial.printf("chordNotes = ");
+                  //for (uint8_t i = 0; i < chordNotes.size(); i++)
+                  //{
+                    //Serial.printf("%d ", chordNotes[i]);
+                  //}
+                  //Serial.printf("\n");
                   while (omniChordNewNotes.size() < omniChordOrigNotes.size())
                   {
                     if (omniChordNewNotes.size() != 0)
@@ -1695,12 +1673,12 @@ void checkSerialGuitar(HardwareSerial& serialPort, char* buffer, uint8_t& buffer
                       omniChordNewNotes.push_back(chordNotes[i] + offset);
                     }
                   }
-                  Serial.printf("OmnichordnewNotes = ");
-                  for (uint8_t i = 0; i < omniChordNewNotes.size(); i++)
-                  {
-                    Serial.printf("%d ", omniChordNewNotes[i]);
-                  }
-                  Serial.printf("\n");
+                  //Serial.printf("OmnichordnewNotes = ");
+                  //for (uint8_t i = 0; i < omniChordNewNotes.size(); i++)
+                  //{
+//                    Serial.printf("%d ", omniChordNewNotes[i]);
+                  //}
+                  //Serial.printf("\n");
                 }
               }
               if (assignedFretPatternsByPreset[preset][msg.note].getSimple() && omniChordModeGuitar[preset] != OmniChordGuitarType)
@@ -1878,9 +1856,164 @@ void checkSerialBT(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen)
     char c = serialPort.read();
     Serial.print(c);
   }
-  
-    
 }
+
+template <typename SerialType>
+bool decodeCmd(SerialType& serialPort, String cmd, std::vector<String> *params)
+{
+  char buffer[64];
+  bool bTemp = false;
+  Serial.printf("Serial command received is %s\n", cmd.c_str());
+  if (cmd == "SAVE") 
+  {
+    if (saveSettings())
+    {
+      serialPort.write("OK00\r\n");
+    }
+    else
+    {
+      serialPort.write("ER00\r\n");
+    }
+
+    // Match found
+  }
+  else if (cmd == "RCFG") //read conffig
+  {
+    if (params->size() == 0)
+    {
+      serialPort.write("ER00\r\n");
+      return true;
+    }
+    if (atoi(params->at(0).c_str()) == 0)
+    {
+      printFileContents("config.ini", true);
+    }
+    else if (atoi(params->at(0).c_str()) == 1)
+    {
+      printFileContents("config2.ini", true);
+    }
+    else
+    {
+      serialPort.write("ER01\r\n");  
+    }
+    serialPort.write("OK00\r\n");
+      
+  }
+  else if (cmd == "RINI") //read conffig but through serial debug
+  {
+    if (params->size() == 0)
+    {
+      serialPort.write("ER00\r\n");
+      return true;
+    }
+    if (atoi(params->at(0).c_str()) == 0)
+    {
+      bTemp = printFileContents("config.ini", false);
+    }
+    else if (atoi(params->at(0).c_str()) == 1)
+    {
+      bTemp = printFileContents("config2.ini", false);
+    }
+    else
+    {
+      serialPort.write("ER01\r\n");  
+      return true;
+    }
+    if (!bTemp)
+    {
+      serialPort.write("ER02\r\n");  
+      return true;
+    }
+    serialPort.write("OK00\r\n");
+      
+  }
+  else if (cmd == "LOAD") //reload config
+  {
+    if (loadSettings())
+    {
+      serialPort.write("OK00\r\n");
+    }
+    else
+    {
+      serialPort.write("ER00\r\n");
+    }
+  }
+  else if (cmd == "PRSW") //Set Preset
+  {
+    if (params->size() == 0) //missing parameter
+    {
+      serialPort.write("ER00\r\n");
+      return true;
+    }
+    if (atoi(params->at(0).c_str()) >= MAX_PRESET || atoi(params->at(0).c_str()) < 0)
+    {
+      serialPort.write("ER01\r\n"); //invalid parameter
+      return true;
+    }
+    uint8_t newPreset = atoi(params->at(0).c_str());
+    if (newPreset != preset)
+    {
+      presetChanged();
+      preset = newPreset;
+    }
+    serialPort.write("OK00\r\n");
+  }
+  else if (cmd == "PRSR") //Set Preset
+  {
+
+    snprintf(buffer, sizeof(buffer), "OK00,%d\r\n", preset);
+    serialPort.write(buffer);
+  }
+  return true;
+}
+
+template <typename SerialType>
+void checkSerialCmd(SerialType& serialPort, char* buffer, uint8_t& bufferLen) 
+{
+  std::vector<String> params;
+  while (serialPort.available()) {
+    char c = serialPort.read();
+
+    // Prevent buffer overflow
+    if (bufferLen < 255) {
+      buffer[bufferLen++] = c;
+    }
+
+    // Look for command terminator
+    if (c == '\n' && bufferLen >= 2 && buffer[bufferLen - 2] == '\r') {
+      buffer[bufferLen] = '\0'; // Null-terminate the string
+
+      // Optionally: remove trailing \r\n for cleaner parsing
+      buffer[bufferLen - 2] = '\0';
+
+      // --- Parse Command ---
+      char* cmd = strtok(buffer, ",");
+      if (cmd && strlen(cmd) == 4) {
+        serialPort.printf("Received CMD: %s", cmd);
+
+        //int paramIndex = 1;
+        char* token;
+        while ((token = strtok(NULL, ",")) != NULL) {
+          //serialPort.printf("Param %d: %s\n", paramIndex++, token);
+          serialPort.printf(",%s", token);
+          params.push_back(String(token));
+        }
+        serialPort.printf("\n");
+        // Respond with OK
+        
+      } else {
+        serialPort.write("ER98\r\n");
+      }
+      if (!decodeCmd(serialPort, String(cmd), &params))
+      {
+        serialPort.write("ER99\r\n");
+      }
+      // Reset buffer for next command
+      bufferLen = 0;
+    }
+  }
+}
+
 
 void cancelGuitarChordNotes(const std::vector<uint8_t>& chordNotes) {
   // If the input chord is empty, there's nothing to cancel
@@ -1984,7 +2117,7 @@ void checkSerialKB(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen,
     //if (omniChordModeGuitar[preset] == 0)
     //{
       lastStrum = strum;
-      Serial.printf("Preset is %d\n", preset);
+      //Serial.printf("Preset is %d\n", preset);
       int lastPressed = neckButtonPressed;
       if (chordHold[preset])
       {
@@ -2023,7 +2156,7 @@ void checkSerialKB(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen,
         //do nothing
       }
     //}
-    Serial.printf("strum is %d\n", strum);
+    //Serial.printf("strum is %d\n", strum);
     memmove(buffer, buffer + 16, bufferLen - 15);
     bufferLen -= 16;
     buffer[bufferLen] = '\0';
@@ -2059,14 +2192,14 @@ void checkSerialKB(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen,
       
       if (omniChordModeGuitar[preset] != OmniChordOffType)
       {
-        Serial.printf("omniChordNewNotes.size() %d\n", omniChordNewNotes.size());
+        //Serial.printf("omniChordNewNotes.size() %d\n", omniChordNewNotes.size());
         if (omniChordNewNotes.size() == 0) //no guitar button pressed
         {
           skipNote = true;
         }
         else
         {
-          Serial.printf("Original Note is %d\n", note);
+          //Serial.printf("Original Note is %d\n", note);
           detector.noteOn(note);
           oldNote = note;
           //lastTransposeValueDetected = detector.getBestTranspose();
@@ -2253,6 +2386,366 @@ void noteAllOff()
   omniChordNewNotes.clear();
   lastOmniNotes.clear();
 }
+
+bool printFileContents(const char* filename, bool isSerialOut) {
+  File f = SD.open(filename, FILE_READ);
+  if (!f) 
+  {
+    if (!isSerialOut)
+    {
+      Serial.printf("Failed to open %s for reading\n", filename);
+    }
+    return false;
+  }
+
+  if (!isSerialOut)
+  {
+    Serial.printf("Contents of %s:\n", filename);
+  }
+
+  while (f.available()) {
+    char c = f.read();       // Read one character
+    if (isSerialOut)
+    {
+      Serial.write(c);  // Print using printf
+    }
+    else
+    {
+      Serial.printf("%c", c);  // Print using printf
+    }
+  }
+
+  f.close();
+  if (isSerialOut)
+  {
+    Serial.write("\n");  // Print using printf
+  }
+  else
+  {
+    Serial.println(); // Optional: newline after file contents
+  }
+  return true;
+}
+
+bool saveSimpleConfig()
+{
+  File f = SD.open("config.ini", FILE_WRITE);
+  if (f) 
+  {
+    f.seek(0);
+    f.truncate();
+    //file.println("your new config data");
+    //snprintf(buffer, sizeof(buffer), "Name: %s, Int: %d, Float: %.2f\n", name, someValue, anotherValue);
+    //file.print(buffer);
+    char buffer[64];
+    //MAX_PRESET value
+    snprintf(buffer, sizeof(buffer), "MAX_PRESET,%d\n", MAX_PRESET);
+    f.print(buffer);
+    snprintf(buffer, sizeof(buffer), "CUR_PRESET,%d\n", preset);
+    f.print(buffer);
+    //bool stopSoundsOnPresetChange = true;
+    snprintf(buffer, sizeof(buffer), "stopSoundsOnPresetChange,%d\n", stopSoundsOnPresetChange?1:0);
+    f.print(buffer);
+    //bool midiClockEnable = true;
+    snprintf(buffer, sizeof(buffer), "midiClockEnable,%d\n", midiClockEnable?1:0);
+    f.print(buffer);
+  
+    for (uint8_t i = 0; i < MAX_PRESET; i++)
+    {
+      //std::vector<uint8_t> omniChordModeGuitar;
+      snprintf(buffer, sizeof(buffer), "omniChordModeGuitar,%d,%d\n", i, omniChordModeGuitar[i]);
+      f.print(buffer);
+
+      //std::vector<bool> muteWhenLetGo;
+      snprintf(buffer, sizeof(buffer), "muteWhenLetGo,%d,%d\n", i, muteWhenLetGo[i]?1:0);
+      f.print(buffer);
+      
+      //std::vector<bool> ignoreSameChord;
+      snprintf(buffer, sizeof(buffer), "ignoreSameChord,%d,%d\n", i, ignoreSameChord[i]?1:0);
+      f.print(buffer);
+      //std::vector<uint16_t> presetBPM;
+      snprintf(buffer, sizeof(buffer), "presetBPM,%d,%d\n", i, presetBPM[i]);
+      f.print(buffer);
+      //std::vector<uint16_t> QUARTERNOTETICKS;
+      snprintf(buffer, sizeof(buffer), "QUARTERNOTETICKS,%d,%d\n", i, QUARTERNOTETICKS[i]);
+      f.print(buffer);
+      //std::vector<uint8_t> TimeNumerator;
+      snprintf(buffer, sizeof(buffer), "TimeNumerator,%d,%d\n", i, TimeNumerator[i]);
+      f.print(buffer);
+      //std::vector<uint8_t> TimeDenominator; // in terms of 1/48 notes
+      snprintf(buffer, sizeof(buffer), "TimeDenominator,%d,%d\n", i, TimeDenominator[i]);
+      f.print(buffer);
+      //std::vector<uint16_t> MaxBeatsPerBar;
+      snprintf(buffer, sizeof(buffer), "MaxBeatsPerBar,%d,%d\n", i, MaxBeatsPerBar[i]);
+      f.print(buffer);
+      //std::vector<bool> chordHold;
+      snprintf(buffer, sizeof(buffer), "chordHold,%d,%d\n", i, chordHold[i]?1:0);
+      f.print(buffer);
+      //std::vector<bool> chordHoldStrict;
+      snprintf(buffer, sizeof(buffer), "chordHoldStrict,%d,%d\n", i, chordHoldStrict[i]?1:0);
+      f.print(buffer);
+      //std::vector<uint8_t> simpleChordSetting;
+      snprintf(buffer, sizeof(buffer), "simpleChordSetting,%d,%d\n", i, simpleChordSetting[i]?1:0);
+      f.print(buffer);
+      //std::vector<uint8_t> strumSeparation; //time unit separation between notes //default 1
+      snprintf(buffer, sizeof(buffer), "strumSeparation,%d,%d\n", i, strumSeparation[i]);
+      f.print(buffer);
+    }
+  }
+  else
+  {
+    Serial.println("Error saving simple config!");
+    return false;
+  }
+  f.close();
+  return true;
+}
+
+bool saveComplexConfig()
+{
+  File f = SD.open("config2.ini", FILE_WRITE);
+  if (f) 
+  {
+    f.seek(0);
+    f.truncate();
+    char buffer[50];
+    //std::vector<std::vector<AssignedPattern>> assignedFretPatternsByPreset;
+    //std::vector<std::vector<neckAssignment>> neckAssignments; //[preset][neck assignment 0-27]
+    for (uint8_t k = 0; k < MAX_PRESET; k++)
+    {
+      for (uint8_t i = 0; i < NECK_ACTUALROWS; i++)
+      {
+        for (uint8_t j = 0; j < NECK_COLUMNS; j++)
+        {
+          snprintf(buffer, sizeof(buffer), "neckAssignmentsKey,%d,%d,%d,%d,%d\n", k, i, j, neckAssignments[k][i*NECK_COLUMNS+j].key, neckAssignments[k][i*NECK_COLUMNS+j].chordType);
+          f.print(buffer);
+          //seems this is derived from neckAssignments + simpleChordSetting + row, column, preset
+          //simpleChord setting - not needed
+          //AssignedPattern(simpleChordSetting[x], getKeyboardChordNotesFromNeck(i,j,x), getGuitarChordNotesFromNeck(i,j,x), rootNotes[i], false);
+          //prepareChords() could be used for loading but must clear the data first
+        }
+      }
+    }
+  }
+  else
+  {
+    Serial.println("Error saving complex config!");
+    return false;
+  }
+  f.close();
+  return true;
+}
+bool savePatternFiles(File f)
+{
+  //std::vector<PatternNote> SequencerPatternA;
+  //std::vector<PatternNote> SequencerPatternB;
+  //std::vector<PatternNote> SequencerPatternC;
+  return true;
+}
+
+bool saveSettings()
+{
+  if (!saveSimpleConfig())
+  {
+    Serial.printf("Error loading Simple Config!\n");
+    return false;
+  }
+  if (!saveComplexConfig())
+  {
+    
+    Serial.printf("Error loading Complex Config!\n");
+    return false;
+  }
+  
+  return true;
+}
+
+bool loadSimpleConfig() {
+  File f = SD.open("config.ini", FILE_READ);
+  if (!f) {
+    Serial.println("Error opening config.ini for reading!");
+    return false;
+  }
+
+  char line[64];
+  while (f.available()) {
+    size_t len = f.readBytesUntil('\n', line, sizeof(line) - 1);
+    line[len] = '\0'; // Null-terminate
+
+    // Trim trailing \r if present
+    if (len > 0 && line[len - 1] == '\r') {
+      line[len - 1] = '\0';
+    }
+
+    // Parse the line
+    char* key = strtok(line, ",");
+    char* arg1 = strtok(NULL, ",");
+    char* arg2 = strtok(NULL, ",");
+
+    if (!key || !arg1) continue;
+    int readPreset = MAX_PRESET;
+    if (strcmp(key, "MAX_PRESET") == 0) 
+    {
+      readPreset = atoi(arg1);
+      if (readPreset > MAX_PRESET)
+      {
+        Serial.printf("Error preset read is %d > MAX_PRESET\n", readPreset, MAX_PRESET);
+        f.close();
+        return false;
+      }
+    } 
+    else if (strcmp(key, "CUR_PRESET") == 0) 
+    {
+      uint8_t newPreset = atoi(arg1);
+      if (newPreset != preset)
+      Serial.printf("new vs old preset is %d vs %d\n", newPreset, preset);
+      {
+        presetChanged();
+        preset = newPreset;
+      }
+      
+    } 
+    else if (strcmp(key, "stopSoundsOnPresetChange") == 0) 
+    {
+      stopSoundsOnPresetChange = atoi(arg1);
+    } 
+    else if (strcmp(key, "midiClockEnable") == 0) 
+    {
+      midiClockEnable = atoi(arg1);
+    } 
+    else if (arg2) 
+    {
+      uint8_t i = atoi(arg1);
+      int val = atoi(arg2);
+
+      if (strcmp(key, "omniChordModeGuitar") == 0 && i < omniChordModeGuitar.size())
+        omniChordModeGuitar[i] = val;
+
+      else if (strcmp(key, "muteWhenLetGo") == 0 && i < muteWhenLetGo.size())
+        muteWhenLetGo[i] = val;
+
+      else if (strcmp(key, "ignoreSameChord") == 0 && i < ignoreSameChord.size())
+        ignoreSameChord[i] = val;
+
+      else if (strcmp(key, "presetBPM") == 0 && i < presetBPM.size())
+        presetBPM[i] = val;
+
+      else if (strcmp(key, "QUARTERNOTETICKS") == 0 && i < QUARTERNOTETICKS.size())
+        QUARTERNOTETICKS[i] = val;
+
+      else if (strcmp(key, "TimeNumerator") == 0 && i < TimeNumerator.size())
+        TimeNumerator[i] = val;
+
+      else if (strcmp(key, "TimeDenominator") == 0 && i < TimeDenominator.size())
+        TimeDenominator[i] = val;
+
+      else if (strcmp(key, "MaxBeatsPerBar") == 0 && i < MaxBeatsPerBar.size())
+        MaxBeatsPerBar[i] = val;
+
+      else if (strcmp(key, "chordHold") == 0 && i < chordHold.size())
+        chordHold[i] = val;
+
+      else if (strcmp(key, "chordHoldStrict") == 0 && i < chordHoldStrict.size())
+        chordHoldStrict[i] = val;
+
+      else if (strcmp(key, "simpleChordSetting") == 0 && i < simpleChordSetting.size())
+        simpleChordSetting[i] = val;
+
+      else if (strcmp(key, "strumSeparation") == 0 && i < strumSeparation.size())
+        strumSeparation[i] = val;
+    }
+  }
+  f.close();
+  return true;
+}
+
+
+bool loadComplexConfig() {
+  File f = SD.open("config2.ini", FILE_READ);
+  if (!f) {
+    Serial.println("Error opening config2.ini for reading!");
+    return false;
+  }
+
+  char line[80];
+  while (f.available()) {
+    size_t len = f.readBytesUntil('\n', line, sizeof(line) - 1);
+    line[len] = '\0';  // null-terminate
+
+    if (len > 0 && line[len - 1] == '\r') {
+      line[len - 1] = '\0';
+    }
+
+    char* key = strtok(line, ",");
+    char* arg0 = strtok(NULL, ",");
+    char* arg1 = strtok(NULL, ",");
+    char* arg2 = strtok(NULL, ",");
+    char* arg3 = strtok(NULL, ",");
+    char* arg4 = strtok(NULL, ",");
+
+    if (!key || !arg0 || !arg1 || !arg2 || !arg3 || !arg4) {
+      continue; // invalid line
+    }
+
+    if (strcmp(key, "neckAssignmentsKey") == 0) {
+      uint8_t presetT = atoi(arg0);
+      uint8_t row = atoi(arg1);
+      uint8_t col = atoi(arg2);
+      uint8_t keyVal = atoi(arg3);
+      uint8_t chordTypeVal = atoi(arg4);
+
+      if (presetT < neckAssignments.size() && 
+          (row * NECK_COLUMNS + col) < (int) neckAssignments[presetT].size()) {
+        neckAssignments[presetT][row * NECK_COLUMNS + col].key = (Note) keyVal;
+        neckAssignments[presetT][row * NECK_COLUMNS + col].chordType = (ChordType) chordTypeVal;
+      }
+    }
+  }
+
+  f.close();
+  return true;
+}
+
+bool loadPatternFiles()
+{
+  //std::vector<PatternNote> SequencerPatternA;
+  //std::vector<PatternNote> SequencerPatternB;
+  //std::vector<PatternNote> SequencerPatternC;
+  return true;
+}
+
+bool loadSettings()
+{
+  File file = SD.open("config.ini", FILE_READ);
+  if (file) 
+  {
+    file.seek(0);
+    file.truncate();
+    //file.println("your new config data");
+    //snprintf(buffer, sizeof(buffer), "Name: %s, Int: %d, Float: %.2f\n", name, someValue, anotherValue);
+    //file.print(buffer);
+    if (!loadSimpleConfig())
+    {
+      file.close();
+      Serial.printf("Error loading Simple Config!\n");
+      return false;
+    }
+    if (!loadComplexConfig())
+    {
+      file.close();
+      Serial.printf("Error loading Complex Config!\n");
+      return false;
+    }
+    file.close();
+  }
+  else
+  {
+    return false;
+  } 
+  Serial.println("Loading config is OK!");
+  return true;
+}
+
 void loop() {
     if (sendClockTick) 
     {
@@ -2264,6 +2757,7 @@ void loop() {
   checkSerialKB(Serial2, dataBuffer2, bufferLen2, KEYBOARD_CHANNEL);
   checkSerialBT(Serial3, dataBuffer3, bufferLen3);
   //checkSerialG2Piano(Serial4, dataBuffer4, bufferLen4, 3);
+  checkSerialCmd(Serial, dataBuffer4, bufferLen4);
   bool noteOffState = digitalRead(NOTE_OFF_PIN);
   if (noteOffState != prevNoteOffState && noteOffState == LOW) {
     Serial.println("NOTE_OFF_PIN pressed → All notes off");
@@ -2288,7 +2782,7 @@ void loop() {
 
   }
   prevCCState = ccState;
-
+/*
  // --- Button Handling ---
   bool button1State = digitalRead(BUTTON_1_PIN);
   if (button1State != prevButton1State && button1State == LOW) {
@@ -2297,8 +2791,13 @@ void loop() {
 
   }
   prevButton1State = button1State;
-
+*/
   bool button2State = digitalRead(BUTTON_2_PIN);
+  if (b2Ignored == false)
+  {
+    prevButton2State = digitalRead(BUTTON_2_PIN);
+    b2Ignored = true;
+  }
   if (button2State != prevButton2State && button2State == LOW) {
     Serial.println("Button 2 Pressed");
     presetChanged();
@@ -2312,13 +2811,14 @@ void loop() {
     Serial.printf("Preset is now %d\n", preset);
   }
   prevButton2State = button2State;
-
+/*
   bool button3State = digitalRead(BUTTON_3_PIN);
   if (button3State != prevButton3State && button3State == LOW) {
     Serial.println("Button 3 Pressed");
     preset = 2;
   }
   prevButton3State = button3State;
+*/
     // --- HM10 Bluetooth handling ---
   // while (HM10_BLUETOOTH.available()) {
   //   char c = HM10_BLUETOOTH.read();
