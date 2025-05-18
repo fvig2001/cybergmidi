@@ -4,6 +4,12 @@
 
 extern "C" char* sbrk(int incr); // Get current heap end
 
+
+struct noteShift {
+  uint8_t paddleNote;
+  uint8_t assignedNote;
+};
+
 class SequencerNote
 {
   public:
@@ -208,6 +214,7 @@ IntervalTimer tickTimer;
 int lastTransposeValueDetected = 0;
 
 //config
+bool stopSoundsOnPresetChange = true;
 bool midiClockEnable = true;
 uint16_t deviceBPM = 128;
 std::vector<uint8_t> omniChordModeGuitar;
@@ -333,6 +340,7 @@ bool prevNoteOffState = LOW;
 bool prevCCState = LOW;
 std::vector<uint8_t> lastGuitarNotes;
 std::vector<uint8_t> lastGuitarNotesButtons;
+std::vector<struct noteShift> lastOmniNotes;
 #define MAX_BUFFER_SIZE 150
 uint8_t bufferLen2 = 0;
 char dataBuffer1[MAX_BUFFER_SIZE + 1];  // +1 for null terminator
@@ -1253,6 +1261,7 @@ void prepareConfig()
     QUARTERNOTETICKS.push_back(temp16);
     muteWhenLetGo.push_back(false);
     ignoreSameChord.push_back(true);
+    ignoreSameChord[4] = false;
     chordHold.push_back(true);
     chordHoldStrict.push_back(false);
     simpleChordSetting.push_back(true);
@@ -1402,6 +1411,12 @@ void presetChanged()
   setNewBPM(presetBPM[preset]);
   omniChordNewNotes.clear();
   detector.transposeReset();
+  lastOmniNotes.clear();
+  //if all sounds must be stopped
+  if (stopSoundsOnPresetChange)
+  {
+    noteAllOff();
+  }
   neckButtonPressed = -1; // set last button is null
 }
 
@@ -1727,23 +1742,19 @@ void checkSerialGuitar(HardwareSerial& serialPort, char* buffer, uint8_t& buffer
             if (!ignore)
             {
               //mutes previous if another button is pressed
-              Serial.printf("MuteWhenLetGo %d, ignoreSameChord[preset] %d, LastValidpressed = %d neckPressed = %d\n", muteWhenLetGo[preset]?1:0, ignoreSameChord[preset]?1:0, lastValidNeckButtonPressed, neckButtonPressed);
+              //Serial.printf("MuteWhenLetGo %d, ignoreSameChord[preset] %d, LastValidpressed = %d neckPressed = %d\n", muteWhenLetGo[preset]?1:0, ignoreSameChord[preset]?1:0, lastValidNeckButtonPressed, neckButtonPressed);
               if (lastValidNeckButtonPressed >= 0 && !muteWhenLetGo[preset]) 
               {
                 //std::vector<uint8_t> chordNotes = assignedFretPatternsByPreset[preset][msg.note].getChords().getCompleteChordNotes(); //get notes
                 //check if same notes are to be played
                 bool ignorePress = false;
-                Serial.printf("Paco 1\n");
                 if (ignoreSameChord[preset])
                 {
-                  Serial.printf("lastGuitarNotes size %d SequencerNotes size %d\n", lastGuitarNotes.size(), SequencerNotes.size());
-                  Serial.printf("Paco 2\n");
+                  //Serial.printf("lastGuitarNotes size %d SequencerNotes size %d\n", lastGuitarNotes.size(), SequencerNotes.size());
                   bool isEqual = true;
-                  Serial.printf("Paco 3\n");
                   std::vector<uint8_t> chordNotesA = assignedFretPatternsByPreset[preset][lastValidNeckButtonPressed].getChords().getCompleteChordNotes(); //get notes
-                  Serial.printf("Paco 4 chordNotesA size %d\n", chordNotesA.size());
                   std::vector<uint8_t> chordNotesB = assignedFretPatternsByPreset[preset][neckButtonPressed].getChords().getCompleteChordNotes(); //get notes
-                  Serial.printf("Paco 5 chordNotesB.size()\n", chordNotesB.size());
+
                   for (uint8_t i = 0; i < chordNotesA.size() && i <chordNotesB.size(); i++)
                   {
                     if (chordNotesA[i] != chordNotesB[i])
@@ -1753,7 +1764,6 @@ void checkSerialGuitar(HardwareSerial& serialPort, char* buffer, uint8_t& buffer
                       break;
                     }
                   }
-                  Serial.printf("Paco 6\n");
                   if (isEqual)
                   {
                     ignorePress = true;
@@ -2036,6 +2046,7 @@ void checkSerialKB(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen,
 
   // --- Step 5: Main parser loop ---
   bool skipNote;
+  uint8_t oldNote = 0;
   while (true) {
     bool processed = false;
     skipNote = false;
@@ -2057,6 +2068,7 @@ void checkSerialKB(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen,
         {
           Serial.printf("Original Note is %d\n", note);
           detector.noteOn(note);
+          oldNote = note;
           //lastTransposeValueDetected = detector.getBestTranspose();
           //Serial.printf("lastTransposeValueDetected = %d\n", lastTransposeValueDetected);
           note = detector.getBestNote(note);
@@ -2067,10 +2079,23 @@ void checkSerialKB(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen,
         if ((status & 0xF0) == 0x90) 
         {
           sendNoteOn(channel, note+transpose, vel);
+          struct noteShift ns;
+          ns.assignedNote = note+transpose;
+          ns.paddleNote = oldNote;
+          lastOmniNotes.push_back(ns);
         }
         else
         {
-          sendNoteOff(channel, note+transpose, vel);
+          for (auto it = lastOmniNotes.begin(); it != lastOmniNotes.end(); ++it)
+          {
+              if (it->paddleNote == oldNote)
+              {
+                  note = it->assignedNote;
+                  lastOmniNotes.erase(it);
+                  break;
+              }
+          }
+          sendNoteOff(channel, note, vel);
         } 
       }
       memmove(buffer, buffer + 6, bufferLen - 5);
@@ -2217,7 +2242,17 @@ void onTick48()
   // Optional: wrap counter
   if (tickCount >= 4800) tickCount = 0;
 }
-
+void noteAllOff()
+{
+  for (uint8_t n = 0; n < 127; n++) 
+  {
+    sendNoteOff(GUITAR_CHANNEL, n);
+    sendNoteOff(KEYBOARD_CHANNEL, n);
+    sendNoteOff(GUITAR_BUTTON_CHANNEL, n);
+  }
+  omniChordNewNotes.clear();
+  lastOmniNotes.clear();
+}
 void loop() {
     if (sendClockTick) 
     {
@@ -2232,15 +2267,7 @@ void loop() {
   bool noteOffState = digitalRead(NOTE_OFF_PIN);
   if (noteOffState != prevNoteOffState && noteOffState == LOW) {
     Serial.println("NOTE_OFF_PIN pressed → All notes off");
-    for (int n = 0; n < 127; n++) {
-      sendNoteOff(GUITAR_CHANNEL, n);
-      sendNoteOff(KEYBOARD_CHANNEL, n);
-    }
-    if (omniChordModeGuitar[preset] != OmniChordOffType)
-    {
-      omniChordNewNotes.clear();
-      //set last pressed to -1
-    }
+    noteAllOff();
   }
   prevNoteOffState = noteOffState;
 
@@ -2274,12 +2301,13 @@ void loop() {
   bool button2State = digitalRead(BUTTON_2_PIN);
   if (button2State != prevButton2State && button2State == LOW) {
     Serial.println("Button 2 Pressed");
+    presetChanged();
     preset +=1;
     if (preset >= MAX_PRESET)
     {
       preset = 0;
     }
-    presetChanged();
+    
     //add preset handling here
     Serial.printf("Preset is now %d\n", preset);
   }
