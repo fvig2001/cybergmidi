@@ -363,7 +363,8 @@ int curProgram = 0;
 uint8_t playMode = 0;
 int neckButtonPressed = -1;
 int lastNeckButtonPressed = -1;
-int lastValidNeckButtonPressed = -1;
+int lastValidNeckButtonPressed = -1; 
+int lastValidNeckButtonPressed2 = -1; //for use with non guitar serial
 int lastBassNeckButtonPressed = -1;
 bool isKeyboard = false;
 bool prevButtonBTState = HIGH;
@@ -1427,10 +1428,13 @@ void prepareChords() {
   assignedFretPatternsByPreset.clear();
   uint8_t rootNotes[] = { 48, 50, 52, 53, 55, 57, 59 };
   // Populate the assignedFretPatterns with the chords for each root note
-  for (int x = 0; x < MAX_PRESET; x++) {
+  for (int x = 0; x < MAX_PRESET; x++) 
+  {
     assignedFretPatterns.clear();
-    for (int i = 0; i < NECK_ROWS; i++) {
-      for (int j = 0; j < NECK_COLUMNS; j++) {
+    for (int i = 0; i < NECK_ROWS; i++) 
+    {
+      for (int j = 0; j < NECK_COLUMNS; j++) 
+      {
         assignedFretPatterns.push_back(AssignedPattern(simpleChordSetting[x], getKeyboardChordNotesFromNeck(i, j, x), getGuitarChordNotesFromNeck(i, j, x), rootNotes[i], false, 0));
       }
     }
@@ -1544,6 +1548,7 @@ void presetChanged() {
 
   neckButtonPressed = -1;  // set last button is null
   lastValidNeckButtonPressed = -1;
+  lastValidNeckButtonPressed2 = -1;
 }
 
 void setup() {
@@ -1762,8 +1767,8 @@ void BPMTap() {
 
 void updateNotes(std::vector<uint8_t> &chordNotesA, std::vector<uint8_t> &chordNotesB, std::vector<SequencerNote> & SN)
 {
-  uint8_t modded = 0;
-  uint8_t ignored = 0;
+  //uint8_t modded = 0;
+  //uint8_t ignored = 0;
   std::vector<bool> noteModified(SN.size(), false);  // Track modifications
   for(uint8_t i = 0; i <chordNotesA.size(); i++)
   {
@@ -1773,16 +1778,16 @@ void updateNotes(std::vector<uint8_t> &chordNotesA, std::vector<uint8_t> &chordN
       {
         continue;
       }
-      if (SN[j].offset == 0)
-      {
-        ignored++;
-      }
+      //if (SN[j].offset == 0)
+      //{
+        //ignored++;
+      //}
       if (SN[j].note == chordNotesA[i] && SN[j].offset > 0) // we only care for unplayed notes
       {
         //if there is an equivalent on the new one, swap it out
         if (chordNotesB.size() > i)
         {
-          modded++;
+          //modded++;
           noteModified[j] = true;
           SN[j].note = chordNotesB[i];
         }
@@ -1790,14 +1795,14 @@ void updateNotes(std::vector<uint8_t> &chordNotesA, std::vector<uint8_t> &chordN
         {
           SN[j].note = i; 
           noteModified[j] = true;
-          modded++;
+          //modded++;
         }        
       }
       else if (SN[j].note <= 12)
       {
         if(SN[j].note < chordNotesB.size())
         {
-          modded++;
+          //modded++;
           noteModified[j] = true;
           SN[j].note = chordNotesB[SN[j].note];
         }
@@ -1851,9 +1856,11 @@ void checkSerialGuitar(HardwareSerial& serialPort, char* buffer, uint8_t& buffer
         size_t len = strlen(msg.hex);
         last_len = len;
 
-        if (bufferLen >= len && strncmp(buffer, msg.hex, len) == 0) {
+        if (bufferLen >= len && strncmp(buffer, msg.hex, len) == 0) 
+        {
           //handling for last 2 rows of guitar neck
-          if (msg.note >= MIN_IGNORED_GUITAR && msg.note <= MAX_IGNORED_GUITAR) {
+          if (msg.note >= MIN_IGNORED_GUITAR && msg.note <= MAX_IGNORED_GUITAR) 
+          {
             //todo add handling for C5, D4-D6 - D6 = drum start/stop, D5 - BPM compute tap. C5 - Sustain of sorts, D4 - Fill
             if (msg.note == BPM_COMPUTE_BUTTON) {
               BPMTap();
@@ -1918,10 +1925,12 @@ void checkSerialGuitar(HardwareSerial& serialPort, char* buffer, uint8_t& buffer
               }
             }
           } 
-          else 
+          else //handling for first 7 rows
           {
             lastNeckButtonPressed = neckButtonPressed;
-            if (lastNeckButtonPressed != -1) {
+            if (lastNeckButtonPressed != -1) 
+            {
+              lastValidNeckButtonPressed2 = lastValidNeckButtonPressed;
               lastValidNeckButtonPressed = neckButtonPressed;
             }
             if (msg.note != 255)  //button press
@@ -2003,31 +2012,50 @@ void checkSerialGuitar(HardwareSerial& serialPort, char* buffer, uint8_t& buffer
                 {
                   lastSimple = false;
                   //auto or manual type
-                  if (debug) {
-                    Serial.printf("Not simple! Type is %d\n", (int) simpleChordSetting[preset]);
-                  }
+                  //if (debug) {
+                    //Serial.printf("Not simple! Type is %d\n", (int) simpleChordSetting[preset]);
+                  //}
                   bool isReverse = false;
                   if (alternateDirection[preset])
                   {
                     isStrumUp = !isStrumUp;
                     isReverse = isStrumUp;
                   }
-                 
-                  if (lastValidNeckButtonPressed != neckButtonPressed && lastValidNeckButtonPressed != -1 && StaggeredSequencerNotes.size() > 0)
+                  if (lastValidNeckButtonPressed != neckButtonPressed && lastValidNeckButtonPressed != -1)
                   {
-                    Serial.printf("You need to change the notes! %d vs %d\n", lastValidNeckButtonPressed, neckButtonPressed);
+                    for (uint8_t i = 0; i < SequencerNotes.size(); i++)
+                    {
+                      if (SequencerNotes[i].channel == GUITAR_CHANNEL)
+                      {
+                        sendNoteOff(channel, SequencerNotes[i].note);
+                      }
+                    }
+                    SequencerNotes.clear();
+                  }
+
+                  if (lastValidNeckButtonPressed != neckButtonPressed && lastValidNeckButtonPressed != -1)// && StaggeredSequencerNotes.size() > 0)
+                  {
+                    //Serial.printf("You need to change the notes! %d vs %d\n", lastValidNeckButtonPressed, neckButtonPressed); 
+                    //todo pass index
                     std::vector<uint8_t> chordNotesA = assignedFretPatternsByPreset[preset][lastValidNeckButtonPressed].getChords().getCompleteChordNotesNo5();  //get notes
                     std::vector<uint8_t> chordNotesB = assignedFretPatternsByPreset[preset][neckButtonPressed].getChords().getCompleteChordNotesNo5();  //get notes
-                    updateNotes(chordNotesA, chordNotesB, StaggeredSequencerNotes);
-                  }
-                  else
-                  {
-                    if (neckButtonPressed != lastValidNeckButtonPressed)
+                    if (StaggeredSequencerNotes.size() > 0)
                     {
-                      lastValidNeckButtonPressed = neckButtonPressed; //force change 
+                      updateNotes(chordNotesA, chordNotesB, StaggeredSequencerNotes);
                     }
-                    Serial.printf("No button change? %d vs %d size %d msg %d\n", lastValidNeckButtonPressed, neckButtonPressed, StaggeredSequencerNotes.size(), msg.note);
+
                   }
+                  /*
+                  else 
+                  {
+                    //todo check 
+                    if (neckButtonPressed != lastValidNeckButtonPressed && neckButtonPressed != -1) //if size is 0
+                    {
+                      lastValidNeckButtonPressed2 = lastValidNeckButtonPressed;
+                      lastValidNeckButtonPressed = neckButtonPressed; //force change to reflect in buildAutoManualNotes
+                    }
+                  }
+                  */
                   buildAutoManualNotes(isReverse, msg.note); //always in order for 
                   //add whole sequence to to play queue
                   // depending on the mode, it will start playing if piano
@@ -2992,6 +3020,7 @@ bool decodeCmd(SerialType& serialPort, String cmd, std::vector<String>* params)
 
   //complex
   //std::vector<std::vector<AssignedPattern>> assignedFretPatternsByPreset;
+  
   else if (cmd == "NASW")  //neckAssignments write
   {
     if (params->size() < 5) {
@@ -3046,6 +3075,85 @@ bool decodeCmd(SerialType& serialPort, String cmd, std::vector<String>* params)
     snprintf(buffer, sizeof(buffer), "OK00,%d,%d\r\n", (int)neckAssignments[atoi(params->at(0).c_str())][atoi(params->at(1).c_str()) * NECK_COLUMNS + atoi(params->at(2).c_str())].key, (int)neckAssignments[atoi(params->at(0).c_str())][atoi(params->at(1).c_str()) * NECK_COLUMNS + atoi(params->at(2).c_str())].chordType);
     serialPort.write(buffer);
   }
+
+  else if (cmd == "NAPW")  //neckAssignments.customPattern write
+  {
+    if (params->size() < 4) {
+      serialPort.write("ER00\r\n");
+      return true;
+    }
+    if (atoi(params->at(0).c_str()) > MAX_PRESET || atoi(params->at(0).c_str()) < 0) {
+      serialPort.write("ER01\r\n");
+      return true;
+    }
+    //row
+    if (atoi(params->at(1).c_str()) > NECK_ROWS || atoi(params->at(1).c_str()) < 0) {
+      serialPort.write("ER02\r\n");
+      return true;
+    }
+    //column
+    if (atoi(params->at(2).c_str()) > NECK_COLUMNS || atoi(params->at(2).c_str()) < 0) {
+      serialPort.write("ER03\r\n");
+      return true;
+    }
+    if (atoi(params->at(3).c_str()) >= MAX_CUSTOM_PATTERNS || atoi(params->at(3).c_str()) < 0) {
+      serialPort.write("ER04\r\n");
+      return true;
+    }
+    assignedFretPatternsByPreset[atoi(params->at(0).c_str())][atoi(params->at(1).c_str()) * NECK_COLUMNS + atoi(params->at(2).c_str())].customPattern = atoi(params->at(3).c_str());
+    serialPort.write("OK00\r\n");
+  } 
+  else if (cmd == "NAPR")  //NeckAssignmentcustom.Pattern Read
+  {
+    if (params->size() < 3) {
+      serialPort.write("ER00\r\n");
+      return true;
+    }
+    if (atoi(params->at(0).c_str()) > MAX_PRESET || atoi(params->at(0).c_str()) < 0) {
+      serialPort.write("ER00\r\n");
+      return true;
+    }
+    //row
+    if (atoi(params->at(1).c_str()) > NECK_ROWS || atoi(params->at(1).c_str()) < 0) {
+      serialPort.write("ER00\r\n");
+      return true;
+    }
+    //column
+    if (atoi(params->at(2).c_str()) > NECK_COLUMNS || atoi(params->at(2).c_str()) < 0) {
+      serialPort.write("ER00\r\n");
+      return true;
+    }
+    snprintf(buffer, sizeof(buffer), "OK00,%d\r\n", (int)assignedFretPatternsByPreset[atoi(params->at(0).c_str())][atoi(params->at(1).c_str()) * NECK_COLUMNS + atoi(params->at(2).c_str())].customPattern);
+    serialPort.write(buffer);
+  }
+
+  else if (cmd == "NPAW")  //neckAssignments.customPattern write all
+  {
+    if (params->size() < 2) {
+      serialPort.write("ER00\r\n");
+      return true;
+    }
+    if (atoi(params->at(0).c_str()) > MAX_PRESET || atoi(params->at(0).c_str()) < 0) 
+    {
+      serialPort.write("ER01\r\n");
+      return true;
+    }
+    //patterns
+    if (atoi(params->at(1).c_str()) >= MAX_CUSTOM_PATTERNS || atoi(params->at(1).c_str()) < 0) {
+      serialPort.write("ER02\r\n");
+      return true;
+    }
+    for (int i = 0; i < NECK_ROWS; i++) 
+    {
+      for (int j = 0; j < NECK_COLUMNS; j++) 
+      {
+        Serial.printf("At %d: %d, %d = %d\n", atoi(params->at(0).c_str()), i, j, i * NECK_COLUMNS + j);
+        assignedFretPatternsByPreset[atoi(params->at(0).c_str())][i * NECK_COLUMNS + j].customPattern = atoi(params->at(1).c_str());
+      }
+    }
+    serialPort.write("OK00\r\n");
+  } 
+  
   return true;
 }
 
@@ -3216,7 +3324,6 @@ void buildAutoManualNotes(bool reverse, uint8_t buttonPressed)
   uint16_t currentOrder = 0;
   if (simpleChordSetting[preset] == ManualStrum)
   {
-    
     isManual = true;
     if (StaggeredSequencerNotes.size() == 0)
     {
@@ -3389,6 +3496,23 @@ void buildGuitarSequencerNotes(const std::vector<uint8_t>& chordNotes, bool reve
   }
 }
 
+void cancelAllGuitarNotes()
+{
+  //Serial.printf("Cancelling all guitar notes!\n");
+  for (uint8_t i = 0; i < SequencerNotes.size(); i++)
+  {
+    if (SequencerNotes[i].channel == GUITAR_CHANNEL)
+    {
+      SequencerNotes[i].offset = 0;
+      SequencerNotes[i].holdTime = 0;
+      if (SequencerNotes[i].note > 12)
+      {
+        sendNoteOff(GUITAR_CHANNEL, SequencerNotes[i].note); 
+      }
+    }
+
+  }
+}
 void checkSerialKB(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen, uint8_t channel) {
   // --- Step 1: Read bytes into buffer ---
   while (serialPort.available() && bufferLen < MAX_BUFFER_SIZE - 1) {
@@ -3465,17 +3589,19 @@ void checkSerialKB(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen,
           buildGuitarSequencerNotes(assignedFretPatternsByPreset[preset][lastPressed].assignedGuitarChord, true);
         }
         //else if (assignedFretPatternsByPreset[preset][msg.note].getPatternStyle() == ManualStrum)
-        else if (simpleChordSetting[preset] == ManualStrum)
+        else// if (simpleChordSetting[preset] == ManualStrum)
         {
+          cancelAllGuitarNotes();
           buildAutoManualNotes(true, lastPressed);
           //if there is an existing set of notes, kill them
           //build get next sequence of notes from pattern
           //add to StaggeredSequencerNotes but reversed as needed
         }
-        else //autostrum
-        {
-          buildAutoManualNotes(true, lastPressed);
-        }
+        //else //autostrum
+        //{
+//          cancelAllGuitarNotes();
+          //buildAutoManualNotes(true, lastPressed);
+        //}
       } 
       else  //omnichord mode just transposes the notes
       {
@@ -3493,18 +3619,19 @@ void checkSerialKB(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen,
           buildGuitarSequencerNotes(assignedFretPatternsByPreset[preset][lastPressed].assignedGuitarChord, false);
         }
         //else if (assignedFretPatternsByPreset[preset][msg.note].getPatternStyle() == ManualStrum)
-        else if (simpleChordSetting[preset] == ManualStrum)
+        else// if (simpleChordSetting[preset] == ManualStrum)
         {
           //if there is an existing set of notes, kill them
           //build get next sequence of notes from pattern
           //add to StaggeredSequencerNotes but not reversed as needed
+          cancelAllGuitarNotes();
           buildAutoManualNotes(false, lastPressed);
         }
-        else //autostrum
+        //else //autostrum
         //todo consider simplification
-        {
-          buildAutoManualNotes(false, lastPressed);
-        }
+        //{
+//          buildAutoManualNotes(false, lastPressed);
+        //}
       } else {
         detector.transposeDown();
       }
@@ -4005,8 +4132,11 @@ void noteAllOff() {
   omniChordNewNotes.clear();
   lastOmniNotes.clear();
   drumState = DrumStopped;
+  bassStart  = false;
   DrumSequencerNotes.clear();
   BassSequencerNotes.clear();
+  StaggeredSequencerNotes.clear();
+  SequencerNotes.clear();
 }
 
 bool printFileContents(const char* filename, bool isSerialOut) {
@@ -4132,6 +4262,15 @@ bool saveComplexConfig() {
           //simpleChord setting - not needed
           //AssignedPattern(simpleChordSetting[x], getKeyboardChordNotesFromNeck(i,j,x), getGuitarChordNotesFromNeck(i,j,x), rootNotes[i], false);
           //prepareChords() could be used for loading but must clear the data first
+        }
+      }
+    }
+  
+    for (uint8_t k = 0; k < MAX_PRESET; k++) {
+      for (uint8_t i = 0; i < NECK_ROWS; i++) {
+        for (uint8_t j = 0; j < NECK_COLUMNS; j++) {
+          snprintf(buffer, sizeof(buffer), "assignedFretPatternsByPreset,%d,%d,%d,%d\n", k, i, j, assignedFretPatternsByPreset[k][i * NECK_COLUMNS + j].customPattern);
+          f.print(buffer);
         }
       }
     }
@@ -4435,6 +4574,17 @@ bool loadComplexConfig() {
       if (presetT < neckAssignments.size() && (row * NECK_COLUMNS + col) < (int)neckAssignments[presetT].size()) {
         neckAssignments[presetT][row * NECK_COLUMNS + col].key = (Note)keyVal;
         neckAssignments[presetT][row * NECK_COLUMNS + col].chordType = (ChordType)chordTypeVal;
+      }
+    }
+    if (strcmp(key, "assignedFretPatternsByPreset") == 0) {
+      uint8_t presetT = atoi(arg0);
+      uint8_t row = atoi(arg1);
+      uint8_t col = atoi(arg2);
+      uint8_t patVal = atoi(arg3);
+
+      if (presetT < neckAssignments.size() && (row * NECK_COLUMNS + col) < (int)assignedFretPatternsByPreset[presetT].size()) {
+        assignedFretPatternsByPreset[presetT][row * NECK_COLUMNS + col].customPattern = patVal;
+        
       }
     }
   }
