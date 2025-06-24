@@ -1962,7 +1962,7 @@ void checkSerialGuitar(HardwareSerial& serialPort, char* buffer, uint8_t& buffer
               }
               else
               {
-                isSustainPressed = true;
+                isSustain = true;
               }
               sendSustain(KEYBOARD_CHANNEL, isSustain);
             }
