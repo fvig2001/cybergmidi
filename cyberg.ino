@@ -140,11 +140,11 @@ public:
     bool skip;
     for (uint8_t i = 0; i < notes.size(); i++) {
       skip = false;
-      if (notes.size() > 2 && i == 1) //do not add 5th
+      if (notes.size() > 2 && i == 1) //do not add 5th which is on 1
       {
         skip = true;
       }
-      else if (notes.size() > 3 && i != notes.size() - 1) //
+      else if (notes.size() > 3 && i != notes.size() - 1) //assume 3rd and last not only
       {
         skip = true; //only get last
       }
@@ -394,22 +394,19 @@ bool debug = DEBUG;
 bool stopSoundsOnPresetChange = true;
 bool midiClockEnable = true;
 //uint16_t deviceBPM = 128;
+std::vector<bool> enableAllNotesOnChords;
 std::vector<bool> enableButtonMidi;
-std::vector<bool> noFifthsGuitar;
 std::vector<uint8_t> omniChordModeGuitar; //omnichord modes
 std::vector<bool> muteWhenLetGo;
 std::vector<bool> ignoreSameChord;
 std::vector<uint16_t> presetBPM;
 
-std::vector<uint8_t> TimeNumerator;
-std::vector<uint8_t> TimeDenominator;  // in terms of 1/64 notes
-std::vector<uint16_t> MaxBeatsPerBar;
 std::vector<bool> chordHold;
 std::vector<bool> alternateDirection;
 std::vector<bool> useToggleSustain;
 std::vector<int8_t> guitarTranspose; //capo setting
 std::vector<int8_t> omniKBTransposeOffset;  //used to determine if omnichord keyboard is shifted up or down by octave
-std::vector<uint8_t> simpleChordSetting;
+std::vector<uint8_t> simpleChordSetting; //strum style
 std::vector<uint8_t> strumSeparation;             //time unit separation between notes //default 1
 std::vector<uint8_t> muteSeparation;             //time unit separation between muting notes //default 1
 std::vector<bool> drumsEnabled;
@@ -450,20 +447,28 @@ public:
   void noteOn(int midiNote) {
     if (midiNote < lowest) {
       if (debug) {
-        Serial.printf("New Low = Lowest %d Old %d\n", midiNote, lowest);
+        Serial.printf("New Low = Lowest %d Old %d high %d\n", midiNote, lowest, highest);
       }
       //53 is found instead of 65
       offset = omniChordOrigNotes[0] - midiNote;  //12
       lowest = midiNote;
       highest = omniChordOrigNotes[omniChordOrigNotes.size() - 1] - offset;  //84 -12
+      if (debug) {
+        Serial.printf("offset %d\n", offset);
+      }
+      //highest = midiNote + 12;
     } else if (midiNote > highest) {
       if (debug) {
-        Serial.printf("New High = Highest %d Old %d\n", midiNote, highest);
+        Serial.printf("New High = Highest %d Old %d low %d\n", midiNote, highest, lowest);
       }
       //96 is found instead of 84
       offset = midiNote - omniChordOrigNotes[omniChordOrigNotes.size() - 1];  //12
       highest = midiNote;
       lowest = omniChordOrigNotes[0] + offset;
+      if (debug) {
+        Serial.printf("offset %d\n", offset);
+      }
+      //lowest = midiNote - 12;
     }
   }
 
@@ -1363,10 +1368,8 @@ bool isStaggeredNotes()
 void prepareConfig() {
   presetBPM.clear();
   omniChordModeGuitar.clear();
+  enableAllNotesOnChords.clear();
   enableButtonMidi.clear();
-  TimeNumerator.clear();
-  TimeDenominator.clear();
-  MaxBeatsPerBar.clear();
   strumSeparation.clear();
   
   muteWhenLetGo.clear();
@@ -1394,11 +1397,6 @@ void prepareConfig() {
     } else {
       omniChordModeGuitar.push_back(0);
     }
-    temp8 = 4;
-    TimeNumerator.push_back(temp8);
-    temp8 = 12;
-    TimeDenominator.push_back(temp8);
-    MaxBeatsPerBar.push_back(TimeNumerator.back() * TimeDenominator.back());
     temp8 = 1;
     strumSeparation.push_back(temp8);
     muteSeparation.push_back(3);
@@ -1413,6 +1411,7 @@ void prepareConfig() {
     useToggleSustain.push_back(false);
     simpleChordSetting.push_back(0);
     enableButtonMidi.push_back(false);
+    enableAllNotesOnChords.push_back(false);
     drumsEnabled.push_back(true);
     bassEnabled.push_back(true);
   }
@@ -1571,13 +1570,13 @@ void noteAllOff(int channel = -1)
         sendNoteOff(GUITAR_BUTTON_CHANNEL, n);
         sendNoteOff(DRUM_CHANNEL, n);
         sendNoteOff(BASS_CHANNEL, n);
-        omniChordNewNotes.clear();
-        lastOmniNotes.clear();
+        //omniChordNewNotes.clear();
+        //lastOmniNotes.clear();
         drumState = DrumStopped;
         bassStart  = false;
         DrumSequencerNotes.clear();
         BassSequencerNotes.clear();
-        StaggeredSequencerNotes.clear();
+        //StaggeredSequencerNotes.clear();
         SequencerNotes.clear();
         buttonPressedChanged = false;
     }
@@ -1806,6 +1805,7 @@ bool areChordsEqual(std::vector<uint8_t> chordNotesA, std::vector<uint8_t> chord
       if (chordNotesA[i] == chordNotesB[j])
       {
         curFound = true;
+        break;
       }
     }
     if (curFound == false)
@@ -1822,6 +1822,7 @@ bool areChordsEqual(std::vector<uint8_t> chordNotesA, std::vector<uint8_t> chord
       if (chordNotesB[i] == chordNotesA[j])
       {
         curFound = true;
+        break;
       }
     }
     if (curFound == false)
@@ -2157,9 +2158,18 @@ void checkSerialGuitar(HardwareSerial& serialPort, char* buffer, uint8_t& buffer
                   if (lastValidNeckButtonPressed2 != lastValidNeckButtonPressed && lastValidNeckButtonPressed2 != -1 && lastValidNeckButtonPressed != -1)// && StaggeredSequencerNotes.size() > 0)
                   {
                     //Serial.printf("You need to change the notes! %d vs %d\n", lastValidNeckButtonPressed, neckButtonPressed); 
-                    
-                    std::vector<uint8_t> chordNotesA = assignedFretPatternsByPreset[preset][lastValidNeckButtonPressed2].getChords().getCompleteChordNotesNo5();  //get notes
-                    std::vector<uint8_t> chordNotesB = assignedFretPatternsByPreset[preset][lastValidNeckButtonPressed].getChords().getCompleteChordNotesNo5();  //get notes
+                    std::vector<uint8_t> chordNotesA;
+                    std::vector<uint8_t> chordNotesB;
+                    if (enableAllNotesOnChords[preset])
+                    {
+                      chordNotesA = assignedFretPatternsByPreset[preset][lastValidNeckButtonPressed2].getChords().getCompleteChordNotes();  //get notes
+                      chordNotesB = assignedFretPatternsByPreset[preset][lastValidNeckButtonPressed].getChords().getCompleteChordNotes();  //get notes
+                    }
+                    else
+                    {
+                      chordNotesA = assignedFretPatternsByPreset[preset][lastValidNeckButtonPressed2].getChords().getCompleteChordNotesNo5();  //get notes
+                      chordNotesB = assignedFretPatternsByPreset[preset][lastValidNeckButtonPressed].getChords().getCompleteChordNotesNo5();  //get notes
+                    }
                     if (StaggeredSequencerNotes.size() > 0)
                     {
                       updateNotes(chordNotesA, chordNotesB, StaggeredSequencerNotes);
@@ -3095,7 +3105,36 @@ bool decodeCmd(SerialType& serialPort, String cmd, std::vector<String>* params)
     snprintf(buffer, sizeof(buffer), "OK00,%d\r\n", muteSeparation[atoi(params->at(0).c_str())]);
     serialPort.write(buffer);
   }
-  
+  else if (cmd == "EANW")  //enableAllNotesOnChords write
+  {
+    if (params->size() < 2) {
+      serialPort.write("ER00\r\n");
+      return true;
+    }
+    if (atoi(params->at(0).c_str()) > MAX_PRESET || atoi(params->at(0).c_str()) < 0) {
+      serialPort.write("ER00\r\n");
+      return true;
+    }
+    if (atoi(params->at(1).c_str()) > 1 || atoi(params->at(1).c_str()) < 0) {
+      serialPort.write("ER00\r\n");
+      return true;
+    }
+    enableAllNotesOnChords[atoi(params->at(0).c_str())] = atoi(params->at(1).c_str()) == 1;
+    serialPort.write("OK00\r\n");
+  } 
+  else if (cmd == "EANR")  //enableButtonMidi Read
+  {
+    if (params->size() < 1) {
+      serialPort.write("ER00\r\n");
+      return true;
+    }
+    if (atoi(params->at(0).c_str()) > MAX_PRESET || atoi(params->at(0).c_str()) < 0) {
+      serialPort.write("ER00\r\n");
+      return true;
+    }
+    snprintf(buffer, sizeof(buffer), "OK00,%d\r\n", enableAllNotesOnChords[atoi(params->at(0).c_str())]?1:0);
+    serialPort.write(buffer);
+  }
   else if (cmd == "EBMW")  //enableButtonMidi write
   {
     if (params->size() < 2) {
@@ -3201,9 +3240,6 @@ bool decodeCmd(SerialType& serialPort, String cmd, std::vector<String>* params)
   
   //simple
   //std::vector<uint16_t> QUARTERNOTETICKS;
-  //std::vector<uint8_t> TimeNumerator;
-  //std::vector<uint8_t> TimeDenominator; // in terms of 1/48 notes
-  //std::vector<uint16_t> MaxBeatsPerBar;
 
   //complex
   //std::vector<std::vector<AssignedPattern>> assignedFretPatternsByPreset;
@@ -3602,7 +3638,17 @@ void buildAutoManualNotes(bool reverse, int buttonPressed)
   }
   
   //basically adjust offset and holdtime for manual strum and get the notes typically just gets 3 notes at 
-  std::vector<uint8_t> chordNotes = assignedFretPatternsByPreset[preset][buttonPressed].assignedChord.getCompleteChordNotesNo5(); 
+  //todo check if ths is better than 3 notes only
+  //std::vector<uint8_t> chordNotes = assignedFretPatternsByPreset[preset][buttonPressed].assignedChord.getCompleteChordNotesNo5(); 
+  std::vector<uint8_t> chordNotes;
+  if (enableAllNotesOnChords[preset])
+  {
+    chordNotes = assignedFretPatternsByPreset[preset][buttonPressed].assignedChord.getCompleteChordNotes(); 
+  }
+  else
+  {
+    chordNotes = assignedFretPatternsByPreset[preset][buttonPressed].assignedChord.getCompleteChordNotesNo5(); 
+  }
   for (uint8_t i = 0; i < SequencerNotes.size(); i++)
   {
     if (isManual) // adds virtual strumming delay
@@ -3805,9 +3851,19 @@ void checkSerialKB(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen,
           //update guitar notes to match chord button
           if (buttonPressedChanged && getPreviousButtonPressed() != -1 && getCurrentButtonPressed() != -1 && getPreviousButtonPressed() != getCurrentButtonPressed())
           {
-            
-            std::vector<uint8_t> chordNotesA = assignedFretPatternsByPreset[preset][getPreviousButtonPressed()].getChords().getCompleteChordNotesNo5();  //get notes
-            std::vector<uint8_t> chordNotesB = assignedFretPatternsByPreset[preset][getCurrentButtonPressed()].getChords().getCompleteChordNotesNo5();  //get notes
+            //todo check if no 5 is needed            
+            std::vector<uint8_t> chordNotesA;
+            std::vector<uint8_t> chordNotesB;
+            if (enableAllNotesOnChords[preset])
+            {
+              chordNotesA = assignedFretPatternsByPreset[preset][getPreviousButtonPressed()].getChords().getCompleteChordNotes();  //get notes
+              chordNotesB = assignedFretPatternsByPreset[preset][getCurrentButtonPressed()].getChords().getCompleteChordNotes();  //get notes
+            }
+            else
+            {
+              chordNotesA = assignedFretPatternsByPreset[preset][getPreviousButtonPressed()].getChords().getCompleteChordNotesNo5();  //get notes
+              chordNotesB = assignedFretPatternsByPreset[preset][getCurrentButtonPressed()].getChords().getCompleteChordNotesNo5();  //get notes
+            }
             //Serial.printf("I was supposed to change notes sample\n");
             if (SequencerNotes.size() > 0)
             {
@@ -3852,8 +3908,19 @@ void checkSerialKB(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen,
           //update guitar notes to match chord button
           if (buttonPressedChanged && getPreviousButtonPressed()!= -1 && getCurrentButtonPressed() != -1 && getPreviousButtonPressed() != getCurrentButtonPressed())
           {
-            std::vector<uint8_t> chordNotesA = assignedFretPatternsByPreset[preset][getPreviousButtonPressed()].getChords().getCompleteChordNotesNo5();  //get notes
-            std::vector<uint8_t> chordNotesB = assignedFretPatternsByPreset[preset][getCurrentButtonPressed()].getChords().getCompleteChordNotesNo5();  //get notes
+            //todo check if no5 is better
+            std::vector<uint8_t> chordNotesA;
+            std::vector<uint8_t> chordNotesB;
+            if(enableAllNotesOnChords[preset])
+            {
+              chordNotesA = assignedFretPatternsByPreset[preset][getPreviousButtonPressed()].getChords().getCompleteChordNotes();  //get notes
+              chordNotesB = assignedFretPatternsByPreset[preset][getCurrentButtonPressed()].getChords().getCompleteChordNotes();  //get notes
+            }
+            else
+            {
+              chordNotesA = assignedFretPatternsByPreset[preset][getPreviousButtonPressed()].getChords().getCompleteChordNotesNo5();  //get notes
+              chordNotesB = assignedFretPatternsByPreset[preset][getCurrentButtonPressed()].getChords().getCompleteChordNotesNo5();  //get notes
+            }
             if (SequencerNotes.size() > 0)
             {
               updateNotes(chordNotesA, chordNotesB, StaggeredSequencerNotes);
@@ -3864,7 +3931,6 @@ void checkSerialKB(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen,
           buildAutoManualNotes(false, lastValidNeckButtonPressed); //gets next manual note
         }
         else //autostrum
-        //todo consider simplification
         {
           cancelAllGuitarNotes();
           buildAutoManualNotes(false, lastPressed);
@@ -4095,8 +4161,19 @@ void advanceBassSequencerStep() {
   }
   else if (lastValidNeckButtonPressed != lastBassNeckButtonPressed)
   {
-    std::vector<uint8_t> chordNotesA = assignedFretPatternsByPreset[preset][lastBassNeckButtonPressed].getChords().getCompleteChordNotesNo5();  //get notes
-    std::vector<uint8_t> chordNotesB = assignedFretPatternsByPreset[preset][lastValidNeckButtonPressed].getChords().getCompleteChordNotesNo5();  //get notes
+    //todo check if no5 is better 
+    std::vector<uint8_t> chordNotesA;
+    std::vector<uint8_t> chordNotesB;
+    if(enableAllNotesOnChords[preset])
+    {
+      chordNotesA = assignedFretPatternsByPreset[preset][lastBassNeckButtonPressed].getChords().getCompleteChordNotes();  //get notes
+      chordNotesB = assignedFretPatternsByPreset[preset][lastValidNeckButtonPressed].getChords().getCompleteChordNotes();  //get notes
+    }
+    else
+    {
+      chordNotesA = assignedFretPatternsByPreset[preset][lastBassNeckButtonPressed].getChords().getCompleteChordNotesNo5();  //get notes
+      chordNotesB = assignedFretPatternsByPreset[preset][lastValidNeckButtonPressed].getChords().getCompleteChordNotesNo5();  //get notes
+    }
     updateNotes(chordNotesA, chordNotesB, BassSequencerNotes);
     lastBassNeckButtonPressed = lastValidNeckButtonPressed;
     //we need to switch the notes
@@ -4434,17 +4511,6 @@ bool saveSimpleConfig() {
       //std::vector<uint16_t> presetBPM;
       snprintf(buffer, sizeof(buffer), "presetBPM,%d,%d\n", i, presetBPM[i]);
       f.print(buffer);
-      //std::vector<uint16_t> QUARTERNOTETICKS;
-      
-      //std::vector<uint8_t> TimeNumerator;
-      snprintf(buffer, sizeof(buffer), "TimeNumerator,%d,%d\n", i, TimeNumerator[i]);
-      f.print(buffer);
-      //std::vector<uint8_t> TimeDenominator; // in terms of 1/48 notes
-      snprintf(buffer, sizeof(buffer), "TimeDenominator,%d,%d\n", i, TimeDenominator[i]);
-      f.print(buffer);
-      //std::vector<uint16_t> MaxBeatsPerBar;
-      snprintf(buffer, sizeof(buffer), "MaxBeatsPerBar,%d,%d\n", i, MaxBeatsPerBar[i]);
-      f.print(buffer);
       //std::vector<bool> chordHold;
       snprintf(buffer, sizeof(buffer), "chordHold,%d,%d\n", i, chordHold[i] ? 1 : 0);
       f.print(buffer);
@@ -4460,6 +4526,7 @@ bool saveSimpleConfig() {
       snprintf(buffer, sizeof(buffer), "guitarTranspose,%d,%d\n", i, (int) guitarTranspose[i]);
       //snprintf(buffer, sizeof(buffer), "useGradualMute,%d,%d\n", i, (int) useGradualMute[i]);
       snprintf(buffer, sizeof(buffer), "enableButtonMidi,%d,%d\n", i, (int) enableButtonMidi[i]);
+      snprintf(buffer, sizeof(buffer), "enableAllNotesOnChords,%d,%d\n", i, (int) enableAllNotesOnChords[i]);
       snprintf(buffer, sizeof(buffer), "drumsEnabled,%d,%d\n", i, (int) drumsEnabled[i]);
       snprintf(buffer, sizeof(buffer), "bassEnabled,%d,%d\n", i, (int) bassEnabled[i]);
       f.print(buffer);
@@ -4722,17 +4789,6 @@ bool loadSimpleConfig() {
       else if (strcmp(key, "presetBPM") == 0 && i < presetBPM.size())
         presetBPM[i] = val;
 
-
-
-      else if (strcmp(key, "TimeNumerator") == 0 && i < TimeNumerator.size())
-        TimeNumerator[i] = val;
-
-      else if (strcmp(key, "TimeDenominator") == 0 && i < TimeDenominator.size())
-        TimeDenominator[i] = val;
-
-      else if (strcmp(key, "MaxBeatsPerBar") == 0 && i < MaxBeatsPerBar.size())
-        MaxBeatsPerBar[i] = val;
-
       else if (strcmp(key, "chordHold") == 0 && i < chordHold.size())
         chordHold[i] = val;
 
@@ -4753,6 +4809,8 @@ bool loadSimpleConfig() {
         //useGradualMute[i] = val;
       else if (strcmp(key, "enableButtonMidi") == 0 && i < enableButtonMidi.size())
         enableButtonMidi[i] = val == 1;
+      else if (strcmp(key, "enableAllNotesOnChords") == 0 && i < enableAllNotesOnChords.size())
+        enableAllNotesOnChords[i] = val == 1;      
       else if (strcmp(key, "drumsEnabled") == 0 && i < drumsEnabled.size())
         drumsEnabled[i] = val == 1;
       else if (strcmp(key, "bassEnabled") == 0 && i < bassEnabled.size())
