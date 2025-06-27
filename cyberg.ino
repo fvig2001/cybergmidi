@@ -1,6 +1,7 @@
 #include <usb_midi.h>
 #include <vector>
 #include <SD.h>
+#include "helperClasses.h"
 //defines
 #define OMNICHORD_TRANSPOSE_MAX 2
 #define OMNICHORD_TRANSPOSE_MIN -2
@@ -37,7 +38,7 @@
 #define DRUM_FILL_ID 3
 #define DRUM_END_ID 4
 
-#define MAX_VELOCITY 127
+
 #define MAX_NOTE 127
 #define REST_NOTE 255
 
@@ -63,15 +64,12 @@
 
 #define MAX_STRUM_STYLE 3
 // Other constants
-//#define ACTUAL_NECKBUTTONS 27
+#define ACTUAL_NECKBUTTONS 27
 //#define NECKBUTTONS 21
 
 extern "C" char* sbrk(int incr);  // Get current heap end
 
-struct noteShift {
-  uint8_t paddleNote;
-  uint8_t assignedNote;
-};
+
 
 enum DrumState{
   DrumNone = -1, //for next only to indicate nothing next is in queue
@@ -87,93 +85,7 @@ enum StrumStyleType {
   AutoStrum = 1, //does a specific pattern automatically
   ManualStrum = 2, //user will have to press or strum to get next pattern
 };
-class SequencerNote {
-public:
-  uint16_t holdTime;
-  uint16_t offset;
-  uint8_t note;
-  uint8_t channel;
-  uint8_t velocity;
-  SequencerNote()
-  {
-    note = 0;
-    holdTime = 0;
-    offset = 0;
-    channel = -1;
-    velocity = MAX_VELOCITY;
-  }
-  SequencerNote(uint8_t newNote, int newholdTime, uint16_t newoffset, uint8_t newchannel, uint8_t newvelocity = MAX_VELOCITY) {
-    note = newNote;
-    holdTime = newholdTime;
-    offset = newoffset;
-    channel = newchannel;
-    velocity = newvelocity;
-  }
-};
-class Chord {
-public:
-  uint8_t rootNote;
-  // Constructor that accepts a vector of relative notes
-  Chord() {
-    rootNote = 0;
-  }
-  Chord(const std::vector<uint8_t>& relativeNotes)
-    : notes(relativeNotes) {
-    rootNote = 0;
-  }
 
-  // Get the relative notes of the chord
-  std::vector<uint8_t> getChordNotes() const {
-    return notes;
-  }
-  std::vector<uint8_t> getCompleteChordNotes() const {
-    std::vector<uint8_t> complete;
-    complete.push_back(rootNote);
-    for (uint8_t i = 0; i < notes.size(); i++) {
-      complete.push_back(notes[i] + rootNote);
-    }
-    return complete;
-  }
-  std::vector<uint8_t> getCompleteChordNotesNo5() const {
-    std::vector<uint8_t> complete;
-    complete.push_back(rootNote);
-    bool skip;
-    for (uint8_t i = 0; i < notes.size(); i++) {
-      skip = false;
-      if (notes.size() > 2 && i == 1) //do not add 5th which is on 1
-      {
-        skip = true;
-      }
-      else if (notes.size() > 3 && i != notes.size() - 1) //assume 3rd and last not only
-      {
-        skip = true; //only get last
-      }
-      if (!skip)
-      {
-        complete.push_back(notes[i] + rootNote);
-      }
-    }
-    return complete;
-  }
-
-  uint8_t getRootNote() const {
-    return rootNote;
-  }
-  void setRootNote(uint8_t newNote) {
-    rootNote = newNote;
-  }
-  // Print the relative chord's notes
-  void printChordInfo() const {
-    Serial.print("Chord Notes: ");
-    for (uint8_t note : notes) {
-      Serial.print(note);
-      Serial.print(" ");
-    }
-    Serial.println();
-  }
-
-  std::vector<uint8_t> notes;  // A vector of intervals relative to the root note
-};
 
 std::vector<SequencerNote> SequencerNotes; //queue of guitar notes
 std::vector<SequencerNote> StaggeredSequencerNotes; //queue of staggered guitar notes
@@ -272,54 +184,6 @@ void sendPatternData(std::vector<SequencerNote> *pattern, bool isSerialOut = tru
     }
   }
 }
-class AssignedPattern 
-{
-
-public:
-  AssignedPattern()
-  {
-    //assignedChord = 0;
-    assignedChord.setRootNote(0);
-    
-    isIgnored = false;
-    customPattern = 0;
-  };
-  AssignedPattern(uint8_t strumStyle, Chord toAssign, std::vector<uint8_t> newGuitarChord, uint8_t rootNote, bool ignored, uint8_t pattern) {
-    //patternAssigned = 0;
-    assignedChord = toAssign;
-    assignedChord.setRootNote(rootNote);
-    assignedGuitarChord = newGuitarChord;
-    isIgnored = ignored;
-    customPattern = pattern;  //actual auto/manual pattern for neck press
-  }
-  int customPattern; //strum pattern
-  bool isIgnored;
-  //uint8_t patternAssigned; //strum pattern assigned 
-  Chord assignedChord;
-  std::vector<uint8_t> assignedGuitarChord;
-  void setChords(Chord newChord) {
-    assignedChord = newChord;
-  }
-  void setGuitarChords(std::vector<uint8_t> newGuitarChord) {
-    assignedGuitarChord = newGuitarChord;
-  }
-  Chord getChords() const {
-    return assignedChord;
-  }
-  Chord getGuitarChords() const {
-    return assignedGuitarChord;
-  }
-  //uint8_t getPatternAssigned() const {
-//    return patternAssigned;
-//  }
-  bool getIgnored() const {
-    return isIgnored;
-  }
-};
-
-
-
-
 
 //state
 bool buttonPressedChanged = false; //flag for kb know that fret button pressed was changed
@@ -377,6 +241,7 @@ std::vector<uint8_t> strumSeparation;             //time unit separation between
 std::vector<uint8_t> muteSeparation;             //time unit separation between muting notes //default 1
 std::vector<bool> drumsEnabled;
 std::vector<bool> bassEnabled;
+std::vector<bool> properOmniChord5ths;
 
 
 
@@ -385,7 +250,7 @@ unsigned int computeTickInterval(int bpm) {
   return ((60000 / bpm)/(QUARTERNOTETICKS*1.0))*1000;
 }
 
-std::vector<uint8_t> omniChordOrigNotes = { 65, 67, 69, 71, 72, 74, 76, 77, 79, 81, 83, 84 };
+const std::vector<uint8_t> omniChordOrigNotes = { 65, 67, 69, 71, 72, 74, 76, 77, 79, 81, 83, 84 };
 std::vector<uint8_t> omniChordNewNotes;
 
 class TranspositionDetector {
@@ -490,11 +355,7 @@ uint8_t bufferLen4 = 0;
 bool lastSimple = false;
 TranspositionDetector detector;
 
-// --- HEX TO MIDI NOTE MAP ---
-struct MidiMessage {
-  const char* hex;
-  uint8_t note;
-};
+
 Chord lastPressedChord;
 std::vector<uint8_t> lastPressedGuitarChord;
 
@@ -517,396 +378,392 @@ bool hexStringAndMatches(const char* input, const char* target, int hexLen) {
   return true;
 }
 
-
-MidiMessage hexToNote[] = {
-  { "aa55000a22010000000000", 255 },  //note off
-  { "aa55000a22010000000400", 0 },    // C1
-  { "aa55000a22010000000200", 1 },    // C2
-  { "aa55000a22010000000100", 2 },    // C3
-  { "aa55000a22010000002000", 3 },    // D1
-  { "aa55000a22010000001000", 4 },    // D2
-  { "aa55000a22010000000800", 5 },    // D3
-  { "aa55000a22010000010000", 6 },    // E1
-  { "aa55000a22010000008000", 7 },    // E2
-  { "aa55000a22010000004000", 8 },    // E3
-  { "aa55000a22010000080000", 9 },    // F1
-  { "aa55000a22010000040000", 10 },   // F2
-  { "aa55000a22010000020000", 11 },   // F3
-  { "aa55000a22010000400000", 12 },   // G1
-  { "aa55000a22010000200000", 13 },   // G2
-  { "aa55000a22010000100000", 14 },   // G3
-  { "aa55000a22010002000000", 15 },   // A1
-  { "aa55000a22010001000000", 16 },   // A2
-  { "aa55000a22010000800000", 17 },   // A3
-  { "aa55000a22010010000000", 18 },   // B1
-  { "aa55000a22010008000000", 19 },   // B2
-  { "aa55000a22010004000000", 20 },   // B3
-  { "aa55000a22010080000000", 21 },   // C4
-  { "aa55000a22010040000000", 22 },   // C5
-  { "aa55000a22010020000000", 23 },   // C6
-  { "aa55000a22010400000000", 24 },   // D4
-  { "aa55000a22010200000000", 25 },   // D5
-  { "aa55000a22010100000000", 26 }    // D6
-};
-
-struct HexToProgram {
-  const char* hex;
-  uint8_t program;
-};
-
-HexToProgram hexToProgram[] = {
-  { "aa550003220200d8", 3 },  // Rocker Up
-  { "aa5500032202ffd9", 9 },  // Rocker Down
-};
-
-struct HexToControl {
-  const char* hex;
-  uint8_t cc;
-};
+const struct MidiMessage hexToNote(uint8_t index)
+{
+  switch (index)
+  {
+    case 0:  return { "aa55000a22010000000400", 0 };
+    case 1:  return { "aa55000a22010000000200", 1 };
+    case 2:  return { "aa55000a22010000000100", 2 };
+    case 3:  return { "aa55000a22010000002000", 3 };
+    case 4:  return { "aa55000a22010000001000", 4 };
+    case 5:  return { "aa55000a22010000000800", 5 };
+    case 6:  return { "aa55000a22010000010000", 6 };
+    case 7:  return { "aa55000a22010000008000", 7 };
+    case 8:  return { "aa55000a22010000004000", 8 };
+    case 9:  return { "aa55000a22010000080000", 9 };
+    case 10: return { "aa55000a22010000040000", 10 };
+    case 11: return { "aa55000a22010000020000", 11 };
+    case 12: return { "aa55000a22010000400000", 12 };
+    case 13: return { "aa55000a22010000200000", 13 };
+    case 14: return { "aa55000a22010000100000", 14 };
+    case 15: return { "aa55000a22010002000000", 15 };
+    case 16: return { "aa55000a22010001000000", 16 };
+    case 17: return { "aa55000a22010000800000", 17 };
+    case 18: return { "aa55000a22010010000000", 18 };
+    case 19: return { "aa55000a22010008000000", 19 };
+    case 20: return { "aa55000a22010004000000", 20 };
+    case 21: return { "aa55000a22010080000000", 21 };
+    case 22: return { "aa55000a22010040000000", 22 };
+    case 23: return { "aa55000a22010020000000", 23 };
+    case 24: return { "aa55000a22010400000000", 24 };
+    case 25: return { "aa55000a22010200000000", 25 };
+    case 26: return { "aa55000a22010100000000", 26 };
+    default: return { "aa55000a22010000000000", 255 }; // note off
+  }
+}
 
 
-HexToControl hexToControl[] = {
-  { "f5550003201401", 2 },  // Right
-  { "f5550003201402", 1 },  // Left
-  { "f5550003201403", 5 },  // Both
-  { "f5550003201000", 4 },  // Circle not Lit
-  { "f5550003201001", 3 },  // Circle Lit
 
-  { "f5550003201400", 0 }  //ignore
-};
+const struct HexToProgram hexToProgram(uint8_t index)
+{
+  switch (index)
+  {
+    case 0:  return { "aa550003220200d8", 3 };
+    default: return { "aa5500032202ffd9", 9 }; // note off
+  }
+}
 
-Chord majorChord({ 4, 7 });
-Chord minorChord({ 3, 7 });
-Chord diminishedChord({ 3, 6 });
-Chord augmentedChord({ 4, 8 });
-Chord major7thChord({ 4, 7, 11 });
-Chord minor7thChord({ 3, 7, 10 });
-Chord dominant7thChord({ 4, 7, 10 });
-Chord minor7Flat5Chord({ 3, 6, 10 });
-Chord major6thChord({ 4, 7, 9 });
-Chord minor6thChord({ 3, 7, 9 });
-Chord suspended2Chord({ 2, 7 });
-Chord suspended4Chord({ 5, 7 });
-Chord add9Chord({ 4, 7, 2 });
-Chord add11Chord({ 4, 7, 11 });
+const struct HexToControl hexToControl(uint8_t index)
+{
+  switch (index)
+  {
+    case 0:  return { "f5550003201401", 2 };
+    case 1:  return { "f5550003201402", 1 };  // Left
+    case 2:  return { "f5550003201403", 5 };  // Both
+    case 3:  return { "f5550003201000", 4 };  // Circle not Lit
+    case 4:  return { "f5550003201001", 3 };  // Circle Lit
+    default:  return { "f5550003201400", 0 };  //ignore
+  }
+}
 
-Chord ninthChord({ 4, 7, 10, 14 });
-Chord eleventhChord({ 4, 7, 10, 14, 17 });
-Chord thirteenthChord({ 4, 7, 10, 14, 17, 21 });
+Chord GetPianoChords(uint8_t index)
+{
+  switch (index)
+  {
+    case majorChordType:  return Chord({ 4, 7 });               // Major
+    case minorChordType:  return Chord({ 3, 7 });               // Minor
+    case diminishedChordType:  return Chord({ 3, 6 });               // Diminished
+    case augmentedChordType:  return Chord({ 4, 8 });               // Augmented
+    case major7thChordType:  return Chord({ 4, 7, 11 });           // Major 7th
+    case minor7thChordType:  return Chord({ 3, 7, 10 });           // Minor 7th
+    case dominant7thChordType:  return Chord({ 4, 7, 10 });           // Dominant 7th
+    case minor7Flat5ChordType:  return Chord({ 3, 6, 10 });           // Minor 7♭5
+    case major6thChordType:  return Chord({ 4, 7, 9 });            // Major 6th
+    case minor6thChordType:  return Chord({ 3, 7, 9 });            // Minor 6th
+    case suspended2ChordType: return Chord({ 2, 7 });               // Suspended 2
+    case suspended4ChordType: return Chord({ 5, 7 });               // Suspended 4
+    case add9ChordType: return Chord({ 4, 7, 2 });            // Add 9
+    case add11ChordType: return Chord({ 4, 7, 11 });           // Add 11 (same as major7th)
+    case ninthChordType: return Chord({ 4, 7, 10, 14 });       // 9th
+    case eleventhChordType: return Chord({ 4, 7, 10, 14, 17 });   // 11th
+    default: return Chord({ 4, 7, 10, 14, 17, 21 });// 13th
+  }
+}
 
-std::vector<Chord> chords = {
-  majorChord,
-  minorChord,
-  diminishedChord,
-  augmentedChord,
-  major7thChord,
-  minor7thChord,
-  dominant7thChord,
-  minor7Flat5Chord,
-  major6thChord,
-  minor6thChord,
-  suspended2Chord,
-  suspended4Chord,
-  add9Chord,
-  add11Chord,
-  ninthChord,
-  eleventhChord,
-  thirteenthChord
-};
+const std::vector<uint8_t>& GetAllChordsGuitar(uint8_t chordTypeIndex, uint8_t key)
+{
+  static const std::vector<uint8_t> empty = {};
 
-std::vector<std::vector<uint8_t>> majorChordGuitar = {
-  { 48, 52, 55, 60, 64 },      // C Major x
-  { 49, 56, 61, 65, 68 },      // C# Major x
-  { 50, 57, 62, 66 },          // D Major x
-  { 51, 58, 63, 67, 70 },      // D# Major x
-  { 40, 47, 52, 56, 59, 64 },  // E Major x
-  { 41, 48, 53, 57, 60, 65 },  // F Major x
-  { 42, 49, 54, 58, 61, 66 },  // F# Major x
-  { 43, 47, 50, 55, 59, 67 },  // G Major x
-  { 44, 51, 56, 60, 63, 68 },  // G# Major x
-  { 45, 52, 57, 61, 64 },      // A Major x
-  { 46, 50, 58, 65, 70 },      // A# Major x
-  { 47, 54, 59, 63, 66 },      // B Major x
-};
+  switch (chordTypeIndex)
+  {
+    case majorChordType: // majorChordGuitar
+      switch (key)
+      {
+        case 0:  static const std::vector<uint8_t> c0 = { 48, 52, 55, 60, 64 }; return c0;
+        case 1:  static const std::vector<uint8_t> c1 = { 49, 56, 61, 65, 68 }; return c1;
+        case 2:  static const std::vector<uint8_t> c2 = { 50, 57, 62, 66 }; return c2;
+        case 3:  static const std::vector<uint8_t> c3 = { 51, 58, 63, 67, 70 }; return c3;
+        case 4:  static const std::vector<uint8_t> c4 = { 40, 47, 52, 56, 59, 64 }; return c4;
+        case 5:  static const std::vector<uint8_t> c5 = { 41, 48, 53, 57, 60, 65 }; return c5;
+        case 6:  static const std::vector<uint8_t> c6 = { 42, 49, 54, 58, 61, 66 }; return c6;
+        case 7:  static const std::vector<uint8_t> c7 = { 43, 47, 50, 55, 59, 67 }; return c7;
+        case 8:  static const std::vector<uint8_t> c8 = { 44, 51, 56, 60, 63, 68 }; return c8;
+        case 9:  static const std::vector<uint8_t> c9 = { 45, 52, 57, 61, 64 }; return c9;
+        case 10: static const std::vector<uint8_t> c10 = { 46, 50, 58, 65, 70 }; return c10;
+        default: static const std::vector<uint8_t> c11 = { 47, 54, 59, 63, 66 }; return c11;
+      }
 
-std::vector<std::vector<uint8_t>> minorChordGuitar = {
-  { 48, 51, 60, 63, 67 },      // C Minor x
-  { 49, 54, 61, 64, 68 },      // C# Minor x
-  { 50, 57, 62, 65 },          // D Minor x
-  { 51, 58, 63, 66, 70 },      // D# Minor x
-  { 40, 47, 52, 55, 59, 64 },  // E Minor x
-  { 41, 48, 53, 56, 60 },      // F Minor x
-  { 42, 49, 54, 57, 61 },      // F# Minor x lowered
-  { 43, 50, 55, 58, 62 },      // G Minor x lowered
-  { 44, 51, 56, 59, 63 },      // G# Minor x lowered
-  { 45, 52, 57, 60, 64 },      // A Minor x
-  { 46, 53, 58, 61, 65 },      // A# Minor x
-  { 47, 54, 59, 62, 66 },      // B Minor x
-};
+    case minorChordType: // minorChordGuitar
+      switch (key)
+      {
+        case 0:  static const std::vector<uint8_t> c0 = { 48, 51, 60, 63, 67 }; return c0;
+        case 1:  static const std::vector<uint8_t> c1 = { 49, 54, 61, 64, 68 }; return c1;
+        case 2:  static const std::vector<uint8_t> c2 = { 50, 57, 62, 65 }; return c2;
+        case 3:  static const std::vector<uint8_t> c3 = { 51, 58, 63, 66, 70 }; return c3;
+        case 4:  static const std::vector<uint8_t> c4 = { 40, 47, 52, 55, 59, 64 }; return c4;
+        case 5:  static const std::vector<uint8_t> c5 = { 41, 48, 53, 56, 60 }; return c5;
+        case 6:  static const std::vector<uint8_t> c6 = { 42, 49, 54, 57, 61 }; return c6;
+        case 7:  static const std::vector<uint8_t> c7 = { 43, 50, 55, 58, 62 }; return c7;
+        case 8:  static const std::vector<uint8_t> c8 = { 44, 51, 56, 59, 63 }; return c8;
+        case 9:  static const std::vector<uint8_t> c9 = { 45, 52, 57, 60, 64 }; return c9;
+        case 10: static const std::vector<uint8_t> c10 = { 46, 53, 58, 61, 65 }; return c10;
+        default: static const std::vector<uint8_t> c11 = { 47, 54, 59, 62, 66 }; return c11;
+      }
+    case diminishedChordType:
+      switch (key)
+      {
+        case 0:  static const std::vector<uint8_t> c0 = { 60, 63, 66 }; return c0;
+        case 1:  static const std::vector<uint8_t> c1 = { 61, 64, 67 }; return c1;
+        case 2:  static const std::vector<uint8_t> c2 = { 62, 65, 68 }; return c2;
+        case 3:  static const std::vector<uint8_t> c3 = { 63, 66, 69 }; return c3;
+        case 4:  static const std::vector<uint8_t> c4 = { 64, 67, 70 }; return c4;
+        case 5:  static const std::vector<uint8_t> c5 = { 65, 68, 71 }; return c5;
+        case 6:  static const std::vector<uint8_t> c6 = { 66, 69, 72 }; return c6;
+        case 7:  static const std::vector<uint8_t> c7 = { 67, 70, 73 }; return c7;
+        case 8:  static const std::vector<uint8_t> c8 = { 68, 71, 74 }; return c8;
+        case 9:  static const std::vector<uint8_t> c9 = { 69, 72, 75 }; return c9;
+        case 10: static const std::vector<uint8_t> c10 = { 70, 73, 76 }; return c10;
+        default: static const std::vector<uint8_t> c11 = { 71, 74, 77 }; return c11;
+      }
 
-std::vector<std::vector<uint8_t>> diminishedChordGuitar = {
-  { 60, 63, 66 },  // C Diminished x
-  { 61, 64, 67 },
-  { 62, 65, 68 },
-  { 63, 66, 69 },
-  { 64, 67, 70 },
-  { 65, 68, 71 },
-  { 66, 69, 72 },
-  { 67, 70, 73 },
-  { 68, 71, 74 },
-  { 69, 72, 75 },
-  { 70, 73, 76 },
-  { 71, 74, 77 },
+    case augmentedChordType:
+          switch (key)
+      {
+        case 0:  static const std::vector<uint8_t> c0 = { 48, 52, 56, 60, 64 }; return c0;
+        case 1:  static const std::vector<uint8_t> c1 = { 49, 53, 57, 61, 65 }; return c1;
+        case 2:  static const std::vector<uint8_t> c2 = { 50, 54, 58, 62, 66 }; return c2;
+        case 3:  static const std::vector<uint8_t> c3 = { 51, 55, 59, 63, 67 }; return c3;
+        case 4:  static const std::vector<uint8_t> c4 = { 52, 56, 60, 64, 68 }; return c4;
+        case 5:  static const std::vector<uint8_t> c5 = { 53, 57, 61, 65, 69 }; return c5;
+        case 6:  static const std::vector<uint8_t> c6 = { 54, 58, 62, 66, 70 }; return c6;
+        case 7:  static const std::vector<uint8_t> c7 = { 55, 59, 63, 67, 71 }; return c7;
+        case 8:  static const std::vector<uint8_t> c8 = { 56, 60, 64, 68, 72 }; return c8;
+        case 9:  static const std::vector<uint8_t> c9 = { 57, 61, 65, 69, 73 }; return c9;
+        case 10: static const std::vector<uint8_t> c10 = { 58, 62, 66, 70, 74 }; return c10;
+        default: static const std::vector<uint8_t> c11 = { 59, 63, 67, 71, 75 }; return c11;
+      }
+    case major7thChordType:
+      switch (key)
+      {
+        case 0:  static const std::vector<uint8_t> c0 = { 48, 52, 55, 71, 64 }; return c0;
+        case 1:  static const std::vector<uint8_t> c1 = { 49, 53, 56, 72, 65 }; return c1;
+        case 2:  static const std::vector<uint8_t> c2 = { 50, 54, 57, 73, 66 }; return c2;
+        case 3:  static const std::vector<uint8_t> c3 = { 51, 55, 58, 74, 67 }; return c3;
+        case 4:  static const std::vector<uint8_t> c4 = { 52, 56, 59, 75, 68 }; return c4;
+        case 5:  static const std::vector<uint8_t> c5 = { 53, 57, 60, 76, 69 }; return c5;
+        case 6:  static const std::vector<uint8_t> c6 = { 54, 58, 61, 77, 70 }; return c6;
+        case 7:  static const std::vector<uint8_t> c7 = { 55, 59, 62, 78, 71 }; return c7;
+        case 8:  static const std::vector<uint8_t> c8 = { 56, 60, 63, 79, 72 }; return c8;
+        case 9:  static const std::vector<uint8_t> c9 = { 57, 61, 64, 80, 73 }; return c9;
+        case 10: static const std::vector<uint8_t> c10 = { 58, 62, 65, 81, 74 }; return c10;
+        default: static const std::vector<uint8_t> c11 = { 59, 63, 66, 82, 75 }; return c11;
+      }
 
-};
+    case minor7thChordType:
+      switch (key)
+      {
+        case 0:  static const std::vector<uint8_t> c0 = { 48, 55, 58, 63, 67 }; return c0;
+        case 1:  static const std::vector<uint8_t> c1 = { 49, 56, 59, 64, 68 }; return c1;
+        case 2:  static const std::vector<uint8_t> c2 = { 50, 57, 60, 65, 69 }; return c2;
+        case 3:  static const std::vector<uint8_t> c3 = { 51, 58, 61, 66, 70 }; return c3;
+        case 4:  static const std::vector<uint8_t> c4 = { 52, 59, 62, 67, 71 }; return c4;
+        case 5:  static const std::vector<uint8_t> c5 = { 53, 60, 63, 68, 72 }; return c5;
+        case 6:  static const std::vector<uint8_t> c6 = { 54, 61, 64, 69, 73 }; return c6;
+        case 7:  static const std::vector<uint8_t> c7 = { 55, 62, 65, 70, 74 }; return c7;
+        case 8:  static const std::vector<uint8_t> c8 = { 56, 63, 66, 71, 75 }; return c8;
+        case 9:  static const std::vector<uint8_t> c9 = { 57, 64, 67, 72, 76 }; return c9;
+        case 10: static const std::vector<uint8_t> c10 = { 58, 65, 68, 73, 77 }; return c10;
+        default: static const std::vector<uint8_t> c11 = { 59, 66, 69, 74, 78 }; return c11;
+      }
 
-std::vector<std::vector<uint8_t>> augmentedChordGuitar = {
-  { 48, 52, 56, 60, 64 },  // C Augmented x
-  { 49, 53, 57, 61, 65 },
-  { 50, 54, 58, 62, 66 },
-  { 51, 55, 59, 63, 67 },
-  { 52, 56, 60, 64, 68 },
-  { 53, 57, 61, 65, 69 },
-  { 54, 58, 62, 66, 70 },
-  { 55, 59, 63, 67, 71 },
-  { 56, 60, 64, 68, 72 },
-  { 57, 61, 65, 69, 73 },
-  { 58, 62, 66, 70, 74 },
-  { 59, 63, 67, 71, 75 },
-};
+      case dominant7thChordType:
+        switch (key)
+        {
+          case 0:  static const std::vector<uint8_t> c0 = { 48, 52, 58, 60, 64 }; return c0;
+          case 1:  static const std::vector<uint8_t> c1 = { 49, 56, 59, 65, 68 }; return c1;
+          case 2:  static const std::vector<uint8_t> c2 = { 50, 57, 60, 66 }; return c2;
+          case 3:  static const std::vector<uint8_t> c3 = { 51, 58, 61, 67, 68 }; return c3;
+          case 4:  static const std::vector<uint8_t> c4 = { 40, 47, 52, 56, 62, 64 }; return c4;
+          case 5:  static const std::vector<uint8_t> c5 = { 41, 48, 51, 57, 60 }; return c5;
+          case 6:  static const std::vector<uint8_t> c6 = { 42, 46, 49, 52 }; return c6;
+          case 7:  static const std::vector<uint8_t> c7 = { 43, 47, 50, 55, 59, 65 }; return c7;
+          case 8:  static const std::vector<uint8_t> c8 = { 56, 63, 66, 72, 75 }; return c8;
+          case 9:  static const std::vector<uint8_t> c9 = { 45, 52, 55, 61, 64 }; return c9;
+          case 10: static const std::vector<uint8_t> c10 = { 46, 53, 56, 62, 65 }; return c10;
+          default: static const std::vector<uint8_t> c11 = { 47, 51, 57, 59, 66 }; return c11;
+        }
 
-std::vector<std::vector<uint8_t>> major7thChordGuitar = {
-  { 48, 52, 55, 71, 64 },  // C Major7 x
-  { 49, 53, 56, 72, 65 },
-  { 50, 54, 57, 73, 66 },
-  { 51, 55, 58, 74, 67 },
-  { 52, 56, 59, 75, 68 },
-  { 53, 57, 60, 76, 69 },
-  { 54, 58, 61, 77, 70 },
-  { 55, 59, 62, 78, 71 },
-  { 56, 60, 63, 79, 72 },
-  { 57, 61, 64, 80, 73 },
-  { 58, 62, 65, 81, 74 },
-  { 59, 63, 66, 82, 75 },
+      case minor7Flat5ChordType:
+        switch (key)
+        {
+          case 0:  static const std::vector<uint8_t> c0  = { 48, 51, 58, 60, 66 }; return c0;
+          case 1:  static const std::vector<uint8_t> c1  = { 49, 52, 59, 61, 67 }; return c1;
+          case 2:  static const std::vector<uint8_t> c2  = { 50, 53, 60, 62, 68 }; return c2;
+          case 3:  static const std::vector<uint8_t> c3  = { 51, 54, 61, 63, 69 }; return c3;
+          case 4:  static const std::vector<uint8_t> c4  = { 52, 55, 62, 64, 70 }; return c4;
+          case 5:  static const std::vector<uint8_t> c5  = { 53, 56, 63, 65, 71 }; return c5;
+          case 6:  static const std::vector<uint8_t> c6  = { 54, 57, 64, 66, 72 }; return c6;
+          case 7:  static const std::vector<uint8_t> c7  = { 55, 58, 65, 67, 73 }; return c7;
+          case 8:  static const std::vector<uint8_t> c8  = { 56, 59, 66, 68, 74 }; return c8;
+          case 9:  static const std::vector<uint8_t> c9  = { 57, 60, 67, 69, 75 }; return c9;
+          case 10: static const std::vector<uint8_t> c10 = { 58, 61, 68, 70, 76 }; return c10;
+          default: static const std::vector<uint8_t> c11 = { 59, 62, 69, 71, 77 }; return c11;
+        }
 
-};
+      case major6thChordType:
+        switch (key)
+        {
+          case 0:  static const std::vector<uint8_t> c0  = { 48, 52, 57, 60, 64 }; return c0;
+          case 1:  static const std::vector<uint8_t> c1  = { 49, 53, 58, 61, 65 }; return c1;
+          case 2:  static const std::vector<uint8_t> c2  = { 50, 54, 59, 62, 66 }; return c2;
+          case 3:  static const std::vector<uint8_t> c3  = { 51, 55, 60, 63, 67 }; return c3;
+          case 4:  static const std::vector<uint8_t> c4  = { 52, 56, 61, 64, 68 }; return c4;
+          case 5:  static const std::vector<uint8_t> c5  = { 53, 57, 62, 65, 69 }; return c5;
+          case 6:  static const std::vector<uint8_t> c6  = { 54, 58, 63, 66, 70 }; return c6;
+          case 7:  static const std::vector<uint8_t> c7  = { 55, 59, 64, 67, 71 }; return c7;
+          case 8:  static const std::vector<uint8_t> c8  = { 56, 60, 65, 68, 72 }; return c8;
+          case 9:  static const std::vector<uint8_t> c9  = { 57, 61, 66, 69, 73 }; return c9;
+          case 10: static const std::vector<uint8_t> c10 = { 58, 62, 67, 70, 74 }; return c10;
+          default: static const std::vector<uint8_t> c11 = { 59, 63, 68, 71, 75 }; return c11;
+        }
 
-std::vector<std::vector<uint8_t>> minor7thChordGuitar = {
-  { 48, 55, 58, 63, 67 },  // C Minor7 x
-  { 49, 56, 59, 64, 68 },
-  { 50, 57, 60, 65, 69 },
-  { 51, 58, 61, 66, 70 },
-  { 52, 59, 62, 67, 71 },
-  { 53, 60, 63, 68, 72 },
-  { 54, 61, 64, 69, 73 },
-  { 55, 62, 65, 70, 74 },
-  { 56, 63, 66, 71, 75 },
-  { 57, 64, 67, 72, 76 },
-  { 58, 65, 68, 73, 77 },
-  { 59, 66, 69, 74, 78 },
+      case minor6thChordType:
+        switch (key)
+        {
+          case 0:  static const std::vector<uint8_t> c0  = { 48, 51, 57, 60, 67 }; return c0;
+          case 1:  static const std::vector<uint8_t> c1  = { 49, 52, 58, 61, 68 }; return c1;
+          case 2:  static const std::vector<uint8_t> c2  = { 50, 53, 59, 62, 69 }; return c2;
+          case 3:  static const std::vector<uint8_t> c3  = { 51, 54, 60, 63, 70 }; return c3;
+          case 4:  static const std::vector<uint8_t> c4  = { 52, 55, 61, 64, 71 }; return c4;
+          case 5:  static const std::vector<uint8_t> c5  = { 53, 56, 62, 65, 72 }; return c5;
+          case 6:  static const std::vector<uint8_t> c6  = { 54, 57, 63, 66, 73 }; return c6;
+          case 7:  static const std::vector<uint8_t> c7  = { 55, 58, 64, 67, 74 }; return c7;
+          case 8:  static const std::vector<uint8_t> c8  = { 56, 59, 65, 68, 75 }; return c8;
+          case 9:  static const std::vector<uint8_t> c9  = { 57, 60, 66, 69, 76 }; return c9;
+          case 10: static const std::vector<uint8_t> c10 = { 58, 61, 67, 70, 77 }; return c10;
+          default: static const std::vector<uint8_t> c11 = { 59, 62, 68, 71, 78 }; return c11;
+        }
 
-};
+      case suspended2ChordType:
+        switch (key)
+        {
+          case 0:  static const std::vector<uint8_t> c0  = { 48, 50, 55, 62, 67 }; return c0;
+          case 1:  static const std::vector<uint8_t> c1  = { 49, 51, 56, 63, 68 }; return c1;
+          case 2:  static const std::vector<uint8_t> c2  = { 50, 52, 57, 64, 69 }; return c2;
+          case 3:  static const std::vector<uint8_t> c3  = { 51, 53, 58, 65, 70 }; return c3;
+          case 4:  static const std::vector<uint8_t> c4  = { 52, 54, 59, 66, 71 }; return c4;
+          case 5:  static const std::vector<uint8_t> c5  = { 53, 55, 60, 67, 72 }; return c5;
+          case 6:  static const std::vector<uint8_t> c6  = { 54, 56, 61, 68, 73 }; return c6;
+          case 7:  static const std::vector<uint8_t> c7  = { 55, 57, 62, 69, 74 }; return c7;
+          case 8:  static const std::vector<uint8_t> c8  = { 56, 58, 63, 70, 75 }; return c8;
+          case 9:  static const std::vector<uint8_t> c9  = { 57, 59, 64, 71, 76 }; return c9;
+          case 10: static const std::vector<uint8_t> c10 = { 58, 60, 65, 72, 77 }; return c10;
+          default: static const std::vector<uint8_t> c11 = { 59, 61, 66, 73, 78 }; return c11;
+        }
 
-std::vector<std::vector<uint8_t>> dominant7thChordGuitar = {
-  { 48, 52, 58, 60, 64 },      // C Dominant7 x
-  { 49, 56, 59, 65, 68 },      // C# Dominant7 x
-  { 50, 57, 60, 66 },          // D Dominant7 x
-  { 51, 58, 61, 67, 68 },      // D# Dominant7 x
-  { 40, 47, 52, 56, 62, 64 },  // E Dominant7 x
-  { 41, 48, 51, 57, 60 },      // F Dominant7 x lowered
-  { 42, 46, 49, 52 },          // F# Dominant7 x lowered
-  //{55, 59, 62, 55, 59, 65},   // G Dominant7 x
-  { 43, 47, 50, 55, 59, 65 },  // G Dominant7 x lowered
-  { 56, 63, 66, 72, 75 },      // G# Dominant7 x
-  { 45, 52, 55, 61, 64 },      // A Dominant7 x
-  { 46, 53, 56, 62, 65 },      // A# Dominant7 x
-  { 47, 51, 57, 59, 66 },      // B Dominant7 x
-};
+    case suspended4ChordType:
+      switch (key)
+      {
+        case 0:  static const std::vector<uint8_t> c0  = { 48, 53, 55, 60, 65 }; return c0;
+        case 1:  static const std::vector<uint8_t> c1  = { 49, 56, 61, 66, 68 }; return c1;
+        case 2:  static const std::vector<uint8_t> c2  = { 50, 57, 62, 67 };     return c2;
+        case 3:  static const std::vector<uint8_t> c3  = { 51, 58, 63, 68, 70 }; return c3;
+        case 4:  static const std::vector<uint8_t> c4  = { 40, 47, 52, 57, 59, 64 }; return c4;
+        case 5:  static const std::vector<uint8_t> c5  = { 53, 60, 65, 70, 72 }; return c5;
+        case 6:  static const std::vector<uint8_t> c6  = { 54, 61, 66, 71, 73 }; return c6;
+        case 7:  static const std::vector<uint8_t> c7  = { 43, 50, 55, 60, 67 }; return c7;
+        case 8:  static const std::vector<uint8_t> c8  = { 56, 63, 68, 73, 75 }; return c8;
+        case 9:  static const std::vector<uint8_t> c9  = { 45, 52, 57, 62, 64 }; return c9;
+        case 10: static const std::vector<uint8_t> c10 = { 46, 53, 58, 63, 65 }; return c10;
+        default: static const std::vector<uint8_t> c11 = { 47, 54, 59, 64 };     return c11;
+      }
 
-std::vector<std::vector<uint8_t>> minor7Flat5ChordGuitar = {
-  { 48, 51, 58, 60, 66 },  // C Minor7Flat5 x
-  { 49, 52, 59, 61, 67 },
-  { 50, 53, 60, 62, 68 },
-  { 51, 54, 61, 63, 69 },
-  { 52, 55, 62, 64, 70 },
-  { 53, 56, 63, 65, 71 },
-  { 54, 57, 64, 66, 72 },
-  { 55, 58, 65, 67, 73 },
-  { 56, 59, 66, 68, 74 },
-  { 57, 60, 67, 69, 75 },
-  { 58, 61, 68, 70, 76 },
-  { 59, 62, 69, 71, 77 },
-};
+      case add9ChordType:
+        switch (key)
+        {
+          case 0:  static const std::vector<uint8_t> c0  = { 48, 52, 55, 62, 64 }; return c0;
+          case 1:  static const std::vector<uint8_t> c1  = { 49, 53, 56, 63, 65 }; return c1;
+          case 2:  static const std::vector<uint8_t> c2  = { 50, 54, 57, 64, 66 }; return c2;
+          case 3:  static const std::vector<uint8_t> c3  = { 51, 55, 58, 65, 67 }; return c3;
+          case 4:  static const std::vector<uint8_t> c4  = { 52, 56, 59, 66, 68 }; return c4;
+          case 5:  static const std::vector<uint8_t> c5  = { 53, 57, 60, 67, 69 }; return c5;
+          case 6:  static const std::vector<uint8_t> c6  = { 54, 58, 61, 68, 70 }; return c6;
+          case 7:  static const std::vector<uint8_t> c7  = { 55, 59, 62, 69, 71 }; return c7;
+          case 8:  static const std::vector<uint8_t> c8  = { 56, 60, 63, 70, 72 }; return c8;
+          case 9:  static const std::vector<uint8_t> c9  = { 57, 61, 64, 71, 73 }; return c9;
+          case 10: static const std::vector<uint8_t> c10 = { 58, 62, 65, 72, 74 }; return c10;
+          default: static const std::vector<uint8_t> c11 = { 59, 63, 66, 73, 75 }; return c11;
+        }
 
-std::vector<std::vector<uint8_t>> major6thChordGuitar = {
-  { 48, 52, 57, 60, 64 },  // C Major6 x
-  { 49, 53, 58, 61, 65 },
-  { 50, 54, 59, 62, 66 },
-  { 51, 55, 60, 63, 67 },
-  { 52, 56, 61, 64, 68 },
-  { 53, 57, 62, 65, 69 },
-  { 54, 58, 63, 66, 70 },
-  { 55, 59, 64, 67, 71 },
-  { 56, 60, 65, 68, 72 },
-  { 57, 61, 66, 69, 73 },
-  { 58, 62, 67, 70, 74 },
-  { 59, 63, 68, 71, 75 },
+      case add11ChordType:
+        switch (key)
+        {
+          case 0:  static const std::vector<uint8_t> c0  = { 48, 52, 55, 60, 65 }; return c0;
+          case 1:  static const std::vector<uint8_t> c1  = { 50, 54, 57, 62, 67 }; return c1;
+          case 2:  static const std::vector<uint8_t> c2  = { 51, 55, 58, 63, 68 }; return c2;
+          case 3:  static const std::vector<uint8_t> c3  = { 52, 56, 59, 64, 69 }; return c3;
+          case 4:  static const std::vector<uint8_t> c4  = { 53, 57, 60, 65, 70 }; return c4;
+          case 5:  static const std::vector<uint8_t> c5  = { 54, 58, 61, 66, 71 }; return c5;
+          case 6:  static const std::vector<uint8_t> c6  = { 55, 59, 62, 67, 72 }; return c6;
+          case 7:  static const std::vector<uint8_t> c7  = { 56, 60, 63, 68, 73 }; return c7;
+          case 8:  static const std::vector<uint8_t> c8  = { 57, 61, 64, 69, 74 }; return c8;
+          case 9:  static const std::vector<uint8_t> c9  = { 58, 62, 65, 70, 75 }; return c9;
+          case 10: static const std::vector<uint8_t> c10 = { 59, 63, 66, 71, 76 }; return c10;
+          default: static const std::vector<uint8_t> c11 = { 60, 64, 67, 72, 77 }; return c11;
+        }
 
-};
+      case ninthChordType:
+        switch (key)
+        {
+          case 0:  static const std::vector<uint8_t> c0  = { 48, 55, 58, 64, 70, 74 }; return c0;
+          case 1:  static const std::vector<uint8_t> c1  = { 49, 56, 59, 65, 71, 75 }; return c1;
+          case 2:  static const std::vector<uint8_t> c2  = { 50, 57, 60, 66, 72, 76 }; return c2;
+          case 3:  static const std::vector<uint8_t> c3  = { 51, 58, 61, 67, 73, 77 }; return c3;
+          case 4:  static const std::vector<uint8_t> c4  = { 52, 59, 62, 68, 74, 78 }; return c4;
+          case 5:  static const std::vector<uint8_t> c5  = { 53, 60, 63, 69, 75, 79 }; return c5;
+          case 6:  static const std::vector<uint8_t> c6  = { 54, 61, 64, 70, 76, 80 }; return c6;
+          case 7:  static const std::vector<uint8_t> c7  = { 55, 62, 65, 71, 77, 81 }; return c7;
+          case 8:  static const std::vector<uint8_t> c8  = { 56, 63, 66, 72, 78, 82 }; return c8;
+          case 9:  static const std::vector<uint8_t> c9  = { 57, 64, 67, 73, 79, 83 }; return c9;
+          case 10: static const std::vector<uint8_t> c10 = { 58, 65, 68, 74, 80, 84 }; return c10;
+          default: static const std::vector<uint8_t> c11 = { 59, 66, 69, 75, 81, 85 }; return c11;
+        }
 
-std::vector<std::vector<uint8_t>> minor6thChordGuitar = {
-  { 48, 51, 57, 60, 67 },  // C Minor6 x
-  { 49, 52, 58, 61, 68 },
-  { 50, 53, 59, 62, 69 },
-  { 51, 54, 60, 63, 70 },
-  { 52, 55, 61, 64, 71 },
-  { 53, 56, 62, 65, 72 },
-  { 54, 57, 63, 66, 73 },
-  { 55, 58, 64, 67, 74 },
-  { 56, 59, 65, 68, 75 },
-  { 57, 60, 66, 69, 76 },
-  { 58, 61, 67, 70, 77 },
-  { 59, 62, 68, 71, 78 },
+      case eleventhChordType:
+        switch (key)
+        {
+          case 0:  static const std::vector<uint8_t> c0  = { 43, 53, 58, 60, 64 }; return c0;
+          case 1:  static const std::vector<uint8_t> c1  = { 44, 54, 59, 61, 65 }; return c1;
+          case 2:  static const std::vector<uint8_t> c2  = { 45, 55, 60, 62, 66 }; return c2;
+          case 3:  static const std::vector<uint8_t> c3  = { 46, 56, 61, 63, 67 }; return c3;
+          case 4:  static const std::vector<uint8_t> c4  = { 47, 57, 62, 64, 68 }; return c4;
+          case 5:  static const std::vector<uint8_t> c5  = { 48, 58, 63, 65, 69 }; return c5;
+          case 6:  static const std::vector<uint8_t> c6  = { 49, 59, 64, 66, 70 }; return c6;
+          case 7:  static const std::vector<uint8_t> c7  = { 50, 60, 65, 67, 71 }; return c7;
+          case 8:  static const std::vector<uint8_t> c8  = { 51, 61, 66, 68, 72 }; return c8;
+          case 9:  static const std::vector<uint8_t> c9  = { 52, 62, 67, 69, 73 }; return c9;
+          case 10: static const std::vector<uint8_t> c10 = { 53, 63, 68, 70, 74 }; return c10;
+          default: static const std::vector<uint8_t> c11 = { 54, 64, 69, 71, 75 }; return c11;
+        }
 
-};
 
-std::vector<std::vector<uint8_t>> suspended2ChordGuitar = {
-  { 48, 50, 55, 62, 67 },  // C Suspended2 x
-  { 49, 51, 56, 63, 68 },
-  { 50, 52, 57, 64, 69 },
-  { 51, 53, 58, 65, 70 },
-  { 52, 54, 59, 66, 71 },
-  { 53, 55, 60, 67, 72 },
-  { 54, 56, 61, 68, 73 },
-  { 55, 57, 62, 69, 74 },
-  { 56, 58, 63, 70, 75 },
-  { 57, 59, 64, 71, 76 },
-  { 58, 60, 65, 72, 77 },
-  { 59, 61, 66, 73, 78 },
+      default:
+        switch (key)
+        {
+          case 0:  static const std::vector<uint8_t> c0  = { 60, 62, 64, 57, 58 }; return c0;
+          case 1:  static const std::vector<uint8_t> c1  = { 61, 63, 65, 58, 59 }; return c1;
+          case 2:  static const std::vector<uint8_t> c2  = { 62, 64, 66, 59, 60 }; return c2;
+          case 3:  static const std::vector<uint8_t> c3  = { 63, 65, 67, 60, 61 }; return c3;
+          case 4:  static const std::vector<uint8_t> c4  = { 64, 66, 68, 61, 62 }; return c4;
+          case 5:  static const std::vector<uint8_t> c5  = { 65, 67, 69, 62, 63 }; return c5;
+          case 6:  static const std::vector<uint8_t> c6  = { 66, 68, 70, 63, 64 }; return c6;
+          case 7:  static const std::vector<uint8_t> c7  = { 67, 69, 71, 64, 65 }; return c7;
+          case 8:  static const std::vector<uint8_t> c8  = { 68, 70, 72, 65, 66 }; return c8;
+          case 9:  static const std::vector<uint8_t> c9  = { 69, 71, 73, 66, 67 }; return c9;
+          case 10: static const std::vector<uint8_t> c10 = { 70, 72, 74, 67, 68 }; return c10;
+          default: static const std::vector<uint8_t> c11 = { 71, 73, 75, 68, 69 }; return c11;
+        }
 
-};
-
-std::vector<std::vector<uint8_t>> suspended4ChordGuitar = {
-  { 48, 53, 55, 60, 65 },      // C Suspended4 x
-  { 49, 56, 61, 66, 68 },      // C# Suspended4 x
-  { 50, 57, 62, 67 },          // D Suspende d4 x
-  { 51, 58, 63, 68, 70 },      // D# Suspended4 x
-  { 40, 47, 52, 57, 59, 64 },  // E Suspended4 x
-  { 53, 60, 65, 70, 72 },      // F Suspended4 x
-  { 54, 61, 66, 71, 73 },      // F# Suspended4 x
-  { 43, 50, 55, 60, 67 },      // G Suspended4 x
-  { 56, 63, 68, 73, 75 },      // G# Suspended4 x
-  { 45, 52, 57, 62, 64 },      // A Suspended4 x
-  { 46, 53, 58, 63, 65 },      // A# Suspended4 x
-  { 47, 54, 59, 64 },          // B Suspended4, removed extra 59 x
-};
-
-std::vector<std::vector<uint8_t>> add9ChordGuitar = {
-  { 48, 52, 55, 62, 64 },  // C Add9 x
-  { 49, 53, 56, 63, 65 },
-  { 50, 54, 57, 64, 66 },
-  { 51, 55, 58, 65, 67 },
-  { 52, 56, 59, 66, 68 },
-  { 53, 57, 60, 67, 69 },
-  { 54, 58, 61, 68, 70 },
-  { 55, 59, 62, 69, 71 },
-  { 56, 60, 63, 70, 72 },
-  { 57, 61, 64, 71, 73 },
-  { 58, 62, 65, 72, 74 },
-  { 59, 63, 66, 73, 75 },
-
-};
-
-std::vector<std::vector<uint8_t>> add11ChordGuitar = {
-  { 48, 52, 55, 60, 65 },  // C Add11 x
-  { 50, 54, 57, 62, 67 },
-  { 51, 55, 58, 63, 68 },
-  { 52, 56, 59, 64, 69 },
-  { 53, 57, 60, 65, 70 },
-  { 54, 58, 61, 66, 71 },
-  { 55, 59, 62, 67, 72 },
-  { 56, 60, 63, 68, 73 },
-  { 57, 61, 64, 69, 74 },
-  { 58, 62, 65, 70, 75 },
-  { 59, 63, 66, 71, 76 },
-
-};
-
-std::vector<std::vector<uint8_t>> ninthChordGuitar = {
-  { 48, 55, 58, 64, 70, 74 },  // C Ninth x
-  { 49, 56, 59, 65, 71, 75 },
-  { 50, 57, 60, 66, 72, 76 },
-  { 51, 58, 61, 67, 73, 77 },
-  { 52, 59, 62, 68, 74, 78 },
-  { 53, 60, 63, 69, 75, 79 },
-  { 54, 61, 64, 70, 76, 80 },
-  { 55, 62, 65, 71, 77, 81 },
-  { 56, 63, 66, 72, 78, 82 },
-  { 57, 64, 67, 73, 79, 83 },
-  { 58, 65, 68, 74, 80, 84 },
-  { 59, 66, 69, 75, 81, 85 },
-
-};
-
-std::vector<std::vector<uint8_t>> eleventhChordGuitar = {
-  { 43, 53, 58, 60, 64 },  // C Eleventh x, but added E4
-  { 44, 54, 59, 61, 65 },
-  { 45, 55, 60, 62, 66 },
-  { 46, 56, 61, 63, 67 },
-  { 47, 57, 62, 64, 68 },
-  { 48, 58, 63, 65, 69 },
-  { 49, 59, 64, 66, 70 },
-  { 50, 60, 65, 67, 71 },
-  { 51, 61, 66, 68, 72 },
-  { 52, 62, 67, 69, 73 },
-  { 53, 63, 68, 70, 74 },
-  { 54, 64, 69, 71, 75 },
-
-};
-
-std::vector<std::vector<uint8_t>> thirteenthChordGuitar = {
-  { 60, 62, 64, 57, 58 },  // C Thirteenth X but AI
-  { 61, 63, 65, 58, 59 },
-  { 62, 64, 66, 59, 60 },
-  { 63, 65, 67, 60, 61 },
-  { 64, 66, 68, 61, 62 },
-  { 65, 67, 69, 62, 63 },
-  { 66, 68, 70, 63, 64 },
-  { 67, 69, 71, 64, 65 },
-  { 68, 70, 72, 65, 66 },
-  { 69, 71, 73, 66, 67 },
-  { 70, 72, 74, 67, 68 },
-  { 71, 73, 75, 68, 69 },
-
-};
-
-//[chordtype][key] = actual note vector
-std::vector<std::vector<std::vector<uint8_t>>> allChordsGuitar = {
-  majorChordGuitar,
-  minorChordGuitar,
-  diminishedChordGuitar,
-  augmentedChordGuitar,
-  major7thChordGuitar,
-  minor7thChordGuitar,
-  dominant7thChordGuitar,
-  minor7Flat5ChordGuitar,
-  major6thChordGuitar,
-  minor6thChordGuitar,
-  suspended2ChordGuitar,
-  suspended4ChordGuitar,
-  add9ChordGuitar,
-  add11ChordGuitar,
-  ninthChordGuitar,
-  eleventhChordGuitar,
-  thirteenthChordGuitar
-};
+    
+  }
+}
 
 //[preset][buttonpressed] //combines patterns for paddle and piano mode
 std::vector<std::vector<AssignedPattern>> assignedFretPatternsByPreset;
-AssignedPattern getActualAssignedChord(uint8_t b); //fix for compilation issue
+
 AssignedPattern getActualAssignedChord(uint8_t b)
 {
-
   if (isSimpleChordMode[preset])
   {
     return assignedFretPatternsByPreset[preset][(b/NECK_COLUMNS) * NECK_COLUMNS];
@@ -915,7 +772,6 @@ AssignedPattern getActualAssignedChord(uint8_t b)
   {
     return assignedFretPatternsByPreset[preset][b];
   }
-
 }
 
 void preparePatterns() {
@@ -983,50 +839,6 @@ enum OmniChordModeType {
   OmniChordGuitarType,  //requires paddle
 };
 
-enum ChordType {
-  majorChordType = 0,
-  minorChordType,
-  diminishedChordType,
-  augmentedChordType,
-  major7thChordType,
-  minor7thChordType,
-  dominant7thChordType,
-  minor7Flat5ChordType,
-  major6thChordType,
-  minor6thChordType,
-  suspended2ChordType,
-  suspended4ChordType,
-  add9ChordType,
-  add11ChordType,
-  ninthChordType,
-  eleventhChordType,
-  thirteenthChordType
-};
-
-enum Note {
-  NO_NOTE = -1,
-  C_NOTE = 0,
-  CSharp_NOTE,
-  D_NOTE,
-  DSharp_NOTE,
-  E_NOTE,
-  F_NOTE,
-  FSharp_NOTE,
-  G_NOTE,
-  GSharp_NOTE,
-  A_NOTE,
-  ASharp_NOTE,
-  B_NOTE
-};
-class neckAssignment {
-public:
-  Note key;
-  ChordType chordType;
-  neckAssignment() {
-    key = NO_NOTE;
-    chordType = majorChordType;
-  }
-};
 std::vector<std::vector<neckAssignment>> neckAssignments;  //[preset][neck assignment 0-27]
 
 //current presets:
@@ -1332,7 +1144,8 @@ std::vector<uint8_t> getGuitarChordNotesFromNeck(uint8_t row, uint8_t column, ui
   //Serial.printf("ChordType GT to chord = %d\n",(int)n.chordType);
   //Serial.printf("ChordType GT to key = %d\n",(int)n.key);
   //now based on neck assignment, we will need to determine enum value then return the value
-  return allChordsGuitar[(uint8_t)n.chordType][(uint8_t)n.key];
+  //return allChordsGuitar[(uint8_t)n.chordType][(uint8_t)n.key];
+  return GetAllChordsGuitar((uint8_t)n.chordType, (uint8_t)n.key);
 }
 
 Chord getKeyboardChordNotesFromNeck(uint8_t row, uint8_t column, uint8_t usePreset) {
@@ -1345,7 +1158,8 @@ Chord getKeyboardChordNotesFromNeck(uint8_t row, uint8_t column, uint8_t usePres
   neckAssignment n = neckAssignments[usePreset][row * NECK_COLUMNS + column];
   //Serial.printf("ChordType KB to row = %d preset = %d\n",(int)n.chordType, usePreset);
   //now based on neck assignment, we will need to determine enum value then return the value
-  return chords[(uint8_t)n.chordType];
+  //return chords[(uint8_t)n.chordType];
+  return GetPianoChords((uint8_t)n.chordType);
 }
 
 bool isStaggeredNotes()
@@ -1371,6 +1185,7 @@ void prepareConfig() {
   useToggleSustain.clear();
   drumsEnabled.clear();
   bassEnabled.clear();
+  properOmniChord5ths.clear();
 
   //Serial.printf("prepareConfig! Enter\n");
   uint8_t temp8;
@@ -1404,6 +1219,7 @@ void prepareConfig() {
     isSimpleChordMode.push_back(false);
     drumsEnabled.push_back(true);
     bassEnabled.push_back(true);
+    properOmniChord5ths.push_back(true);
   }
   //Serial.printf("prepareConfig! Exit\n");
 }
@@ -1425,7 +1241,8 @@ void prepareChords() {
       }
     }
     lastPressedChord = assignedFretPatterns[0].assignedChord;
-    lastPressedGuitarChord = allChordsGuitar[0][0];  // c major default strum
+    //lastPressedGuitarChord = allChordsGuitar[0][0];  // c major default strum
+    lastPressedGuitarChord = GetAllChordsGuitar(0,0);
     //Serial.printf("assignedFretPatterns size is %d\n", assignedFretPatterns.size());
     assignedFretPatternsByPreset.push_back(assignedFretPatterns);
   }
@@ -1433,73 +1250,10 @@ void prepareChords() {
 }
 
 void printChords() {
-  // Major (Maj) - [4, 7]
-
-  majorChord.printChordInfo();  // C Major chord (relative intervals)
-
-  // Minor (Min) - [3, 7]
-
-  minorChord.printChordInfo();  // C Minor chord (relative intervals)
-
-  // Diminished (Dim) - [3, 6]
-
-  diminishedChord.printChordInfo();  // C Diminished chord (relative intervals)
-
-  // Augmented (Aug) - [4, 8]
-
-  augmentedChord.printChordInfo();  // C Augmented chord (relative intervals)
-
-  // Major 7th (Maj7) - [4, 7, 11]
-
-  major7thChord.printChordInfo();  // C Major 7th chord (relative intervals)
-
-  // Minor 7th (Min7) - [3, 7, 10]
-
-  minor7thChord.printChordInfo();  // C Minor 7th chord (relative intervals)
-
-  // Dominant 7th (7) - [4, 7, 10]
-
-  dominant7thChord.printChordInfo();  // C Dominant 7th chord (relative intervals)
-
-  // Minor 7th flat five (m7♭5) - [3, 6, 10]
-
-  minor7Flat5Chord.printChordInfo();  // C Minor 7♭5 chord (relative intervals)
-
-  // Major 6th (Maj6) - [4, 7, 9]
-
-  major6thChord.printChordInfo();  // C Major 6th chord (relative intervals)
-
-  // Minor 6th (Min6) - [3, 7, 9]
-
-  minor6thChord.printChordInfo();  // C Minor 6th chord (relative intervals)
-
-  // Suspended 2nd (Sus2) - [2, 7]
-
-  suspended2Chord.printChordInfo();  // C Sus2 chord (relative intervals)
-
-  // Suspended 4th (Sus4) - [5, 7]
-
-  suspended4Chord.printChordInfo();  // C Sus4 chord (relative intervals)
-
-  // Add 9 - [4, 7, 2]
-
-  add9Chord.printChordInfo();  // C Add9 chord (relative intervals)
-
-  // Add 11 - [4, 7, 11]
-
-  add11Chord.printChordInfo();  // C Add11 chord (relative intervals)
-
-  // 9th (9) - [4, 7, 10, 14]
-
-  ninthChord.printChordInfo();  // C 9th chord (relative intervals)
-
-  // 11th (11) - [4, 7, 10, 14, 17]
-
-  eleventhChord.printChordInfo();  // C 11th chord (relative intervals)
-
-  // 13th (13) - [4, 7, 10, 14, 17, 21]
-
-  thirteenthChord.printChordInfo();  // C 13th chord (relative intervals)
+  for (int i = 0 ; i <= thirteenthChordType; i++ )
+  {
+    GetPianoChords(i).printChordInfo();
+  }
 }
 
 // Interrupt Service Routine: set flag to send clock
@@ -1644,7 +1398,7 @@ void setup() {
       Serial.println("Error! Failed to open pattern file for reading.");
     }
   }
-  
+  //updateChords();
   tickTimer.begin(clockISR, computeTickInterval(presetBPM[preset]));  // in microseconds
 }
 void sendSustain(uint8_t channel, bool isOn)
@@ -1663,9 +1417,6 @@ void sendSustain(uint8_t channel, bool isOn)
   }
 
 }
-
-
-
 
 void sendStart() {
   usbMIDI.sendRealTime(0xFA);
@@ -1926,9 +1677,16 @@ void checkSerialGuitar(HardwareSerial& serialPort, char* buffer, uint8_t& buffer
     bool processed = false;
     bool matched = false;
     if (bufferLen > 12) {
-      for (const HexToProgram& msg : hexToProgram) {
+      struct HexToProgram msg;
+      //for (const HexToProgram& msg : hexToProgram) {
+        for (uint8_t i = 0; i < 2; i++) {
+        msg = hexToProgram(i);
         size_t len = strlen(msg.hex);
         if (bufferLen >= len && strncmp(buffer, msg.hex, len) == 0) {
+          if (debug)
+          {
+            Serial.printf("Program was pressed %d", msg.program);
+          }
           sendCC(channel, msg.program, MAX_VELOCITY);
           memmove(buffer, buffer + len, bufferLen - len + 1);
           bufferLen -= len;
@@ -1940,8 +1698,11 @@ void checkSerialGuitar(HardwareSerial& serialPort, char* buffer, uint8_t& buffer
 
       if (matched) continue;
     }
+    struct MidiMessage msg;
     if (bufferLen >= 22 and !matched) {
-      for (const MidiMessage& msg : hexToNote) {
+      //for (const MidiMessage& msg : hexToNote) {
+        for (uint8_t a = 0; a <=ACTUAL_NECKBUTTONS; a++) {
+        msg = hexToNote(a);
         size_t len = strlen(msg.hex);
         last_len = len;
 
@@ -2063,17 +1824,30 @@ void checkSerialGuitar(HardwareSerial& serialPort, char* buffer, uint8_t& buffer
               {
                 ignore = true;
                 //if omnichord mode and is using paddle or keyboard is in a legit omnichord mode, prepare the notes
-                if (omniChordModeGuitar[preset] > OmniChordOffType && (!isKeyboard || (isKeyboard && omniChordModeGuitar[preset] != OmniChordOffType && omniChordModeGuitar[preset] != OmniChordGuitarType))) 
+                //if (omniChordModeGuitar[preset] > OmniChordOffType && (!isKeyboard || (isKeyboard && omniChordModeGuitar[preset] != OmniChordOffType && omniChordModeGuitar[preset] != OmniChordGuitarType))) 
+                if (omniChordModeGuitar[preset] > OmniChordOffType && (!isKeyboard || (isKeyboard && omniChordModeGuitar[preset] != OmniChordOffType))) 
                 {
                   //check if button pressed is the same
                   if (lastValidNeckButtonPressed != neckButtonPressed || omniChordNewNotes.size() == 0) {
                     //need to create a note list
                     omniChordNewNotes.clear();
-                    int offset = -1 * SEMITONESPEROCTAVE;  //move down by 1 octave since original uses middle C
+                    //int offset = -1 * SEMITONESPEROCTAVE;  //move down by 1 octave since original uses middle C
+                    int offset = 0;  //move down by 1 octave since original uses middle C
 
                     //std::vector<uint8_t> chordNotes = assignedFretPatternsByPreset[preset][msg.note].getChords().getCompleteChordNotes();  //get notes
                     std::vector<uint8_t> chordNotes = getActualAssignedChord(msg.note).getChords().getCompleteChordNotes();  //get notes
-                    
+
+                    if (properOmniChord5ths[preset])
+                    {
+                      for (uint8_t i = 0; i < chordNotes.size(); i++)
+                      {
+                        if (chordNotes[i] == chordNotes[0] + 7 )
+                        {
+                          chordNotes[i] -= SEMITONESPEROCTAVE;
+                        }
+                        //chordNotes[i] += 12; //correct too low
+                      }
+                    }
                     //Serial.printf("chordNotes = ");
                     //for (uint8_t i = 0; i < chordNotes.size(); i++)
                     //{
@@ -2373,7 +2147,12 @@ bool decodeCmd(SerialType& serialPort, String cmd, std::vector<String>* params)
   if (debug) {
     Serial.printf("Serial command received is %s\n", cmd.c_str());
   }
-  if (cmd == "SAVE") {
+  if (cmd == "MEML") {
+    printMemoryUsage();
+    serialPort.write("OK00\r\n");
+    // Match found
+  } 
+  else if (cmd == "SAVE") {
     if (saveSettings()) {
       serialPort.write("OK00\r\n");
     } else {
@@ -2979,41 +2758,6 @@ bool decodeCmd(SerialType& serialPort, String cmd, std::vector<String>* params)
     snprintf(buffer, sizeof(buffer), "OK00,%d\r\n", simpleChordSetting[atoi(params->at(0).c_str())]);
     serialPort.write(buffer);
   }
-/*
-
-  else if (cmd == "QNTW")  //QUARTERNOTETICKS write
-  {
-    if (params->size() < 2) {
-      serialPort.write("ER00\r\n");
-      return true;
-    }
-    if (atoi(params->at(0).c_str()) > MAX_PRESET || atoi(params->at(0).c_str()) < 0) {
-      serialPort.write("ER00\r\n");
-      return true;
-    }
-    if (atoi(params->at(1).c_str()) > 999 || atoi(params->at(1).c_str()) < 0) {
-      serialPort.write("ER00\r\n");
-      return true;
-    }
-    QUARTERNOTETICKS[atoi(params->at(0).c_str())] = atoi(params->at(1).c_str());
-    serialPort.write("OK00\r\n");
-    setNewBPM(presetBPM[preset]);
-  } 
-  else if (cmd == "QNTR")  //QUARTERNOTETICKS Read
-  {
-    if (params->size() < 1) {
-      serialPort.write("ER00\r\n");
-      return true;
-    }
-    if (atoi(params->at(0).c_str()) > MAX_PRESET || atoi(params->at(0).c_str()) < 0) {
-      serialPort.write("ER00\r\n");
-      return true;
-    }
-    snprintf(buffer, sizeof(buffer), "OK00,%d\r\n", QUARTERNOTETICKS[atoi(params->at(0).c_str())]);
-    serialPort.write(buffer);
-  }
-*/
-
   
   else if (cmd == "OTOW")  //omniKBTransposeOffset write
   {
@@ -3173,6 +2917,37 @@ bool decodeCmd(SerialType& serialPort, String cmd, std::vector<String>* params)
     serialPort.write(buffer);
   }
 
+//
+  else if (cmd == "OM5W")  //properOmniChord5ths write
+  {
+    if (params->size() < 2) {
+      serialPort.write("ER00\r\n");
+      return true;
+    }
+    if (atoi(params->at(0).c_str()) > MAX_PRESET || atoi(params->at(0).c_str()) < 0) {
+      serialPort.write("ER00\r\n");
+      return true;
+    }
+    if (atoi(params->at(1).c_str()) > 1 || atoi(params->at(1).c_str()) < 0) {
+      serialPort.write("ER00\r\n");
+      return true;
+    }
+    properOmniChord5ths[atoi(params->at(0).c_str())] = atoi(params->at(1).c_str()) == 1;
+    serialPort.write("OK00\r\n");
+  } 
+  else if (cmd == "OM5R")  //properOmniChord5ths Read
+  {
+    if (params->size() < 1) {
+      serialPort.write("ER00\r\n");
+      return true;
+    }
+    if (atoi(params->at(0).c_str()) > MAX_PRESET || atoi(params->at(0).c_str()) < 0) {
+      serialPort.write("ER00\r\n");
+      return true;
+    }
+    snprintf(buffer, sizeof(buffer), "OK00,%d\r\n", properOmniChord5ths[atoi(params->at(0).c_str())]?1:0);
+    serialPort.write(buffer);
+  }
   else if (cmd == "EBMW")  //enableButtonMidi write
   {
     if (params->size() < 2) {
@@ -3715,7 +3490,7 @@ void buildGuitarSequencerNotes(const std::vector<uint8_t>& chordNotes, bool reve
 
   uint8_t currentOffset = 1;
   std::vector<SequencerNote> SequencerNoteTemp;
-  if (reverse) {
+    if (reverse) {
     // Loop through the chord notes in reverse
     for (auto it = chordNotes.rbegin(); it != chordNotes.rend(); ++it) {
       SequencerNote note(*it, INDEFINITE_HOLD_TIME, currentOffset, GUITAR_CHANNEL);
@@ -4022,7 +3797,7 @@ void checkSerialKB(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen,
       uint8_t vel = strtol(temp, NULL, 16);
       //if paddle and omnichord or keyboard with omnichord (non omnichord guitar mode), keys will play omnichord style
 
-      if (omniChordModeGuitar[preset] != OmniChordOffType && (!isKeyboard || (isKeyboard && omniChordModeGuitar[preset] != OmniChordGuitarType))) {
+      if (omniChordModeGuitar[preset] != OmniChordOffType && (!isKeyboard || (isKeyboard && omniChordModeGuitar[preset] == OmniChordGuitarType))) {
         //Serial.printf("omniChordNewNotes.size() %d\n", omniChordNewNotes.size());
         if (omniChordNewNotes.size() == 0)  //no guitar button pressed
         {
@@ -4061,7 +3836,10 @@ void checkSerialKB(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen,
       continue;
     } else if (bufferLen >= 4 && strncmp(buffer, "f555", 4) == 0) {
       bool matched = false;
-      for (const HexToControl& msg : hexToControl) {
+      HexToControl msg;
+      //for (const HexToControl& msg : hexToControl) {
+        for (uint8_t i = 0; i < 6; i++) {
+        msg = hexToControl(i);
         size_t len = strlen(msg.hex);
         //Serial.printf("Raw buffer (KB): %s vs %s %d\n", buffer, msg.hex, len);
         if (bufferLen >= len && strncmp(buffer, msg.hex, len) == 0) {
@@ -4564,6 +4342,8 @@ bool saveSimpleConfig() {
       snprintf(buffer, sizeof(buffer), "guitarTranspose,%d,%d\n", i, (int) guitarTranspose[i]);
       //snprintf(buffer, sizeof(buffer), "useGradualMute,%d,%d\n", i, (int) useGradualMute[i]);
       snprintf(buffer, sizeof(buffer), "enableButtonMidi,%d,%d\n", i, (int) enableButtonMidi[i]);
+      
+      snprintf(buffer, sizeof(buffer), "properOmniChord5ths,%d,%d\n", i, (int) properOmniChord5ths[i]);
       snprintf(buffer, sizeof(buffer), "enableAllNotesOnChords,%d,%d\n", i, (int) enableAllNotesOnChords[i]);
       snprintf(buffer, sizeof(buffer), "isSimpleChordMode,%d,%d\n", i, (int) isSimpleChordMode[i]);
       
@@ -4849,6 +4629,8 @@ bool loadSimpleConfig() {
         //useGradualMute[i] = val;
       else if (strcmp(key, "enableButtonMidi") == 0 && i < enableButtonMidi.size())
         enableButtonMidi[i] = val == 1;
+      else if (strcmp(key, "properOmniChord5ths") == 0 && i < properOmniChord5ths.size())
+        properOmniChord5ths[i] = val == 1;
       
       else if (strcmp(key, "isSimpleChordMode") == 0 && i < isSimpleChordMode.size())
         isSimpleChordMode[i] = val == 1;      
