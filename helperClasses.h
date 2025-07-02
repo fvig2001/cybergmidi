@@ -1,4 +1,14 @@
+#pragma once
+#include <vector>
 #define MAX_VELOCITY 127
+
+// --- MIDI CONSTANTS ---
+#define ACCOMPANIMENT_CHANNEL 5 // backing for omnichord tracks
+#define BASS_CHANNEL 4
+#define GUITAR_BUTTON_CHANNEL 3
+#define GUITAR_CHANNEL 2
+#define KEYBOARD_CHANNEL 1
+#define DRUM_CHANNEL 10
 
 enum ChordType {
   majorChordType = 0,
@@ -62,13 +72,40 @@ public:
     }
     return complete;
   }
+  //skips 5th and 11th as needed
+  std::vector<uint8_t> getCompleteChordNotesNo5No11() const {
+    std::vector<uint8_t> complete;
+    complete.push_back(rootNote);
+    bool skip;
+    for (uint8_t i = 0; i < notes.size(); i++) {
+      skip = false;
+      if (notes.size() > 2 && i == 1 && notes[i] == 7) //do not add 5th which is on 1
+      {
+        skip = true;
+      }
+      //else if (notes.size() > 3 && i != notes.size() - 1) //assume 3rd and last not only
+      //{
+        //skip = true; //only get last
+      //}
+      else if (notes.size() >= 6 && notes[i] == 17 ) // skip 11th on 13th
+      {
+        skip = true; //only get last
+      }
+      if (!skip)
+      {
+        complete.push_back(notes[i] + rootNote);
+      }
+    }
+    return complete;
+  }
+  //get only 3 notes
   std::vector<uint8_t> getCompleteChordNotesNo5() const {
     std::vector<uint8_t> complete;
     complete.push_back(rootNote);
     bool skip;
     for (uint8_t i = 0; i < notes.size(); i++) {
       skip = false;
-      if (notes.size() > 2 && i == 1) //do not add 5th which is on 1
+      if (notes.size() > 2 && i == 1 && notes[i] == 7) //do not add 5th which is on 1
       {
         skip = true;
       }
@@ -76,6 +113,7 @@ public:
       {
         skip = true; //only get last
       }
+    
       if (!skip)
       {
         complete.push_back(notes[i] + rootNote);
@@ -107,23 +145,26 @@ class SequencerNote {
 public:
   uint16_t holdTime;
   uint16_t offset;
+  int8_t relativeOctave;
   uint8_t note;
   uint8_t channel;
   uint8_t velocity;
   SequencerNote()
   {
+    relativeOctave = 0;
     note = 0;
     holdTime = 0;
     offset = 0;
     channel = -1;
     velocity = MAX_VELOCITY;
   }
-  SequencerNote(uint8_t newNote, int newholdTime, uint16_t newoffset, uint8_t newchannel, uint8_t newvelocity = MAX_VELOCITY) {
+  SequencerNote(uint8_t newNote, int newholdTime, uint16_t newoffset, uint8_t newchannel, uint8_t newvelocity = MAX_VELOCITY, int8_t oct = 0) {
     note = newNote;
     holdTime = newholdTime;
     offset = newoffset;
     channel = newchannel;
     velocity = newvelocity;
+    relativeOctave = oct;
   }
 };
 
@@ -173,26 +214,26 @@ public:
   }
 };
 
-struct noteShift {
+typedef struct _noteShift {
   uint8_t paddleNote;
   uint8_t assignedNote;
-};
+} noteShift;
 
 // --- HEX TO MIDI NOTE MAP ---
-struct MidiMessage {
+typedef struct _MidiMessage {
   const char* hex;
   uint8_t note;
-};
+} MidiMessage;
 
-struct HexToProgram {
+typedef struct _HexToProgram {
   const char* hex;
   uint8_t program;
-};
+} HexToProgram;
 
-struct HexToControl {
+typedef struct _HexToControl {
   const char* hex;
   uint8_t cc;
-};
+} HexToControl;
 
 class neckAssignment {
 public:
@@ -203,3 +244,8 @@ public:
     chordType = majorChordType;
   }
 };
+
+typedef struct _noteOffset 
+{
+  std::vector<int8_t> noteOffsets; //offsets relative to expected note
+} noteOffset;
