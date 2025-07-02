@@ -2,8 +2,11 @@
 #include <vector>
 #include <SD.h>
 #include "helperClasses.h"
+#include "omniChordBacking.h"
 //defines
-#define COMMON_ROOT_NOTE 60
+#define MIN_BACKING_TYPE 0
+#define MAX_BACKING_TYPE 10
+
 #define OMNICHORD_TRANSPOSE_MAX 2
 #define OMNICHORD_TRANSPOSE_MIN -2
 #define GUITAR_TRANSPOSE_MAX 12
@@ -60,13 +63,7 @@
 #define BUTTON_2_PIN 5
 #define BUTTON_3_PIN 6  //unused due to hardware issues (device hangs)
 
-// --- MIDI CONSTANTS ---
-#define ACCOMPANIMENT_CHANNEL 5 // backing for omnichord tracks
-#define BASS_CHANNEL 4
-#define GUITAR_BUTTON_CHANNEL 3
-#define GUITAR_CHANNEL 2
-#define KEYBOARD_CHANNEL 1
-#define DRUM_CHANNEL 10
+
 
 #define MAX_STRUM_STYLE 3
 // Other constants
@@ -96,25 +93,15 @@ enum StrumStyleType {
 std::vector<SequencerNote> SequencerNotes; //queue of guitar notes
 std::vector<SequencerNote> StaggeredSequencerNotes; //queue of staggered guitar notes
 
-//bass could be in ram 2
-std::vector<SequencerNote> BassSequencerNotes;  //queue of bass notes assume monophonic
-std::vector<SequencerNote> BassSequencerPattern;
-//Accompaniment
-std::vector<SequencerNote> AccompanimentSequencerNotes;  //queue of bass notes assume monophonic
-std::vector<SequencerNote> AccompanimentSequencerPattern;
+
 //patterns in terms of Sequencer note
 
 std::vector<SequencerNote> SequencerPatternA;
 std::vector<SequencerNote> SequencerPatternB;
 std::vector<SequencerNote> SequencerPatternC;
 
-//probably store data of drums in Ram2
-std::vector<SequencerNote> DrumLoopSequencer; // drum loop pattern/drum pattern
-std::vector<SequencerNote> DrumLoopHalfBarSequencer; // drum loop pattern bar sequencer
-std::vector<SequencerNote> DrumFillSequencer; // drum fill pattern
-std::vector<SequencerNote> DrumIntroSequencer; // drum Intro pattern
-std::vector<SequencerNote> DrumEndSequencer; // drum Intro pattern
-std::vector<SequencerNote> DrumSequencerNotes; //queue of drum notes
+
+
 
 std::vector<SequencerNote> * getGuitarPattern(uint8_t pattern)
 {
@@ -238,11 +225,12 @@ IntervalTimer tickTimer;
 int lastTransposeValueDetected = 0;
 
 //config
-
 bool presetButtonPressed = false;
 bool debug = DEBUG;
 bool stopSoundsOnPresetChange = true;
 bool midiClockEnable = true;
+
+uint8_t backingState = 1; //0 = stock, 1-10 - uses omnichord 108 backing
 //uint16_t deviceBPM = 128;
 std::vector<bool> isSimpleChordMode;
 std::vector<bool> enableAllNotesOnChords;
@@ -1420,6 +1408,108 @@ void presetChanged() {
   lastValidNeckButtonPressed2 = -1;
 }
 
+bool loadPatternFiles(bool loadFromBackup = false) {
+  //if (!loadPatternRelatedConfig())
+  {
+//    return false;
+  };
+  if (!savePatternRelatedConfig())
+  {
+    return false;
+  };
+  String myFile = "pattern.ini";
+  if (loadFromBackup)
+  {
+    myFile = "patternBackup.ini";
+  }
+  File f = SD.open(myFile.c_str(), FILE_READ);
+  if (!f) {
+    Serial.println("Error loading pattern config!");
+    return false;
+  }
+  if (!loadFromBackup)
+  {
+    SequencerPatternA.clear();
+    SequencerPatternB.clear();
+    SequencerPatternC.clear();
+  }
+  BassSequencerPattern.clear();
+  AccompanimentSequencerPattern.clear();
+
+  DrumLoopSequencer.clear();
+  DrumLoopHalfBarSequencer.clear();
+  DrumFillSequencer.clear();
+  DrumIntroSequencer.clear();
+  DrumEndSequencer.clear();
+
+  std::vector<SequencerNote>* currentPattern = nullptr;
+  uint8_t currentChannel = 0;
+  char line[64];
+
+  while (f.available()) {
+    memset(line, 0, sizeof(line));
+    f.readBytesUntil('\n', line, sizeof(line));
+    
+    // Trim newline and whitespace
+    String trimmed = String(line);
+    trimmed.trim();
+
+    if (trimmed == "DRUM_INTRO_START") {
+      currentPattern = &DrumIntroSequencer;
+      currentChannel = DRUM_CHANNEL;
+    } else if (trimmed == "DRUM_LOOP_START") {
+      currentPattern = &DrumLoopSequencer;
+      currentChannel = DRUM_CHANNEL;
+    } else if (trimmed == "DRUM_HALFLOOP_START") {
+      currentPattern = &DrumLoopHalfBarSequencer;
+      currentChannel = DRUM_CHANNEL;
+    } else if (trimmed == "DRUM_FILL_START") {
+      currentPattern = &DrumFillSequencer;
+      currentChannel = DRUM_CHANNEL;
+    } else if (trimmed == "DRUM_END_START") {
+      currentPattern = &DrumEndSequencer;
+      currentChannel = DRUM_CHANNEL;
+    /*
+    } else if (trimmed == "GUITAR_A_START") {
+      currentPattern = &SequencerPatternA;
+      currentChannel = GUITAR_CHANNEL;
+    } else if (trimmed == "GUITAR_B_START") {
+      currentPattern = &SequencerPatternB;
+      currentChannel = GUITAR_CHANNEL;
+    } else if (trimmed == "GUITAR_C_START") {
+      currentPattern = &SequencerPatternC;
+      currentChannel = GUITAR_CHANNEL;
+      */
+    } else if (trimmed == "BASS_START") {
+      currentPattern = &BassSequencerPattern;
+      currentChannel = BASS_CHANNEL;
+    } else if (trimmed.endsWith("_END")) {
+      currentPattern = nullptr;
+    } else if (trimmed == "ACCOMPANIMENT_START") {
+      currentPattern = &AccompanimentSequencerPattern;
+      currentChannel = ACCOMPANIMENT_CHANNEL;
+    } else if (trimmed.endsWith("_END")) {
+      currentPattern = nullptr;
+    } else if (currentPattern) {
+      // Parse note line: note,holdTime,offset,velocity
+      SequencerNote note;
+      int n, h, o, v,r;
+      if (sscanf(trimmed.c_str(), "%d,%d,%d,%d,%d", &n, &h, &o, &v, &r) == 5) {
+        note.note = n;
+        note.holdTime = h;
+        note.offset = o;
+        note.velocity = v;
+        note.channel = currentChannel;
+        note.relativeOctave = r;
+        currentPattern->push_back(note);
+      }
+    }
+  }
+
+  f.close();
+  return true;
+}
+
 void setup() {
   //strum = 0;
   pinMode(NOTE_OFF_PIN, INPUT_PULLUP);
@@ -1465,7 +1555,7 @@ void setup() {
       Serial.println("Error! Failed to open file for reading.");
     }
   }
-  if (!loadPatternFiles())
+  if (!loadPatternFiles(false))
   {
     if (debug) {
       Serial.println("Error! Failed to open pattern file for reading.");
@@ -1859,7 +1949,7 @@ void checkSerialGuitar(HardwareSerial& serialPort, char* buffer, uint8_t& buffer
             }
             else if (msg.note == DRUM_STARTSTOP_BUTTON)
             {
-              if (drumsEnabled[preset]) //if drums on, need them to start first
+              //if (drumsEnabled[preset]) //if drums on, need them to start first
               {
                 if (drumState == DrumStopped)
                 {
@@ -1881,11 +1971,11 @@ void checkSerialGuitar(HardwareSerial& serialPort, char* buffer, uint8_t& buffer
                       prepareDrumSequencer();
                     }
                   }
-                  if (bassEnabled[preset])
+                  //if (bassEnabled[preset])
                   {
                     bassStart = true;
                   }
-                  if (accompanimentEnabled[preset] && omniChordModeGuitar[preset] > OmniChordOffType)
+                  //if (accompanimentEnabled[preset] && omniChordModeGuitar[preset] > OmniChordOffType)
                   {
                     accompanimentStart = true;
                   }
@@ -1893,40 +1983,21 @@ void checkSerialGuitar(HardwareSerial& serialPort, char* buffer, uint8_t& buffer
                 else
                 {
                   Serial.printf("Stopping drum sequencer\n");
-                  if (drumsEnabled[preset])
+                  bassStart = false;
+                  accompanimentStart = false;
+                  if (backingState != 0)
+                  {
+                    drumState = DrumStopped;
+                    drumNextState = DrumStopped;
+                    DrumSequencerNotes.clear();
+                  }
+                  else
                   {
                     drumNextState = DrumEnding;
                     prepareDrumSequencer();
-                    bassStart = false;
                   }
-                  else if (bassEnabled[preset])
-                  {
-                    bassStart = false;
-                    accompanimentStart = false;
-                  }
-                  else if (accompanimentEnabled[preset])
-                  {
-                    accompanimentStart = false;
-                  }
-                }
-              }
-              else //drums are not enabled, therefore just start everything else
-              {
-                if (!bassStart)
-                {
-                  bassStart = true;
-                }
-                else
-                {
-                  bassStart = false;
-                }
-                if (!accompanimentStart && omniChordModeGuitar[preset] > OmniChordOffType)
-                {
-                  accompanimentStart = true;
-                }
-                else
-                {
-                  accompanimentStart = false;
+                  
+
                 }
               }
             }
@@ -1955,7 +2026,7 @@ void checkSerialGuitar(HardwareSerial& serialPort, char* buffer, uint8_t& buffer
               }
               lastValidNeckButtonPressed2 = lastValidNeckButtonPressed;
               lastValidNeckButtonPressed = neckButtonPressed;
-              //Serial.printf("Guitar: last1=%d, last2= %d changed %d\n", lastValidNeckButtonPressed, lastValidNeckButtonPressed2, buttonPressedChanged?1:0);
+              Serial.printf("Guitar: last1=%d, last2= %d changed %d\n", lastValidNeckButtonPressed, lastValidNeckButtonPressed2, buttonPressedChanged?1:0);
             }
             else if (isSustain && !useToggleSustain[preset])
             {
@@ -2219,6 +2290,10 @@ void checkSerialGuitar(HardwareSerial& serialPort, char* buffer, uint8_t& buffer
                 }
                 //do nothing as we only care about neck tracking
               }
+              //fix chord change issue on bass/accompaniment here
+              //force update here
+              //lastValidNeckButtonPressed = lastNeckButtonPressed;
+              //lastNeckButtonPressed = neckButtonPressed;
             } 
             else  //no button pressed on neck
             {
@@ -2295,6 +2370,168 @@ void checkSerialBT(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen)
   }
 }
 
+bool savePatternFiles(bool saveToBackup = false) {
+  if (!savePatternRelatedConfig())
+  {
+    return false;
+  };
+  String myFile = "pattern.ini";
+  if (saveToBackup)
+  {
+    myFile = "patternBackup.ini";
+  }
+  File f = SD.open(myFile.c_str(), FILE_WRITE);
+  if (f) 
+  {
+    f.seek(0);
+    f.truncate();
+    //file.println("your new config data");
+    //snprintf(buffer, sizeof(buffer), "Name: %s, Int: %d, Float: %.2f\n", name, someValue, anotherValue);
+    //file.print(buffer);
+    char buffer[64];
+    //std::vector<SequencerNote> DrumLoopSequencer; // drum loop pattern/drum pattern
+    //std::vector<SequencerNote> DrumLoopHalfBarSequencer; // drum loop pattern bar sequencer
+    //std::vector<SequencerNote> DrumFillSequencer; // drum fill pattern
+    //std::vector<SequencerNote> DrumIntroSequencer; // drum Intro pattern
+    //std::vector<SequencerNote> DrumEndSequencer; // drum Intro pattern
+    if (DrumIntroSequencer.size() > 0)
+    {
+      snprintf(buffer, sizeof(buffer), "DRUM_INTRO_START\n");
+      f.print(buffer);
+      for (auto& seqNote : DrumIntroSequencer)
+      {
+        snprintf(buffer, sizeof(buffer), "%d,%d,%d,%d,%d\n", seqNote.note, seqNote.holdTime, seqNote.offset, seqNote.velocity, seqNote.relativeOctave);
+        f.print(buffer);
+      }
+      snprintf(buffer, sizeof(buffer), "DRUM_INTRO_END\n");
+      f.print(buffer);
+    }
+    if (DrumLoopHalfBarSequencer.size() > 0)
+    {
+      snprintf(buffer, sizeof(buffer), "DRUM_HALFLOOP_START\n");
+      f.print(buffer);
+      for (auto& seqNote : DrumLoopHalfBarSequencer)
+      {
+        snprintf(buffer, sizeof(buffer), "%d,%d,%d,%d,%d\n", seqNote.note, seqNote.holdTime, seqNote.offset, seqNote.velocity, seqNote.relativeOctave);
+        f.print(buffer);
+      }
+      snprintf(buffer, sizeof(buffer), "DRUM_HALFLOOP_END\n");
+      f.print(buffer);
+    }
+    if (DrumLoopSequencer.size() > 0)
+    {
+      snprintf(buffer, sizeof(buffer), "DRUM_LOOP_START\n");
+      f.print(buffer);
+      for (auto& seqNote : DrumLoopSequencer)
+      {
+        snprintf(buffer, sizeof(buffer), "%d,%d,%d,%d,%d\n", seqNote.note, seqNote.holdTime, seqNote.offset, seqNote.velocity, seqNote.relativeOctave);
+        f.print(buffer);
+      }
+      snprintf(buffer, sizeof(buffer), "DRUM_LOOP_END\n");
+      f.print(buffer);
+    }
+
+    if (DrumFillSequencer.size() > 0)
+    {
+      snprintf(buffer, sizeof(buffer), "DRUM_FILL_START\n");
+      f.print(buffer);
+      for (auto& seqNote : DrumFillSequencer)
+      {
+        snprintf(buffer, sizeof(buffer), "%d,%d,%d,%d,%d\n", seqNote.note, seqNote.holdTime, seqNote.offset, seqNote.velocity, seqNote.relativeOctave);
+        f.print(buffer);
+      }
+      snprintf(buffer, sizeof(buffer), "DRUM_FILL_END\n");
+      f.print(buffer);
+    }
+    
+    if (DrumEndSequencer.size() > 0)
+    {
+      snprintf(buffer, sizeof(buffer), "DRUM_END_START\n");
+      f.print(buffer);
+      for (auto& seqNote : DrumEndSequencer)
+      {
+        snprintf(buffer, sizeof(buffer), "%d,%d,%d,%d,%d\n", seqNote.note, seqNote.holdTime, seqNote.offset, seqNote.velocity, seqNote.relativeOctave);
+        f.print(buffer);
+      }
+      snprintf(buffer, sizeof(buffer), "DRUM_END_END\n");
+      f.print(buffer);
+    }
+
+    //save guitar patterns
+    if (SequencerPatternA.size() > 0)
+    {
+      snprintf(buffer, sizeof(buffer), "GUITAR_A_START\n");
+      f.print(buffer);
+      for (auto& seqNote : SequencerPatternA)
+      {
+        snprintf(buffer, sizeof(buffer), "%d,%d,%d,%d,%d\n", seqNote.note, seqNote.holdTime, seqNote.offset, seqNote.velocity, seqNote.relativeOctave);
+        f.print(buffer);
+      }
+      snprintf(buffer, sizeof(buffer), "GUITAR_A_END\n");
+      f.print(buffer);
+    }
+    if (SequencerPatternB.size() > 0)
+    {
+      snprintf(buffer, sizeof(buffer), "GUITAR_B_START\n");
+      f.print(buffer);
+      for (auto& seqNote : SequencerPatternB)
+      {
+        snprintf(buffer, sizeof(buffer), "%d,%d,%d,%d,%d\n", seqNote.note, seqNote.holdTime, seqNote.offset, seqNote.velocity, seqNote.relativeOctave);
+        f.print(buffer);
+      }
+      snprintf(buffer, sizeof(buffer), "GUITAR_B_END\n");
+      f.print(buffer);
+    }
+    if (SequencerPatternC.size() > 0)
+    {
+      snprintf(buffer, sizeof(buffer), "GUITAR_C_START\n");
+      f.print(buffer);
+      for (auto& seqNote : SequencerPatternC)
+      {
+        snprintf(buffer, sizeof(buffer), "%d,%d,%d,%d,%d\n", seqNote.note, seqNote.holdTime, seqNote.offset, seqNote.velocity, seqNote.relativeOctave);
+        f.print(buffer);
+      }
+      snprintf(buffer, sizeof(buffer), "GUITAR_C_END\n");
+      f.print(buffer);
+    }
+    //load bass pattern
+    if (BassSequencerPattern.size() > 0)
+    {
+      snprintf(buffer, sizeof(buffer), "BASS_START\n");
+      f.print(buffer);
+      for (auto& seqNote : BassSequencerPattern)
+      {
+        snprintf(buffer, sizeof(buffer), "%d,%d,%d,%d,%d\n", seqNote.note, seqNote.holdTime, seqNote.offset, seqNote.velocity, seqNote.relativeOctave);
+        f.print(buffer);
+      }
+      snprintf(buffer, sizeof(buffer), "BASS_END\n");
+      f.print(buffer);
+    }
+
+     if (AccompanimentSequencerPattern.size() > 0)
+    {
+      snprintf(buffer, sizeof(buffer), "ACCOMPANIMENT_START\n");
+      f.print(buffer);
+      for (auto& seqNote : AccompanimentSequencerPattern)
+      {
+        snprintf(buffer, sizeof(buffer), "%d,%d,%d,%d,%d\n", seqNote.note, seqNote.holdTime, seqNote.offset, seqNote.velocity, seqNote.relativeOctave);
+        f.print(buffer);
+      }
+      snprintf(buffer, sizeof(buffer), "BASS_END\n");
+      f.print(buffer);
+    }
+    f.print(buffer);
+  } 
+  else 
+  {
+    Serial.println("Error saving pattern config!");
+    return false;
+  }
+  f.close();
+  return true;
+}
+
+
 template<typename SerialType>
 bool decodeCmd(SerialType& serialPort, String cmd, std::vector<String>* params) 
 {
@@ -2323,7 +2560,7 @@ bool decodeCmd(SerialType& serialPort, String cmd, std::vector<String>* params)
     // Match found
   } 
   else if (cmd == "SAVP") {
-    if (savePatternFiles()) {
+    if (savePatternFiles(false)) {
       serialPort.write("OK00\r\n");
     } else {
       serialPort.write("ER00\r\n");
@@ -2344,7 +2581,7 @@ bool decodeCmd(SerialType& serialPort, String cmd, std::vector<String>* params)
         Serial.println("Error! Failed to open file for reading.");
       }
     }
-    if (!loadPatternFiles())
+    if (!loadPatternFiles(false))
     {
       if (debug) {
         Serial.println("Error! Failed to open pattern file for reading.");
@@ -2399,7 +2636,7 @@ bool decodeCmd(SerialType& serialPort, String cmd, std::vector<String>* params)
     }
   } 
   if (cmd == "LODP") {
-    if (loadPatternFiles()) {
+    if (loadPatternFiles(false)) {
       serialPort.write("OK00\r\n");
     } else {
       serialPort.write("ER00\r\n");
@@ -2735,6 +2972,47 @@ bool decodeCmd(SerialType& serialPort, String cmd, std::vector<String>* params)
     serialPort.write(buffer);
   }
 
+else if (cmd == "HBCW")  //handleOmnichordBackingChange
+  {
+    if (params->size() == 0) {
+      serialPort.write("ER00\r\n");
+      return true;
+    }
+    if (atoi(params->at(0).c_str()) > MAX_BACKING_TYPE || atoi(params->at(0).c_str()) < 0) {
+      serialPort.write("ER01\r\n");  //invalid parameter
+      return true;
+    }
+    bool restartMusic = false;
+    if (drumState != DrumStopped)
+    {
+      restartMusic = true;
+      noteAllOff();
+    }
+    handleOmnichordBackingChange(atoi(params->at(0).c_str())); //change backing from standard to omnichord
+    if (restartMusic)
+    {
+      if (DrumIntroSequencer.size() > 0)
+      {
+        drumState = DrumIntro;
+        drumNextState = DrumNone;
+        prepareDrumSequencer();
+      }
+      else
+      {
+        drumState = DrumLoop;
+        drumNextState = DrumNone;
+        prepareDrumSequencer();
+      }
+      bassStart = true;
+      accompanimentStart = true;
+    }
+    serialPort.write("OK00\r\n");
+  } 
+  else if (cmd == "HBCR")  //backingState
+  {
+    snprintf(buffer, sizeof(buffer), "OK00,%d\r\n", backingState);
+    serialPort.write(buffer);
+  } 
   else if (cmd == "CLKW")  //midiClockEnable
   {
     if (params->size() == 0) {
@@ -3237,10 +3515,6 @@ bool decodeCmd(SerialType& serialPort, String cmd, std::vector<String>* params)
       return true;
     }
     bassEnabled[atoi(params->at(0).c_str())] = atoi(params->at(1).c_str()) == 1;
-    if (!bassEnabled[preset])
-    {
-      bassStart = false;
-    }
     serialPort.write("OK00\r\n");
   } 
   else if (cmd == "BENR")  //BassEnabled Read
@@ -3272,10 +3546,6 @@ else if (cmd == "AENW")  //accompanimentEnabled write
       return true;
     }
     accompanimentEnabled[atoi(params->at(0).c_str())] = atoi(params->at(1).c_str()) == 1;
-    if (!bassEnabled[preset])
-    {
-      bassStart = false;
-    }
     serialPort.write("OK00\r\n");
   } 
   else if (cmd == "AENR")  //accompanimentEnabled Read
@@ -3307,12 +3577,12 @@ else if (cmd == "AENW")  //accompanimentEnabled write
       return true;
     }
     drumsEnabled[atoi(params->at(0).c_str())] = atoi(params->at(1).c_str()) == 1;
-    if (!drumsEnabled[preset])
-    {
-      drumNextState = DrumEnding;
-      drumState = DrumEnding;
-      prepareDrumSequencer();
-    }
+    //if (!drumsEnabled[preset])
+    //{
+      //drumNextState = DrumEnding;
+      //drumState = DrumEnding;
+      //prepareDrumSequencer();
+    //}
     serialPort.write("OK00\r\n");
   } 
   else if (cmd == "DENR")  //drumsEnabled Read
@@ -4326,11 +4596,11 @@ void advanceSequencerStep() {
 void advanceBassSequencerStep() {
   //enabled and started and bass sequencer notes is 0
     
-  if (!bassEnabled[preset] && !bassStart && BassSequencerNotes.size() == 0)
+  if (!bassStart && BassSequencerNotes.size() == 0)
   {
     return;
   }
-  if (drumsEnabled[preset] && drumState == DrumIntro) //no playing during drum intro
+  if (drumState == DrumIntro) //no playing during drum intro
   {
     return;
   }
@@ -4380,7 +4650,7 @@ void advanceBassSequencerStep() {
   for (auto it = BassSequencerNotes.begin(); it != BassSequencerNotes.end();) 
   {
     SequencerNote& note = *it;  // Reference to current note
-    if ((drumsEnabled[preset] && (drumState == DrumStopped || drumState == DrumEnding)) || !bassStart)
+    if ((drumState == DrumStopped || drumState == DrumEnding) || !bassStart)
     {
       //stop everything and send them to be deleted
       note.offset = 0;
@@ -4390,7 +4660,7 @@ void advanceBassSequencerStep() {
     else
     {
       if (note.offset == 1) {
-        if (note.note > 0  && note.note != REST_NOTE && note.note > 12)
+        if (bassEnabled[preset] &&  note.note != REST_NOTE && note.note > 12)
         {
           sendNoteOn(BASS_CHANNEL, note.note, note.velocity);
         }
@@ -4422,11 +4692,11 @@ void advanceBassSequencerStep() {
 void advanceAccompanimentSequencerStep() {
   //enabled and started and bass sequencer notes is 0
     
-  if (!bassEnabled[preset] && !accompanimentStart && AccompanimentSequencerNotes.size() == 0)
+  if (!accompanimentStart && AccompanimentSequencerNotes.size() == 0)
   {
     return;
   }
-  if (drumsEnabled[preset] && drumState == DrumIntro) //no playing during drum intro
+  if (drumState == DrumIntro) //no playing during drum intro
   {
     return;
   }
@@ -4475,7 +4745,7 @@ void advanceAccompanimentSequencerStep() {
   for (auto it = AccompanimentSequencerNotes.begin(); it != AccompanimentSequencerNotes.end();) 
   {
     SequencerNote& note = *it;  // Reference to current note
-    if ((drumsEnabled[preset] && (drumState == DrumStopped || drumState == DrumEnding)) || !accompanimentStart)
+    if ((drumState == DrumStopped || drumState == DrumEnding) || !accompanimentStart)
     {
       //stop everything and send them to be deleted
       note.offset = 0;
@@ -4485,7 +4755,7 @@ void advanceAccompanimentSequencerStep() {
     else
     {
       if (note.offset == 1) {
-        if (note.note > 0  && note.note != REST_NOTE && note.note > 12)
+        if (accompanimentEnabled[preset] && note.note != REST_NOTE && note.note > 12)
         {
           sendNoteOn(ACCOMPANIMENT_CHANNEL, note.note, note.velocity);
         }
@@ -4677,7 +4947,10 @@ void advanceDrumSequencerStep() {
     if (note.offset == 1) {
       if (note.note > 0 && note.note != REST_NOTE)
       {
-        sendNoteOn(DRUM_CHANNEL, note.note, note.velocity);
+        if (drumsEnabled[preset])
+        {
+          sendNoteOn(DRUM_CHANNEL, note.note, note.velocity);
+        }
       }
       note.offset = 0;
     } else if (note.offset > 1) {
@@ -4691,7 +4964,7 @@ void advanceDrumSequencerStep() {
     if (note.offset == 0 && note.holdTime == 0) {
       if (note.note > 0 && note.note != REST_NOTE)
       {
-        sendNoteOff(DRUM_CHANNEL, note.note);
+        sendNoteOff(DRUM_CHANNEL, note.note); //will still note off as needed just in case
       }
       // Remove the note from the vector
       it = DrumSequencerNotes.erase(it);  // `erase` returns the next iterator
@@ -4766,6 +5039,29 @@ bool printFileContents(const char* filename, bool isSerialOut) {
   return true;
 }
 
+bool savePatternRelatedConfig() {
+  File f = SD.open("configP.ini", FILE_WRITE);
+  if (f) {
+    f.seek(0);
+    f.truncate();
+    //file.println("your new config data");
+    //snprintf(buffer, sizeof(buffer), "Name: %s, Int: %d, Float: %.2f\n", name, someValue, anotherValue);
+    //file.print(buffer);
+    char buffer[64];
+    //MAX_PRESET value
+    
+    snprintf(buffer, sizeof(buffer), "backingState,%d\n", backingState ? 1 : 0);
+    f.print(buffer);
+  
+    
+  } else {
+    Serial.println("Error saving pattern related config!");
+    return false;
+  }
+  f.close();
+  return true;
+}
+
 bool saveSimpleConfig() {
   File f = SD.open("config.ini", FILE_WRITE);
   if (f) {
@@ -4786,6 +5082,7 @@ bool saveSimpleConfig() {
     snprintf(buffer, sizeof(buffer), "stopSoundsOnPresetChange,%d\n", stopSoundsOnPresetChange ? 1 : 0);
     f.print(buffer);
     //bool midiClockEnable = true;
+    
     snprintf(buffer, sizeof(buffer), "midiClockEnable,%d\n", midiClockEnable ? 1 : 0);
     f.print(buffer);
 
@@ -4812,19 +5109,28 @@ bool saveSimpleConfig() {
       f.print(buffer);
       //std::vector<uint8_t> strumSeparation; //time unit separation between notes //default 1
       snprintf(buffer, sizeof(buffer), "strumSeparation,%d,%d\n", i, strumSeparation[i]);
+      f.print(buffer);
       snprintf(buffer, sizeof(buffer), "alternateDirection,%d,%d\n", i, (int) alternateDirection[i]);
+      f.print(buffer);
       snprintf(buffer, sizeof(buffer), "useToggleSustain,%d,%d\n", i, (int) alternateDirection[i]);
-
+      f.print(buffer);
       snprintf(buffer, sizeof(buffer), "omniKBTransposeOffset,%d,%d\n", i, omniKBTransposeOffset[i]);
+      f.print(buffer);
       snprintf(buffer, sizeof(buffer), "guitarTranspose,%d,%d\n", i, (int) guitarTranspose[i]);
+      f.print(buffer);
       //snprintf(buffer, sizeof(buffer), "useGradualMute,%d,%d\n", i, (int) useGradualMute[i]);
       snprintf(buffer, sizeof(buffer), "enableButtonMidi,%d,%d\n", i, (int) enableButtonMidi[i]);
+      f.print(buffer);
       
       snprintf(buffer, sizeof(buffer), "properOmniChord5ths,%d,%d\n", i, (int) properOmniChord5ths[i]);
+      f.print(buffer);
       snprintf(buffer, sizeof(buffer), "enableAllNotesOnChords,%d,%d\n", i, (int) enableAllNotesOnChords[i]);
+      f.print(buffer);
       snprintf(buffer, sizeof(buffer), "isSimpleChordMode,%d,%d\n", i, (int) isSimpleChordMode[i]);
+      f.print(buffer);
       
       snprintf(buffer, sizeof(buffer), "drumsEnabled,%d,%d\n", i, (int) drumsEnabled[i]);
+      f.print(buffer);
       snprintf(buffer, sizeof(buffer), "bassEnabled,%d,%d\n", i, (int) bassEnabled[i]);
       f.print(buffer);
     }
@@ -4871,158 +5177,88 @@ bool saveComplexConfig() {
   f.close();
   return true;
 }
-bool savePatternFiles() {
-  File f = SD.open("pattern.ini", FILE_WRITE);
-  if (f) 
+
+void handleOmnichordBackingChange(uint8_t newBackingType)
+{
+  if (newBackingType < MIN_BACKING_TYPE || newBackingType > MAX_BACKING_TYPE)
   {
-    f.seek(0);
-    f.truncate();
-    //file.println("your new config data");
-    //snprintf(buffer, sizeof(buffer), "Name: %s, Int: %d, Float: %.2f\n", name, someValue, anotherValue);
-    //file.print(buffer);
-    char buffer[64];
-    //std::vector<SequencerNote> DrumLoopSequencer; // drum loop pattern/drum pattern
-    //std::vector<SequencerNote> DrumLoopHalfBarSequencer; // drum loop pattern bar sequencer
-    //std::vector<SequencerNote> DrumFillSequencer; // drum fill pattern
-    //std::vector<SequencerNote> DrumIntroSequencer; // drum Intro pattern
-    //std::vector<SequencerNote> DrumEndSequencer; // drum Intro pattern
-    if (DrumIntroSequencer.size() > 0)
-    {
-      snprintf(buffer, sizeof(buffer), "DRUM_INTRO_START\n");
-      f.print(buffer);
-      for (auto& seqNote : DrumIntroSequencer)
-      {
-        snprintf(buffer, sizeof(buffer), "%d,%d,%d,%d,%d\n", seqNote.note, seqNote.holdTime, seqNote.offset, seqNote.velocity, seqNote.relativeOctave);
-        f.print(buffer);
-      }
-      snprintf(buffer, sizeof(buffer), "DRUM_INTRO_END\n");
-      f.print(buffer);
-    }
-    if (DrumLoopHalfBarSequencer.size() > 0)
-    {
-      snprintf(buffer, sizeof(buffer), "DRUM_HALFLOOP_START\n");
-      f.print(buffer);
-      for (auto& seqNote : DrumLoopHalfBarSequencer)
-      {
-        snprintf(buffer, sizeof(buffer), "%d,%d,%d,%d,%d\n", seqNote.note, seqNote.holdTime, seqNote.offset, seqNote.velocity, seqNote.relativeOctave);
-        f.print(buffer);
-      }
-      snprintf(buffer, sizeof(buffer), "DRUM_HALFLOOP_END\n");
-      f.print(buffer);
-    }
-    if (DrumLoopSequencer.size() > 0)
-    {
-      snprintf(buffer, sizeof(buffer), "DRUM_LOOP_START\n");
-      f.print(buffer);
-      for (auto& seqNote : DrumLoopSequencer)
-      {
-        snprintf(buffer, sizeof(buffer), "%d,%d,%d,%d,%d\n", seqNote.note, seqNote.holdTime, seqNote.offset, seqNote.velocity, seqNote.relativeOctave);
-        f.print(buffer);
-      }
-      snprintf(buffer, sizeof(buffer), "DRUM_LOOP_END\n");
-      f.print(buffer);
-    }
-
-    if (DrumFillSequencer.size() > 0)
-    {
-      snprintf(buffer, sizeof(buffer), "DRUM_FILL_START\n");
-      f.print(buffer);
-      for (auto& seqNote : DrumFillSequencer)
-      {
-        snprintf(buffer, sizeof(buffer), "%d,%d,%d,%d,%d\n", seqNote.note, seqNote.holdTime, seqNote.offset, seqNote.velocity, seqNote.relativeOctave);
-        f.print(buffer);
-      }
-      snprintf(buffer, sizeof(buffer), "DRUM_FILL_END\n");
-      f.print(buffer);
-    }
-    
-    if (DrumEndSequencer.size() > 0)
-    {
-      snprintf(buffer, sizeof(buffer), "DRUM_END_START\n");
-      f.print(buffer);
-      for (auto& seqNote : DrumEndSequencer)
-      {
-        snprintf(buffer, sizeof(buffer), "%d,%d,%d,%d,%d\n", seqNote.note, seqNote.holdTime, seqNote.offset, seqNote.velocity, seqNote.relativeOctave);
-        f.print(buffer);
-      }
-      snprintf(buffer, sizeof(buffer), "DRUM_END_END\n");
-      f.print(buffer);
-    }
-
-    //save guitar patterns
-    if (SequencerPatternA.size() > 0)
-    {
-      snprintf(buffer, sizeof(buffer), "GUITAR_A_START\n");
-      f.print(buffer);
-      for (auto& seqNote : SequencerPatternA)
-      {
-        snprintf(buffer, sizeof(buffer), "%d,%d,%d,%d,%d\n", seqNote.note, seqNote.holdTime, seqNote.offset, seqNote.velocity, seqNote.relativeOctave);
-        f.print(buffer);
-      }
-      snprintf(buffer, sizeof(buffer), "GUITAR_A_END\n");
-      f.print(buffer);
-    }
-    if (SequencerPatternB.size() > 0)
-    {
-      snprintf(buffer, sizeof(buffer), "GUITAR_B_START\n");
-      f.print(buffer);
-      for (auto& seqNote : SequencerPatternB)
-      {
-        snprintf(buffer, sizeof(buffer), "%d,%d,%d,%d,%d\n", seqNote.note, seqNote.holdTime, seqNote.offset, seqNote.velocity, seqNote.relativeOctave);
-        f.print(buffer);
-      }
-      snprintf(buffer, sizeof(buffer), "GUITAR_B_END\n");
-      f.print(buffer);
-    }
-    if (SequencerPatternC.size() > 0)
-    {
-      snprintf(buffer, sizeof(buffer), "GUITAR_C_START\n");
-      f.print(buffer);
-      for (auto& seqNote : SequencerPatternC)
-      {
-        snprintf(buffer, sizeof(buffer), "%d,%d,%d,%d,%d\n", seqNote.note, seqNote.holdTime, seqNote.offset, seqNote.velocity, seqNote.relativeOctave);
-        f.print(buffer);
-      }
-      snprintf(buffer, sizeof(buffer), "GUITAR_C_END\n");
-      f.print(buffer);
-    }
-    //load bass pattern
-    if (BassSequencerPattern.size() > 0)
-    {
-      snprintf(buffer, sizeof(buffer), "BASS_START\n");
-      f.print(buffer);
-      for (auto& seqNote : BassSequencerPattern)
-      {
-        snprintf(buffer, sizeof(buffer), "%d,%d,%d,%d,%d\n", seqNote.note, seqNote.holdTime, seqNote.offset, seqNote.velocity, seqNote.relativeOctave);
-        f.print(buffer);
-      }
-      snprintf(buffer, sizeof(buffer), "BASS_END\n");
-      f.print(buffer);
-    }
-
-     if (AccompanimentSequencerPattern.size() > 0)
-    {
-      snprintf(buffer, sizeof(buffer), "ACCOMPANIMENT_START\n");
-      f.print(buffer);
-      for (auto& seqNote : AccompanimentSequencerPattern)
-      {
-        snprintf(buffer, sizeof(buffer), "%d,%d,%d,%d,%d\n", seqNote.note, seqNote.holdTime, seqNote.offset, seqNote.velocity, seqNote.relativeOctave);
-        f.print(buffer);
-      }
-      snprintf(buffer, sizeof(buffer), "BASS_END\n");
-      f.print(buffer);
-    }
-    f.print(buffer);
-  } 
-  else 
-  {
-    Serial.println("Error saving pattern config!");
-    return false;
+    return;
   }
-  f.close();
-  return true;
-}
+  if (backingState == 0)
+  {
+    if (newBackingType == 0)
+    {
+      return; //do nothing as nothing changed
+    }
+    savePatternFiles(true); //save to backup and change later
+  }
+  else
+  {
+    if (newBackingType != 0)
+    {
+      //no need to backup
+    }
+    else
+    {
+      loadPatternFiles(true); //reloads
+      backingState = 0;//revert to 0
+      return;
+    }
+  }
+  backingState = newBackingType;
+  //clear data they overwrite
+  DrumLoopSequencer.clear();
+  DrumLoopHalfBarSequencer.clear();
+  DrumFillSequencer.clear();
+  DrumIntroSequencer.clear();
+  DrumEndSequencer.clear();
+  DrumSequencerNotes.clear();
+  BassSequencerPattern.clear();
+  AccompanimentSequencerPattern.clear();
 
+  switch(newBackingType)
+  {
+    case 1:
+      generateRock1();     
+      break;
+    case 2:
+      generateRock2();     
+      break;
+    case 3:
+      generateBossanova();     
+      break;
+    case 4:
+      generateFunk();     
+      break;
+    case 5:
+      generateCountry();     
+      break;
+    case 6:
+      generateDisco();     
+      break;
+    case 7:
+      generateSlowRock();     
+      break;
+    case 8:
+      generateSwing();     
+      break;
+    case 9:
+      generateWaltz();     
+      break;
+    default:
+      generateHiphop();    
+  }
+  /*
+  for (int i = 0; i < BassSequencerPattern.size(); i++)
+  {
+    BassSequencerPattern[i].relativeOctave +=1;
+  }
+  for (int i = 0; i < AccompanimentSequencerPattern.size(); i++)
+  {
+    AccompanimentSequencerPattern[i].relativeOctave +=1;
+  }
+  */
+}
 bool saveSettings() {
   if (!saveSimpleConfig()) {
     Serial.printf("Error loading Simple Config!\n");
@@ -5035,7 +5271,35 @@ bool saveSettings() {
   }
   return true;
 }
+bool loadPatternRelatedConfig(){
+File f = SD.open("configP.ini", FILE_READ);
+  if (!f) {
+    Serial.println("Error opening configP.ini for reading!");
+    return false;
+  }
 
+  char line[64];
+  while (f.available()) {
+    size_t len = f.readBytesUntil('\n', line, sizeof(line) - 1);
+    line[len] = '\0';  // Null-terminate
+
+    // Trim trailing \r if present
+    if (len > 0 && line[len - 1] == '\r') {
+      line[len - 1] = '\0';
+    }
+
+    // Parse the line
+    char* key = strtok(line, ",");
+    char* arg1 = strtok(NULL, ",");
+
+    if (!key || !arg1) continue;
+    if (strcmp(key, "backingState") == 0) {
+      backingState = atoi(arg1);
+    } 
+  }
+  f.close();
+  return true;
+}
 bool loadSimpleConfig() {
   File f = SD.open("config.ini", FILE_READ);
   if (!f) {
@@ -5185,91 +5449,6 @@ bool loadComplexConfig() {
       if (presetT < neckAssignments.size() && (row * NECK_COLUMNS + col) < (int)assignedFretPatternsByPreset[presetT].size()) {
         assignedFretPatternsByPreset[presetT][row * NECK_COLUMNS + col].customPattern = patVal;
         
-      }
-    }
-  }
-
-  f.close();
-  return true;
-}
-
-bool loadPatternFiles() {
-  File f = SD.open("pattern.ini", FILE_READ);
-  if (!f) {
-    Serial.println("Error loading pattern config!");
-    return false;
-  }
-
-  SequencerPatternA.clear();
-  SequencerPatternB.clear();
-  SequencerPatternC.clear();
-  BassSequencerPattern.clear();
-  AccompanimentSequencerPattern.clear();
-
-  DrumLoopSequencer.clear();
-  DrumLoopHalfBarSequencer.clear();
-  DrumFillSequencer.clear();
-  DrumIntroSequencer.clear();
-  DrumEndSequencer.clear();
-
-  std::vector<SequencerNote>* currentPattern = nullptr;
-  uint8_t currentChannel = 0;
-  char line[64];
-
-  while (f.available()) {
-    memset(line, 0, sizeof(line));
-    f.readBytesUntil('\n', line, sizeof(line));
-    
-    // Trim newline and whitespace
-    String trimmed = String(line);
-    trimmed.trim();
-
-    if (trimmed == "DRUM_INTRO_START") {
-      currentPattern = &DrumIntroSequencer;
-      currentChannel = DRUM_CHANNEL;
-    } else if (trimmed == "DRUM_LOOP_START") {
-      currentPattern = &DrumLoopSequencer;
-      currentChannel = DRUM_CHANNEL;
-    } else if (trimmed == "DRUM_HALFLOOP_START") {
-      currentPattern = &DrumLoopHalfBarSequencer;
-      currentChannel = DRUM_CHANNEL;
-    } else if (trimmed == "DRUM_FILL_START") {
-      currentPattern = &DrumFillSequencer;
-      currentChannel = DRUM_CHANNEL;
-    } else if (trimmed == "DRUM_END_START") {
-      currentPattern = &DrumEndSequencer;
-      currentChannel = DRUM_CHANNEL;
-    } else if (trimmed == "GUITAR_A_START") {
-      currentPattern = &SequencerPatternA;
-      currentChannel = GUITAR_CHANNEL;
-    } else if (trimmed == "GUITAR_B_START") {
-      currentPattern = &SequencerPatternB;
-      currentChannel = GUITAR_CHANNEL;
-    } else if (trimmed == "GUITAR_C_START") {
-      currentPattern = &SequencerPatternC;
-      currentChannel = GUITAR_CHANNEL;
-    } else if (trimmed == "BASS_START") {
-      currentPattern = &BassSequencerPattern;
-      currentChannel = BASS_CHANNEL;
-    } else if (trimmed.endsWith("_END")) {
-      currentPattern = nullptr;
-    } else if (trimmed == "ACCOMPANIMENT_START") {
-      currentPattern = &AccompanimentSequencerPattern;
-      currentChannel = ACCOMPANIMENT_CHANNEL;
-    } else if (trimmed.endsWith("_END")) {
-      currentPattern = nullptr;
-    } else if (currentPattern) {
-      // Parse note line: note,holdTime,offset,velocity
-      SequencerNote note;
-      int n, h, o, v,r;
-      if (sscanf(trimmed.c_str(), "%d,%d,%d,%d,%d", &n, &h, &o, &v, &r) == 5) {
-        note.note = n;
-        note.holdTime = h;
-        note.offset = o;
-        note.velocity = v;
-        note.channel = currentChannel;
-        note.relativeOctave = r;
-        currentPattern->push_back(note);
       }
     }
   }
