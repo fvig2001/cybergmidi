@@ -1518,7 +1518,9 @@ void sendProgram(uint8_t channel, uint8_t program) {
   if (program == 2)  //right
   {
     curProgram = (curProgram + 1) % 128;
-  } else if (program == 1) {//left
+  } 
+  else if (program == 1) 
+  {//left
     curProgram = curProgram - 1;
     if (curProgram < 0) {
       curProgram = 127;
@@ -1538,9 +1540,9 @@ void sendProgram(uint8_t channel, uint8_t program) {
   else
   {
     usbMIDI.sendProgramChange(program, channel);
-    if (debug) {
-      Serial.printf("Program: ch=%d set program=%d\n", channel, program);
-    }
+    //if (debug) {
+      //Serial.printf("Program: ch=%d set program=%d\n", channel, program);
+    //}
   }
   
 
@@ -3903,8 +3905,15 @@ std::vector<SequencerNote> getPatternNotesFromChord(uint8_t channel, int buttonP
   {
     result = AccompanimentSequencerPattern;
   }
-    
-  std::vector<uint8_t> chordNotesA = getActualAssignedChord(buttonPressed).getChords().getCompleteChordNotesNo5();  //get notes
+  std::vector<uint8_t> chordNotesA;  
+  if (channel != BASS_CHANNEL)
+  {
+    chordNotesA = getActualAssignedChord(buttonPressed).getChords().getCompleteChordNotesNo5();  //get notes
+  }
+  else
+  {
+    chordNotesA = getActualAssignedChord(buttonPressed).getChords().getCompleteChordNotes();  //get notes
+  }
   for(uint8_t i = 0; i <chordNotesA.size(); i++)
   {
     for (uint8_t j = 0; j < result.size(); j++)
@@ -4578,16 +4587,18 @@ void advanceBassSequencerStep() {
     //todo check if no5 is better 
     std::vector<uint8_t> chordNotesA;
     std::vector<uint8_t> chordNotesB;
-    if(enableAllNotesOnChords[preset])
+    //if(enableAllNotesOnChords[preset])
     {
+      
       chordNotesA = getActualAssignedChord(lastBassNeckButtonPressed).getChords().getCompleteChordNotes();  //get notes
       chordNotesB = getActualAssignedChord(lastReference).getChords().getCompleteChordNotes();  //get notes
     }
-    else
-    {
-      chordNotesA = getActualAssignedChord(lastBassNeckButtonPressed).getChords().getCompleteChordNotesNo5();  //get notes
-      chordNotesB = getActualAssignedChord(lastReference).getChords().getCompleteChordNotesNo5();  //get notes
-    }
+    
+    //else
+    //{
+//      chordNotesA = getActualAssignedChord(lastBassNeckButtonPressed).getChords().getCompleteChordNotesNo5();  //get notes
+      //chordNotesB = getActualAssignedChord(lastReference).getChords().getCompleteChordNotesNo5();  //get notes
+    //}
     updateNotes(chordNotesA, chordNotesB, BassSequencerNotes);
     lastBassNeckButtonPressed = lastReference;
     //we need to switch the notes
@@ -4672,6 +4683,8 @@ void advanceAccompanimentSequencerStep() {
   if (neckButtonPressed != -1 && neckButtonPressed < MIN_IGNORED_GUITAR && lastAccompanimentNeckButtonPressed != neckButtonPressed && lastValidNeckButtonPressed == lastAccompanimentNeckButtonPressed)
   {
     lastReference = neckButtonPressed;
+    lastValidNeckButtonPressed = lastReference; //force update since this is the last in the sequence
+    //since it is last 
     forceChange = true;
   }
   if (lastReference == -1 && AccompanimentSequencerNotes.size() == 0)
