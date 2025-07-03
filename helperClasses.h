@@ -1,6 +1,8 @@
 #pragma once
 #include <vector>
+#include <deque>
 #define MAX_VELOCITY 127
+#define SEMITONESPEROCTAVE 12
 
 // --- MIDI CONSTANTS ---
 #define ACCOMPANIMENT_CHANNEL 5 // backing for omnichord tracks
@@ -9,6 +11,23 @@
 #define GUITAR_CHANNEL 2
 #define KEYBOARD_CHANNEL 1
 #define DRUM_CHANNEL 10
+
+extern bool debug;
+
+enum DrumState{
+  DrumNone = -1, //for next only to indicate nothing next is in queue
+  DrumStopped = 0,
+  DrumIntro,
+  DrumLoop, //expects a full bar worth at the end unless using half bar.
+  DrumLoopHalfBar, //optional half bar end that fill replaces
+  DrumLoopFill,
+  DrumEnding,
+};
+enum StrumStyleType {
+  SimpleStrum = 0, //Either guitar or piano chord
+  AutoStrum = 1, //does a specific pattern automatically
+  ManualStrum = 2, //user will have to press or strum to get next pattern
+};
 
 enum ChordType {
   majorChordType = 0,
@@ -46,6 +65,123 @@ enum Note {
   B_NOTE
 };
 
+const std::vector<uint8_t> omniChordOrigNotes = { 65, 67, 69, 71, 72, 74, 76, 77, 79, 81, 83, 84 };
+std::vector<uint8_t> omniChordNewNotes;
+#define LOWEST_MIDI_OCTAVE_NOTE_START 29
+#define LOWEST_MIDI_OCTAVE_NOTE_END 48
+#define HIGHEST_MIDI_OCTAVE_NOTE_START 77
+#define HIGHEST_MIDI_OCTAVE_NOTE_END 96
+
+const std::vector<std::vector<uint8_t>> midiOctaveGroups = {
+  {17, 19, 21, 23, 24, 26, 28, 29, 31, 33, 35, 36}, // -4
+  {29, 31, 33, 35, 36, 38, 40, 41, 43, 45, 47, 48}, // -3
+  {41, 43, 45, 47, 48, 50, 52, 53, 55, 57, 59, 60}, // -2
+  {53, 55, 57, 59, 60, 62, 64, 65, 67, 69, 71, 72}, // -1
+  {65, 67, 69, 71, 72, 74, 76, 77, 79, 81, 83, 84}, //  0
+  {77, 79, 81, 83, 84, 86, 88, 89, 91, 93, 95, 96},  // +1
+  {89, 91, 93, 95, 96, 98, 100, 101, 103, 105, 107, 108}, // +2
+  {101, 103, 105, 107, 108, 110, 112, 113, 115, 117, 119, 120} //+3
+
+};
+
+class TranspositionDetector {
+
+  uint8_t lowest = omniChordOrigNotes[0];
+  uint8_t highest = omniChordOrigNotes[omniChordOrigNotes.size() - 1];
+  int8_t offset = 0;
+  uint8_t prevBestGroup = 3;  // default to center (offset 0)
+  std::deque<uint8_t> noteHistory;
+  int octaveShift = 0;
+
+public:
+  void transposeUp() {
+    octaveShift += 1;
+    if (octaveShift > 2) {
+      octaveShift = 2;
+    }
+  }
+  void transposeDown() {
+    octaveShift -= 1;
+    if (octaveShift < -2) {
+      octaveShift = -2;
+    }
+  }
+  void transposeReset() {
+    octaveShift = 0;
+  }
+
+  void noteOn(uint8_t note) {
+    Serial.printf("Note is %d\n", note);
+    noteHistory.push_back(note);
+    if (noteHistory.size() > SEMITONESPEROCTAVE) {
+      noteHistory.pop_front();
+    }
+
+    std::vector<uint8_t> matchCounts(midiOctaveGroups.size(), 0);
+
+    for (uint8_t n : noteHistory) {
+      for (uint8_t i = 0; i < midiOctaveGroups.size(); i++) {
+        if (std::find(midiOctaveGroups[i].begin(), midiOctaveGroups[i].end(), n) != midiOctaveGroups[i].end()) {
+          matchCounts[i]++;
+        }
+      }
+    }
+
+    // Find best matching group(s)
+    uint8_t bestGroup = prevBestGroup;
+    uint8_t maxMatches = 0;
+
+    for (uint8_t i = 0; i < matchCounts.size(); ++i) {
+      if (matchCounts[i] > maxMatches) {
+        maxMatches = matchCounts[i];
+        bestGroup = i;
+      } else if (matchCounts[i] == maxMatches && i == prevBestGroup) {
+        // Tie breaker: prefer the previous best group
+        bestGroup = i;
+      }
+    }
+
+    // Optional: require minimum number of matches before changing
+    if (matchCounts[bestGroup] < 3) {
+      bestGroup = prevBestGroup;  // Don't change if not stable
+    }
+
+    offset = bestGroup - 4;
+    prevBestGroup = bestGroup;
+
+    Serial.printf("Detected offset: %d, group: %d\n", offset, bestGroup);
+  }
+
+  uint8_t getBestNote(uint8_t note) {
+    //given a transpose
+    //uint8_t newNote = note - transpose;
+    uint8_t newNote = note - offset * SEMITONESPEROCTAVE;
+    uint8_t bestNote = 0;
+    bool found = false;
+    // assumption is newNote is reverted to its original form
+    for (uint8_t i = 0; i < omniChordOrigNotes.size() && !found; i++) {
+      if (i + 1 >= (int)omniChordOrigNotes.size()) {
+        //best Note is last note
+        found = true;
+        bestNote = omniChordNewNotes[i];
+      } else if (omniChordOrigNotes[i] == newNote) {
+        bestNote = omniChordNewNotes[i];
+        found = true;
+      }
+      //assume if in between, use current note
+      else if (i + 1 < (int)omniChordOrigNotes.size() && omniChordOrigNotes[i] < newNote && omniChordOrigNotes[i + 1] > newNote) {
+        bestNote = omniChordNewNotes[i];
+        found = true;
+      } else {
+        //do nothing
+      }
+    }
+    return bestNote + SEMITONESPEROCTAVE * octaveShift;
+  }
+  int getBestTranspose() const {
+    return offset;
+  }
+};
 class Chord {
 public:
   uint8_t rootNote;
