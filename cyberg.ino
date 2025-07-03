@@ -6,7 +6,8 @@
 //defines
 #define MIN_BACKING_TYPE 0
 #define MAX_BACKING_TYPE 10
-
+#define DEBUG true
+#define DEBUGNOTEPRINT false
 #define OMNICHORD_TRANSPOSE_MAX 2
 #define OMNICHORD_TRANSPOSE_MIN -2
 #define GUITAR_TRANSPOSE_MAX 12
@@ -20,9 +21,12 @@
 #define MAX_PRESET 6
 #define NECK_COLUMNS 3
 #define NECK_ROWS 7
-#define SEMITONESPEROCTAVE 12
-#define DEBUG true
-#define DEBUGNOTEPRINT false
+
+#define PROGRAM_ACOUSTIC_GUITAR 24
+#define PROGRAM_ACOUSTIC_BASS 32
+#define PROGRAM_HARPSICORD 6
+#define PROGRAM_DRUMS 114
+
 #define MAX_CUSTOM_PATTERNS 3
 #define MAX_BASS_PATTERNS 1
 #define MAX_ACCOMPANIMENT_PATTERNS 1
@@ -72,36 +76,14 @@
 
 extern "C" char* sbrk(int incr);  // Get current heap end
 
-
-
-enum DrumState{
-  DrumNone = -1, //for next only to indicate nothing next is in queue
-  DrumStopped = 0,
-  DrumIntro,
-  DrumLoop, //expects a full bar worth at the end unless using half bar.
-  DrumLoopHalfBar, //optional half bar end that fill replaces
-  DrumLoopFill,
-  DrumEnding,
-};
-enum StrumStyleType {
-  SimpleStrum = 0, //Either guitar or piano chord
-  AutoStrum = 1, //does a specific pattern automatically
-  ManualStrum = 2, //user will have to press or strum to get next pattern
-};
-
-
 std::vector<SequencerNote> SequencerNotes; //queue of guitar notes
 std::vector<SequencerNote> StaggeredSequencerNotes; //queue of staggered guitar notes
-
 
 //patterns in terms of Sequencer note
 
 std::vector<SequencerNote> SequencerPatternA;
 std::vector<SequencerNote> SequencerPatternB;
 std::vector<SequencerNote> SequencerPatternC;
-
-
-
 
 std::vector<SequencerNote> * getGuitarPattern(uint8_t pattern)
 {
@@ -253,9 +235,9 @@ std::vector<bool> bassEnabled;
 std::vector<bool> accompanimentEnabled;
 std::vector<bool> properOmniChord5ths;
 //todo use these 
-std::vector<noteOffset> bassNoteOffsets;
-std::vector<noteOffset> accompanimentNoteOffsets;
-std::vector<std::vector<noteOffset>> guitarNoteOffsets;
+//std::vector<noteOffset> bassNoteOffsets;
+//std::vector<noteOffset> accompanimentNoteOffsets;
+//std::vector<std::vector<noteOffset>> guitarNoteOffsets;
 
 uint16_t DrumPatternID;
 uint16_t BassPatternID;
@@ -263,98 +245,12 @@ uint16_t GuitarPatternID0;
 uint16_t GuitarPatternID1;
 uint16_t GuitarPatternID2;
 
-
-
 unsigned int computeTickInterval(int bpm) {
   // 60,000,000 microseconds per minute / (BPM * 192 ticks per quarter note)
   return ((60000 / bpm)/(QUARTERNOTETICKS*1.0))*1000;
 }
 
-const std::vector<uint8_t> omniChordOrigNotes = { 65, 67, 69, 71, 72, 74, 76, 77, 79, 81, 83, 84 };
-std::vector<uint8_t> omniChordNewNotes;
 
-class TranspositionDetector {
-
-  uint8_t lowest = omniChordOrigNotes[0];
-  uint8_t highest = omniChordOrigNotes[omniChordOrigNotes.size() - 1];
-  int offset = 0;
-  int octaveShift = 0;
-
-public:
-  void transposeUp() {
-    octaveShift += 1;
-    if (octaveShift > 2) {
-      octaveShift = 2;
-    }
-  }
-  void transposeDown() {
-    octaveShift -= 1;
-    if (octaveShift < -2) {
-      octaveShift = -2;
-    }
-  }
-  void transposeReset() {
-    octaveShift = 0;
-  }
-
-  void noteOn(int midiNote) {
-    if (midiNote < lowest) {
-      if (debug) {
-        Serial.printf("New Low = Lowest %d Old %d high %d\n", midiNote, lowest, highest);
-      }
-      //53 is found instead of 65
-      offset = omniChordOrigNotes[0] - midiNote;  //12
-      lowest = midiNote;
-      highest = omniChordOrigNotes[omniChordOrigNotes.size() - 1] - offset;  //84 -12
-      if (debug) {
-        Serial.printf("offset %d\n", offset);
-      }
-      //highest = midiNote + 12;
-    } else if (midiNote > highest) {
-      if (debug) {
-        Serial.printf("New High = Highest %d Old %d low %d\n", midiNote, highest, lowest);
-      }
-      //96 is found instead of 84
-      offset = midiNote - omniChordOrigNotes[omniChordOrigNotes.size() - 1];  //12
-      highest = midiNote;
-      lowest = omniChordOrigNotes[0] + offset;
-      if (debug) {
-        Serial.printf("offset %d\n", offset);
-      }
-      //lowest = midiNote - 12;
-    }
-  }
-
-  uint8_t getBestNote(uint8_t note) {
-    //given a transpose
-    //uint8_t newNote = note - transpose;
-    uint8_t newNote = note - offset;
-    uint8_t bestNote = 0;
-    bool found = false;
-    // assumption is newNote is reverted to its original form
-    for (uint8_t i = 0; i < omniChordOrigNotes.size() && !found; i++) {
-      if (i + 1 >= (int)omniChordOrigNotes.size()) {
-        //best Note is last note
-        found = true;
-        bestNote = omniChordNewNotes[i];
-      } else if (omniChordOrigNotes[i] == newNote) {
-        bestNote = omniChordNewNotes[i];
-        found = true;
-      }
-      //assume if in between, use current note
-      else if (i + 1 < (int)omniChordOrigNotes.size() && omniChordOrigNotes[i] < newNote && omniChordOrigNotes[i + 1] > newNote) {
-        bestNote = omniChordNewNotes[i];
-        found = true;
-      } else {
-        //do nothing
-      }
-    }
-    return bestNote + SEMITONESPEROCTAVE * octaveShift;
-  }
-  int getBestTranspose() const {
-    return offset;
-  }
-};
 
 // --- STATE TRACKING ---
 bool b2Ignored = false;
@@ -445,7 +341,7 @@ const HexToControl hexToControl(uint8_t index)
 {
   switch (index)
   {
-    case 0:  return { "f5550003201401", 2 };
+    case 0:  return { "f5550003201401", 2 };  // right
     case 1:  return { "f5550003201402", 1 };  // Left
     case 2:  return { "f5550003201403", 5 };  // Both
     case 3:  return { "f5550003201000", 4 };  // Circle not Lit
@@ -1205,9 +1101,9 @@ void prepareConfig() {
   bassEnabled.clear();
   accompanimentEnabled.clear();
   properOmniChord5ths.clear();
-  bassNoteOffsets.clear();
-  accompanimentNoteOffsets.clear();
-  guitarNoteOffsets.clear();
+  //bassNoteOffsets.clear();
+  //accompanimentNoteOffsets.clear();
+  //guitarNoteOffsets.clear();
 
   //Serial.printf("prepareConfig! Enter\n");
   uint8_t temp8;
@@ -1249,7 +1145,7 @@ void prepareConfig() {
     GuitarPatternID1 = 0;
     GuitarPatternID2 = 0;
     
-
+/*
     for (int i = 0; i < 3; i++) 
     {
       std::vector<noteOffset> row;
@@ -1273,7 +1169,7 @@ void prepareConfig() {
       accompanimentNoteOffsets.push_back(s3);
     }
     
-    
+*/    
   }
   //Serial.printf("prepareConfig! Exit\n");
 }
@@ -1327,6 +1223,13 @@ void setNewBPM(int newBPM) {
   tickTimer.begin(tickISR, newInterval);  // restart timer with new interval
 }
 void sendNoteOn(uint8_t channel, uint8_t note, uint8_t velocity = MAX_VELOCITY) {
+  if (!isKeyboard)
+  {
+    if (channel == GUITAR_CHANNEL)
+    {
+      sendProgram(channel, PROGRAM_ACOUSTIC_GUITAR);
+    }
+  }
   usbMIDI.sendNoteOn(note, velocity, channel);
 
   //todo add support for playing sound
@@ -1409,10 +1312,15 @@ void presetChanged() {
 }
 
 bool loadPatternFiles(bool loadFromBackup = false) {
-  //if (!loadPatternRelatedConfig())
+  if (!loadPatternRelatedConfig())
   {
-//    return false;
+    return false;
   };
+  if (backingState != 0)
+  {
+    Serial.printf("Setting Backing State and files to %d\n", backingState);
+    handleOmnichordBackingChange(backingState);
+  }
   if (!savePatternRelatedConfig())
   {
     return false;
@@ -1563,6 +1471,9 @@ void setup() {
   }
   //updateChords();
   tickTimer.begin(clockISR, computeTickInterval(presetBPM[preset]));  // in microseconds
+  sendProgram(BASS_CHANNEL, PROGRAM_ACOUSTIC_BASS);
+  sendProgram(ACCOMPANIMENT_CHANNEL, PROGRAM_HARPSICORD);
+  
 }
 void sendSustain(uint8_t channel, bool isOn)
 {
@@ -1607,17 +1518,33 @@ void sendProgram(uint8_t channel, uint8_t program) {
   if (program == 2)  //right
   {
     curProgram = (curProgram + 1) % 128;
-  } else {
+  } else if (program == 1) {//left
     curProgram = curProgram - 1;
     if (curProgram < 0) {
       curProgram = 127;
     }
   }
-
-  usbMIDI.sendProgramChange(curProgram, channel);
-  if (debug) {
-    Serial.printf("Program: ch=%d program=%d\n", channel, curProgram);
+  else
+  {
+    //do nothing;
   }
+  if (program == 1 || program == 2)
+  {
+    usbMIDI.sendProgramChange(curProgram, channel);
+    if (debug) {
+      Serial.printf("Program: ch=%d program=%d\n", channel, curProgram);
+    }
+  }
+  else
+  {
+    usbMIDI.sendProgramChange(program, channel);
+    if (debug) {
+      Serial.printf("Program: ch=%d set program=%d\n", channel, program);
+    }
+  }
+  
+
+  
 }
 
 void sendCC(uint8_t channel, uint8_t cc, uint8_t value) {
@@ -1774,7 +1701,10 @@ void updateNotes(std::vector<uint8_t> &chordNotesA, std::vector<uint8_t> &chordN
       }
       uint8_t originalNote = SN[j].note;
       bool updated = false;
-
+      if (originalNote == REST_NOTE)
+      {
+        continue;
+      }
       for (size_t i = 0; i < chordNotesA.size(); ++i)
       {
         // Compare by pitch class (mod 12)
@@ -2026,7 +1956,7 @@ void checkSerialGuitar(HardwareSerial& serialPort, char* buffer, uint8_t& buffer
               }
               lastValidNeckButtonPressed2 = lastValidNeckButtonPressed;
               lastValidNeckButtonPressed = neckButtonPressed;
-              Serial.printf("Guitar: last1=%d, last2= %d changed %d\n", lastValidNeckButtonPressed, lastValidNeckButtonPressed2, buttonPressedChanged?1:0);
+              //Serial.printf("Guitar: last1=%d, last2= %d changed %d\n", lastValidNeckButtonPressed, lastValidNeckButtonPressed2, buttonPressedChanged?1:0);
             }
             else if (isSustain && !useToggleSustain[preset])
             {
@@ -2068,7 +1998,8 @@ void checkSerialGuitar(HardwareSerial& serialPort, char* buffer, uint8_t& buffer
                     {
                       for (uint8_t i = 0; i < chordNotes.size(); i++)
                       {
-                        if (chordNotes[i] == chordNotes[0] + 7 )
+                        //if (chordNotes[i] == chordNotes[0] + 7 )
+                        if (i == 2) // assumed to be always done for 3rd note/5ths
                         {
                           chordNotes[i] -= SEMITONESPEROCTAVE;
                         }
@@ -2560,7 +2491,7 @@ bool decodeCmd(SerialType& serialPort, String cmd, std::vector<String>* params)
     // Match found
   } 
   else if (cmd == "SAVP") {
-    if (savePatternFiles(false)) {
+    if (savePatternFiles(backingState != 0)) {
       serialPort.write("OK00\r\n");
     } else {
       serialPort.write("ER00\r\n");
@@ -4407,7 +4338,6 @@ void checkSerialKB(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen,
     memmove(buffer, buffer + 16, bufferLen - 15);
     bufferLen -= 16;
     buffer[bufferLen] = '\0';
-    
     return;
   }
 
@@ -4595,7 +4525,6 @@ void advanceSequencerStep() {
 
 void advanceBassSequencerStep() {
   //enabled and started and bass sequencer notes is 0
-    
   if (!bassStart && BassSequencerNotes.size() == 0)
   {
     return;
@@ -4604,40 +4533,63 @@ void advanceBassSequencerStep() {
   {
     return;
   }
-  
   if (lastValidNeckButtonPressed == -1) //only play if a button has been pressed
   {
-    return;
+    if (neckButtonPressed !=-1 && neckButtonPressed < MIN_IGNORED_GUITAR) //handle first button is actually pressed
+    {
+      //do nothing as valid button
+    }
+    else if (neckButtonPressed >= MIN_IGNORED_GUITAR)
+    {
+      return;
+    }
   }
-  
   //check if BassSequencerNotes is empty, populate
   //Serial.printf("BassSequencerNotes.size() = %d BassSequencerPattern.size() = %d\n", BassSequencerNotes.size(), BassSequencerPattern.size());
-  if (BassSequencerNotes.size() == 0 && BassSequencerPattern.size() > 0)
+  
+  //check current button pressed:
+  bool forceChange = false;
+  int8_t lastReference = lastValidNeckButtonPressed;
+  if (neckButtonPressed != -1 && neckButtonPressed < MIN_IGNORED_GUITAR && lastBassNeckButtonPressed != neckButtonPressed && lastValidNeckButtonPressed == lastBassNeckButtonPressed)
+  {
+    lastReference = neckButtonPressed;
+    forceChange = true;
+  }
+  if (lastReference == -1 && BassSequencerNotes.size() == 0)
+  {
+    BassSequencerNotes = getPatternNotesFromChord(BASS_CHANNEL, 0); //assume 0
+    if (backingState == 0) //we do not support this case for standard backing
+    {
+      return;
+    }
+  }
+  else if (BassSequencerNotes.size() == 0 && BassSequencerPattern.size() > 0)
+  {
+    lastBassNeckButtonPressed = lastReference;
+    BassSequencerNotes = getPatternNotesFromChord(BASS_CHANNEL, lastReference);
+    //given the ppattern, we replace the notes based on chord
+  }
+  else if (lastReference != -1 && (lastReference != lastBassNeckButtonPressed || forceChange))
   {
     if (lastBassNeckButtonPressed == -1)
     {
-      lastBassNeckButtonPressed = lastValidNeckButtonPressed;
+      lastBassNeckButtonPressed = 0; //to handle case where button without actual neck pressed case
     }
-    BassSequencerNotes = getPatternNotesFromChord(BASS_CHANNEL, lastValidNeckButtonPressed);
-    //given the ppattern, we replace the notes based on chord
-  }
-  else if (lastValidNeckButtonPressed != lastBassNeckButtonPressed)
-  {
     //todo check if no5 is better 
     std::vector<uint8_t> chordNotesA;
     std::vector<uint8_t> chordNotesB;
     if(enableAllNotesOnChords[preset])
     {
       chordNotesA = getActualAssignedChord(lastBassNeckButtonPressed).getChords().getCompleteChordNotes();  //get notes
-      chordNotesB = getActualAssignedChord(lastValidNeckButtonPressed).getChords().getCompleteChordNotes();  //get notes
+      chordNotesB = getActualAssignedChord(lastReference).getChords().getCompleteChordNotes();  //get notes
     }
     else
     {
       chordNotesA = getActualAssignedChord(lastBassNeckButtonPressed).getChords().getCompleteChordNotesNo5();  //get notes
-      chordNotesB = getActualAssignedChord(lastValidNeckButtonPressed).getChords().getCompleteChordNotesNo5();  //get notes
+      chordNotesB = getActualAssignedChord(lastReference).getChords().getCompleteChordNotesNo5();  //get notes
     }
     updateNotes(chordNotesA, chordNotesB, BassSequencerNotes);
-    lastBassNeckButtonPressed = lastValidNeckButtonPressed;
+    lastBassNeckButtonPressed = lastReference;
     //we need to switch the notes
     //get the notes of the previous chord
     //get the notes of the new chord
@@ -4645,7 +4597,7 @@ void advanceBassSequencerStep() {
   }
   else if (BassSequencerNotes.size() == 0)
   {
-    BassSequencerNotes = getPatternNotesFromChord(BASS_CHANNEL, lastValidNeckButtonPressed);
+    BassSequencerNotes = getPatternNotesFromChord(BASS_CHANNEL, lastReference);
   }
   for (auto it = BassSequencerNotes.begin(); it != BassSequencerNotes.end();) 
   {
@@ -4660,9 +4612,12 @@ void advanceBassSequencerStep() {
     else
     {
       if (note.offset == 1) {
-        if (bassEnabled[preset] &&  note.note != REST_NOTE && note.note > 12)
+        if (note.note != REST_NOTE && note.note > 12)
         {
-          sendNoteOn(BASS_CHANNEL, note.note, note.velocity);
+          if (bassEnabled[preset] && lastReference!=-1)
+          {
+            sendNoteOn(BASS_CHANNEL, note.note, note.velocity);
+          }
         }
         note.offset = 0;
       } else if (note.offset > 1) {
@@ -4691,7 +4646,6 @@ void advanceBassSequencerStep() {
 
 void advanceAccompanimentSequencerStep() {
   //enabled and started and bass sequencer notes is 0
-    
   if (!accompanimentStart && AccompanimentSequencerNotes.size() == 0)
   {
     return;
@@ -4703,36 +4657,60 @@ void advanceAccompanimentSequencerStep() {
   
   if (lastValidNeckButtonPressed == -1) //only play if a button has been pressed
   {
-    return;
+    if (neckButtonPressed !=-1 && neckButtonPressed < MIN_IGNORED_GUITAR) //handle first button is actually pressed
+    {
+      //do nothing as valid button
+    }
+    else if (neckButtonPressed >= MIN_IGNORED_GUITAR)
+    {
+      return;
+    }
   }
   
+  bool forceChange = false;
+  int8_t lastReference = lastValidNeckButtonPressed;
+  if (neckButtonPressed != -1 && neckButtonPressed < MIN_IGNORED_GUITAR && lastAccompanimentNeckButtonPressed != neckButtonPressed && lastValidNeckButtonPressed == lastAccompanimentNeckButtonPressed)
+  {
+    lastReference = neckButtonPressed;
+    forceChange = true;
+  }
+  if (lastReference == -1 && AccompanimentSequencerNotes.size() == 0)
+  {
+    if (backingState == 0) //we do not support this case for standard backing
+    {
+      return;
+    }
+    AccompanimentSequencerNotes = getPatternNotesFromChord(ACCOMPANIMENT_CHANNEL, 0);
+  }
   //check if AccompanimentSequencerNotes is empty, populate
-  if (AccompanimentSequencerNotes.size() == 0 && AccompanimentSequencerPattern.size() > 0)
+  else if (AccompanimentSequencerNotes.size() == 0 && AccompanimentSequencerPattern.size() > 0)
+  {
+    lastAccompanimentNeckButtonPressed = lastReference;
+    AccompanimentSequencerNotes = getPatternNotesFromChord(ACCOMPANIMENT_CHANNEL, lastReference);
+    //given the ppattern, we replace the notes based on chord
+  }
+  else if (lastReference != -1 && (lastValidNeckButtonPressed != lastAccompanimentNeckButtonPressed || forceChange))
   {
     if (lastAccompanimentNeckButtonPressed == -1)
     {
-      lastAccompanimentNeckButtonPressed = lastValidNeckButtonPressed;
+      lastAccompanimentNeckButtonPressed = 0; //to handle case where button without actual neck pressed case
     }
-    AccompanimentSequencerNotes = getPatternNotesFromChord(ACCOMPANIMENT_CHANNEL, lastValidNeckButtonPressed);
-    //given the ppattern, we replace the notes based on chord
-  }
-  else if (lastValidNeckButtonPressed != lastAccompanimentNeckButtonPressed)
-  {
+
     //todo check if no5 is better 
     std::vector<uint8_t> chordNotesA;
     std::vector<uint8_t> chordNotesB;
     if(enableAllNotesOnChords[preset])
     {
       chordNotesA = getActualAssignedChord(lastAccompanimentNeckButtonPressed).getChords().getCompleteChordNotes();  //get notes
-      chordNotesB = getActualAssignedChord(lastValidNeckButtonPressed).getChords().getCompleteChordNotes();  //get notes
+      chordNotesB = getActualAssignedChord(lastReference).getChords().getCompleteChordNotes();  //get notes
     }
     else
     {
       chordNotesA = getActualAssignedChord(lastAccompanimentNeckButtonPressed).getChords().getCompleteChordNotesNo5();  //get notes
-      chordNotesB = getActualAssignedChord(lastValidNeckButtonPressed).getChords().getCompleteChordNotesNo5();  //get notes
+      chordNotesB = getActualAssignedChord(lastReference).getChords().getCompleteChordNotesNo5();  //get notes
     }
     updateNotes(chordNotesA, chordNotesB, AccompanimentSequencerNotes);
-    lastAccompanimentNeckButtonPressed = lastValidNeckButtonPressed;
+    lastAccompanimentNeckButtonPressed = lastReference;
     //we need to switch the notes
     //get the notes of the previous chord
     //get the notes of the new chord
@@ -4740,7 +4718,7 @@ void advanceAccompanimentSequencerStep() {
   }
   else if (AccompanimentSequencerNotes.size() == 0)
   {
-    AccompanimentSequencerNotes = getPatternNotesFromChord(ACCOMPANIMENT_CHANNEL, lastValidNeckButtonPressed);
+    AccompanimentSequencerNotes = getPatternNotesFromChord(ACCOMPANIMENT_CHANNEL, lastReference);
   }
   for (auto it = AccompanimentSequencerNotes.begin(); it != AccompanimentSequencerNotes.end();) 
   {
@@ -4755,9 +4733,12 @@ void advanceAccompanimentSequencerStep() {
     else
     {
       if (note.offset == 1) {
-        if (accompanimentEnabled[preset] && note.note != REST_NOTE && note.note > 12)
+        if (note.note != REST_NOTE && note.note > 12)
         {
-          sendNoteOn(ACCOMPANIMENT_CHANNEL, note.note, note.velocity);
+          if (accompanimentEnabled[preset] && lastReference!=-1)
+          {
+            sendNoteOn(ACCOMPANIMENT_CHANNEL, note.note, note.velocity);
+          }
         }
         note.offset = 0;
       } else if (note.offset > 1) {
@@ -4997,7 +4978,6 @@ void onTick64() {
   }
   advanceBassSequencerStep();  // or send a note, etc.
   advanceAccompanimentSequencerStep();
-
   // Optional: wrap counter
   if (tickCount >= 4800) tickCount = 0;
 }
@@ -5200,7 +5180,7 @@ void handleOmnichordBackingChange(uint8_t newBackingType)
     }
     else
     {
-      loadPatternFiles(true); //reloads
+      loadPatternFiles(true); //saves to new
       backingState = 0;//revert to 0
       return;
     }
