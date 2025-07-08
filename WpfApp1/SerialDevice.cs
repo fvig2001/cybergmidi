@@ -1,4 +1,4 @@
-﻿using CyberG;
+using CyberG;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -23,8 +23,8 @@ public class SerialDevice
     private bool _isRunning = true;
     private Thread _workerThread;
 
-    private Queue<string> _lastCommandSent = new Queue<string>();
-    private Queue<string> _lastParamSent = new Queue<string>();
+    private string _lastCommandSent;
+    private string _lastParamSent;
     private readonly object _lock = new object();
 
     public string PortName { get; set; }
@@ -107,8 +107,8 @@ public class SerialDevice
 
                         lock (_lock)
                         {
-                            _lastCommandSent.Enqueue(item.Command);
-                            _lastParamSent.Enqueue(item.Param);
+                            _lastCommandSent = item.Command;
+                            _lastParamSent = item.Param;
                         }
 
                         if (!(item.Command == GET_PRESET && ignoreGetPreset) &&
@@ -154,8 +154,8 @@ public class SerialDevice
         {
             lock (_queueLock)
             {
-                _lastParamSent.Dequeue();
-                _lastCommandSent.Dequeue();
+                _lastParamSent = "";
+                _lastCommandSent = "";
                 isWaiting = false;
             }
         }
@@ -196,12 +196,7 @@ public class SerialDevice
         { 
             lock (_lock) 
             {
-                if (_lastCommandSent.Count == 0)
-                {
-                    return "";
-                }
-                
-                return _lastCommandSent.First(); 
+                return _lastCommandSent; 
             } 
         }
     }
@@ -212,11 +207,7 @@ public class SerialDevice
         { 
             lock (_lock) 
             {
-                if (_lastCommandSent.Count == 0)
-                {
-                    return "";
-                }
-                return _lastCommandSent.First(); 
+                return _lastCommandSent; 
             } 
         }
     }
@@ -234,17 +225,17 @@ public class SerialDevice
                 {
                     if (!data.StartsWith("OK"))
                     {
-                        if (_lastCommandSent.Count > 0 && _lastParamSent.Count > 0)
+                        //if (_lastCommandSent.Count > 0 && _lastParamSent.Count > 0)
                         {
-                            DebugLog.addToLog(debugType.sendDebug, _lastCommandSent.First() + "," + _lastParamSent.First());
+                            DebugLog.addToLog(debugType.sendDebug, _lastCommandSent + "," + _lastParamSent);
                         }
                         DebugLog.addToLog(debugType.replyDebug, data);
                     }
-
-                    if (_lastCommandSent.Count > 0 && _lastParamSent.Count > 0)
+                    
+                    //if (_lastCommandSent.Count > 0 && _lastParamSent.Count > 0)
                     {
-                        string cmd = _lastCommandSent.Dequeue();
-                        string param = _lastParamSent.Dequeue();
+                        string cmd = _lastCommandSent;
+                        string param = _lastParamSent;
 
                         if (!(cmd == GET_PRESET && ignoreGetPreset) &&
                             !(cmd == GET_ISKB && ignoreGetKB))
