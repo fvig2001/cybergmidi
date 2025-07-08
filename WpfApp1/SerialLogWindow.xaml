@@ -21,15 +21,16 @@
                 <ColumnDefinition Width="5px"/>
             </Grid.ColumnDefinitions>
 
-            <ListBox 
-                Grid.Column="1" 
-                Name="LogListBox"  
-                ItemsSource="{x:Static local:SerialLog.LogEntries}"
-                FontFamily="Consolas"
-                FontSize="10"
-                />
-
-
+            <ListBox Grid.Column="1" 
+                x:Name="LogListBox"
+         ItemsSource="{x:Static local:SerialLog.LogEntries}"
+         FontFamily="Consolas"
+         FontSize="10"
+         VirtualizingStackPanel.IsVirtualizing="True"
+         VirtualizingStackPanel.VirtualizationMode="Standard"
+         ScrollViewer.CanContentScroll="False"
+         Loaded="LogListBox_Loaded" />
+                
         </Grid>
         <Grid Grid.Row="3">
             <Grid.ColumnDefinitions>

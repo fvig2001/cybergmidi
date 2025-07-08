@@ -1,4 +1,4 @@
-using CyberG;
+﻿using CyberG;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -12,19 +12,55 @@ using System.Windows;
 
 public class SerialDevice
 {
+    public const string SET_CHORD_HOLD = "CH_W";
+    public const string GET_CHORD_HOLD = "CH_R";
+    public const string SET_ALTERNATING_STRUM = "ASDW";
+    public const string GET_ALTERNATING_STRUM = "ASDR";
+    public const string SET_SUSTAIN_MODE = "UTSW";
+    public const string GET_SUSTAIN_MODE = "UTSR";
+    public const string SET_CHORD_MODE = "EANW";
+    public const string GET_CHORD_MODE = "EANR";
+    public const string SET_IGNORE_MODE = "ISCW";
+    public const string GET_IGNORE_MODE = "ISCR";
+    public const string SET_PROPER_OMNICHORD = "OM5W";
+    public const string GET_PROPER_OMNICHORD = "OM5R";
+
+    public const string SET_STRUM_STYLE = "SCSW";
+    public const string GET_STRUM_STYLE = "SCSR";
+    public const string SET_STRUM_SEPARATION = "STSW";
+    public const string GET_STRUM_SEPARATION = "STSR";
+    public const string SET_MUTE_SEPARATION = "GMSW";
+    public const string GET_MUTE_SEPARATION = "GMSR";
+    public const string GET_CAPO = "GTRR";
+    public const string SET_CAPO = "GTRW";
+    public const string GET_KB_TRANSPOSE = "OTOR";
+    public const string SET_KB_TRANSPOSE = "OTOW";
+    public const string SET_BASS_ENABLE = "BENW";
+    public const string GET_BASS_ENABLE = "BENR";
+    public const string SET_ACCOMPANIMENT_ENABLE = "AENW";
+    public const string GET_ACCOMPANIMENT_ENABLE = "AENR";
+    public const string SET_DRUMS_ENABLE = "DENW";
+    public const string GET_DRUMS_ENABLE = "DENR";
+    public const string GET_DEVICE_MODE = "OMMR";
+    public const string SET_DEVICE_MODE = "OMMW";
     public const string GET_PRESET = "PRSR";
+    public const string SET_PRESET = "PRSW";
     public const string GET_ISKB = "ISKB";
+    public const string SET_BPM = "BPMW";
+    public const string GET_BPM = "BPMR";
     public const bool ignoreGetPreset = false;
     public const bool ignoreGetKB = false;
     private bool isWaiting = false;
-    private readonly Queue<CommandItem> _commandQueue = new Queue<CommandItem>();
+    private  Queue<CommandItem> _commandQueue = new Queue<CommandItem>();
     private readonly AutoResetEvent _queueSignal = new AutoResetEvent(false);
     private readonly object _queueLock = new object();
     private bool _isRunning = true;
     private Thread _workerThread;
 
-    private string _lastCommandSent;
-    private string _lastParamSent;
+    //private string _lastCommandSent;
+    //private string _lastParamSent;
+    private readonly Queue<string> _lastCommandSent = new Queue<string>();
+    private readonly Queue<string> _lastParamSent = new Queue<string>();
     private readonly object _lock = new object();
 
     public string PortName { get; set; }
@@ -45,11 +81,11 @@ public class SerialDevice
         BaudRate = baudRate;
 
         _serialPort = new SerialPort(PortName, BaudRate);
-        _serialPort.ReadTimeout = 5000; // milliseconds
+        _serialPort.ReadTimeout = 500; // milliseconds
         isUSB = DetermineIfUSB(portName);
         _internalHandler = new SerialDataReceivedEventHandler(OnSerialDataReceived);
         _serialPort.DataReceived += _internalHandler;
-        
+
         StartCommandProcessor();
     }
 
@@ -80,7 +116,7 @@ public class SerialDevice
             while (_isRunning)
             {
                 CommandItem item = null;
-                
+
                 lock (_queueLock)
                 {
                     if (!isWaiting)
@@ -103,13 +139,14 @@ public class SerialDevice
                         : item.Command + "," + item.Param + "\r\n";
                         //string sent = item.Command + "," + item.Param + "\r\n";
                         isWaiting = true;
-                        _serialPort.WriteLine(sent);
-
                         lock (_lock)
                         {
-                            _lastCommandSent = item.Command;
-                            _lastParamSent = item.Param;
+                            _lastCommandSent.Enqueue(item.Command);
+                            _lastParamSent.Enqueue(item.Param);
                         }
+                        _serialPort.Write(sent);
+
+
 
                         if (!(item.Command == GET_PRESET && ignoreGetPreset) &&
                             !(item.Command == GET_ISKB && ignoreGetKB))
@@ -125,6 +162,7 @@ public class SerialDevice
                 else
                 {
                     _queueSignal.WaitOne();
+
                 }
             }
         });
@@ -154,9 +192,10 @@ public class SerialDevice
         {
             lock (_queueLock)
             {
-                _lastParamSent = "";
-                _lastCommandSent = "";
+                _lastParamSent.Dequeue();
+                _lastCommandSent.Dequeue();
                 isWaiting = false;
+                _queueSignal.Set();
             }
         }
     }
@@ -183,7 +222,7 @@ public class SerialDevice
     public void Disconnect()
     {
         _isRunning = false;
-        _queueSignal.Set();
+        //_queueSignal.Set();
         if (_serialPort != null && _serialPort.IsOpen)
         {
             _serialPort.Close();
@@ -192,23 +231,23 @@ public class SerialDevice
 
     public string LastCommandSent
     {
-        get 
-        { 
-            lock (_lock) 
+        get
+        {
+            lock (_lock)
             {
-                return _lastCommandSent; 
-            } 
+                return _lastCommandSent.First();
+            }
         }
     }
 
     public string LastParamSent
     {
         get
-        { 
-            lock (_lock) 
+        {
+            lock (_lock)
             {
-                return _lastCommandSent; 
-            } 
+                return _lastCommandSent.First();
+            }
         }
     }
 
@@ -227,15 +266,15 @@ public class SerialDevice
                     {
                         //if (_lastCommandSent.Count > 0 && _lastParamSent.Count > 0)
                         {
-                            DebugLog.addToLog(debugType.sendDebug, _lastCommandSent + "," + _lastParamSent);
+                            DebugLog.addToLog(debugType.sendDebug, _lastCommandSent.First() + "," + _lastParamSent.First());
                         }
                         DebugLog.addToLog(debugType.replyDebug, data);
                     }
-                    
+
                     //if (_lastCommandSent.Count > 0 && _lastParamSent.Count > 0)
                     {
-                        string cmd = _lastCommandSent;
-                        string param = _lastParamSent;
+                        string cmd = _lastCommandSent.First();
+                        string param = _lastParamSent.First();
 
                         if (!(cmd == GET_PRESET && ignoreGetPreset) &&
                             !(cmd == GET_ISKB && ignoreGetKB))
@@ -251,7 +290,7 @@ public class SerialDevice
                     DataReceived?.Invoke(this, data);
                     break;
                 }
-                
+
             }
         }
         catch (TimeoutException)

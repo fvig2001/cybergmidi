@@ -37,7 +37,7 @@ namespace CyberG
                 SerialManager.Device.DataReceived += OnSettingsSerialDataReceived;
                 forceConnect = false;
             }
-            
+
         }
         private void ResetComPortComboBox()
         {
@@ -128,9 +128,9 @@ namespace CyberG
                         }
 
                     }
-                    else 
+                    else
                     {
-                         MessageBox.Show("Received wrong command's reply: " + command);
+                        MessageBox.Show("Received wrong command's reply: " + command);
                     }
                 }
                 //if (isGood)
@@ -139,7 +139,7 @@ namespace CyberG
                     SerialManager.Device.clearLastCommand();
                 }
 
-        });
+            });
         }
         protected override void OnClosed(EventArgs e)
         {

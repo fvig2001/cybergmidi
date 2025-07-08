@@ -234,7 +234,7 @@
                                     <ColumnDefinition Width="5"/>
 
                                 </Grid.ColumnDefinitions>
-                                <ComboBox Grid.Column="1" VerticalAlignment="Top" Name="presetComboBox"/>
+                                <ComboBox Grid.Column="1" VerticalAlignment="Top" Name="presetComboBox" SelectionChanged="presetComboBox_SelectionChanged"/>
                             </Grid>
 
 

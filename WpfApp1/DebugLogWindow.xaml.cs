@@ -21,7 +21,6 @@ namespace CyberG
     /// </summary>
     public partial class DebugLogWindow : Window
     {
-        private DispatcherTimer _refreshTimer;
         public DebugLogWindow()
         {
             InitializeComponent();
