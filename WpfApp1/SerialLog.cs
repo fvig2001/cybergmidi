@@ -5,6 +5,7 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows;
 namespace CyberG
 {
     class SerialLog
@@ -16,8 +17,10 @@ namespace CyberG
         {
             lock (_lock)
             {
-                //debugLog.Add(type.ToString() + " : " + message);
-                LogEntries.Add(message);
+                Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    LogEntries.Add(message);
+                }));
             }
         }
         public static void clearLog()

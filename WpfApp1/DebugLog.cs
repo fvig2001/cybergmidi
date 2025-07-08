@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows;
 
 namespace CyberG
 {
@@ -23,8 +24,10 @@ namespace CyberG
         {
             lock (_lock)
             {
-                //debugLog.Add(type.ToString() + " : " + message);
-                LogEntries.Add(type + " : " + message);
+                Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    LogEntries.Add(type + " : " + message);
+                }));
             }
         }
         public static void clearLog()
