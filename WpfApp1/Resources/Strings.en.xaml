@@ -1,0 +1,65 @@
+﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib">
+    <sys:String x:Key="Enabled">Enabled</sys:String>
+    <sys:String x:Key="Disabled">Disabled</sys:String>
+    <sys:String x:Key="OmniMode1">Standard</sys:String>
+    <sys:String x:Key="OmniMode2">Omnichord Piano Chords</sys:String>
+    <sys:String x:Key="OmniMode3">Omnichord Piano Chords Auto Hold</sys:String>
+    <sys:String x:Key="OmniMode4">Omnichord Guitar Paddle</sys:String>
+    <sys:String x:Key="StrumStyle1">Simple Chord Play</sys:String>
+    <sys:String x:Key="StrumStyle2">Manual Pattern Play</sys:String>
+    <sys:String x:Key="StrumStyle3">Auto Pattern Play</sys:String>
+    <sys:String x:Key="Toggled">Toggled</sys:String>
+    <sys:String x:Key="Pressed">Pressed</sys:String>
+    <sys:String x:Key="ChordMode1">Complete Chords</sys:String>
+    <sys:String x:Key="ChordMode2">Less Chord Notes</sys:String>
+    <sys:String x:Key="RootNote1">C</sys:String>
+    <sys:String x:Key="RootNote2">C#</sys:String>
+    <sys:String x:Key="RootNote3">D</sys:String>
+    <sys:String x:Key="RootNote4">D#</sys:String>
+    <sys:String x:Key="RootNote5">E</sys:String>
+    <sys:String x:Key="RootNote6">F</sys:String>
+    <sys:String x:Key="RootNote7">F#</sys:String>
+    <sys:String x:Key="RootNote8">G</sys:String>
+    <sys:String x:Key="RootNote9">G#</sys:String>
+    <sys:String x:Key="RootNote10">A</sys:String>
+    <sys:String x:Key="RootNote11">A#</sys:String>
+    <sys:String x:Key="RootNote12">B</sys:String>
+    <sys:String x:Key="ChordNote1">Major Chord</sys:String>
+    <sys:String x:Key="ChordNote2">Minor Chord</sys:String>
+    <sys:String x:Key="ChordNote3">Diminished Chord</sys:String>
+    <sys:String x:Key="ChordNote4">Augmented Chord</sys:String>
+    <sys:String x:Key="ChordNote5">Major 7th Chord</sys:String>
+    <sys:String x:Key="ChordNote6">Minor 7th Chord</sys:String>
+    <sys:String x:Key="ChordNote7">Dominant 7th Chord</sys:String>
+    <sys:String x:Key="ChordNote8">Minor 7♭5 Chord</sys:String>
+    <sys:String x:Key="ChordNote9">Major 6th Chord</sys:String>
+    <sys:String x:Key="ChordNote10">Minor 6th Chord</sys:String>
+    <sys:String x:Key="ChordNote11">Suspended 2nd Chord</sys:String>
+    <sys:String x:Key="ChordNote12">Suspended 4th Chord</sys:String>
+    <sys:String x:Key="ChordNote13">Add 9 Chord</sys:String>
+    <sys:String x:Key="ChordNote14">Add 11 Chord</sys:String>
+    <sys:String x:Key="ChordNote15">9th Chord</sys:String>
+    <sys:String x:Key="ChordNote16">11th Chord</sys:String>
+    <sys:String x:Key="ChordNote17">13th Chord</sys:String>
+    <sys:String x:Key="GuitarPattern">Guitar Strum Pattern</sys:String>
+    <sys:String x:Key="ComPort">COM Port</sys:String>
+    <sys:String x:Key="ConnectionWindowTitle">Connect to Device</sys:String>
+    <sys:String x:Key="Connect">Connect</sys:String>
+    <sys:String x:Key="Refresh">Refresh</sys:String>
+    <sys:String x:Key="NoComPortSelected">Please select a valid COM port.</sys:String>
+    <sys:String x:Key="ComConnectFailed">Error connecting to COM port.</sys:String>
+    <sys:String x:Key="ClearLog">Clear Log</sys:String>
+    <sys:String x:Key="DebugWindow">Debug Window</sys:String>
+    <sys:String x:Key="SerialCommunicationWindow">Serial Communication Window</sys:String>
+    <sys:String x:Key="NotConnected">Not Connected</sys:String>
+    <sys:String x:Key="Connected">Connected</sys:String>
+
+
+
+
+
+
+
+</ResourceDictionary>

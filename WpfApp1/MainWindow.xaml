@@ -1,0 +1,1552 @@
+﻿<Window x:Class="CyberG.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:CyberG"
+        mc:Ignorable="d"
+        Title="MainWindow" Width="1280" Height="720" 
+        >
+    <!-- Title="MainWindow" Width="1600" Height="900"  -->
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="5"/>
+            <RowDefinition/>
+            <!-- Status Bar -->
+            <RowDefinition Height="20"/>
+        </Grid.RowDefinitions>
+        <Rectangle Grid.Row="2" Fill="{DynamicResource StatusBarColor}"></Rectangle>
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="3"/>
+                <ColumnDefinition Width="16"/>
+                <ColumnDefinition Width="100"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="5"/>
+            </Grid.ColumnDefinitions>
+            <Ellipse Grid.Column="1" Width="14" Height="14" Fill="{DynamicResource STATUSNG}" Stroke="Black" StrokeThickness="1" Name="statusEllipse"/>
+            <Label Grid.Column="2" FontSize="8" Content="{DynamicResource NotConnected}" Name="statusLabel" VerticalAlignment="Top" VerticalContentAlignment="Top"/>
+        </Grid>
+
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <!--Left Margin-->
+                <ColumnDefinition Width="5"/>
+                <!--Main Setting Area-->
+                <ColumnDefinition/>
+
+                <!--Guitar/KB Settings-->
+                <ColumnDefinition Width="160"/>
+                <!--Fret Area-->
+                <ColumnDefinition Width="460"/>
+
+
+                <!--Right Margin-->
+                <ColumnDefinition Width="5"/>
+            </Grid.ColumnDefinitions>
+            <Rectangle Grid.Column="1" Fill="{DynamicResource Panel1Color}"></Rectangle>
+            <Rectangle Grid.Column="2" Fill="{DynamicResource Panel2Color}"></Rectangle>
+            <Rectangle Grid.Column="3" Fill="{DynamicResource Panel3Color}"></Rectangle>
+
+
+            <Grid Grid.Column="1">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="90" />
+                    <RowDefinition Height="150" />
+
+                </Grid.RowDefinitions>
+                <Grid Grid.Row="0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="25"/>
+                        <ColumnDefinition/>
+                        <ColumnDefinition Width="25"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid Grid.Column="1">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="25"/>
+                            <RowDefinition/>
+                            <RowDefinition Height="0"/>
+                        </Grid.RowDefinitions>
+                        <Rectangle Grid.Row="1" Fill="#F0F4F8" />
+                    </Grid>
+
+                </Grid>
+
+                <!--<Rectangle Grid.Row="0" Fill="#F0F4F8" />
+                <Rectangle Grid.Row="1" Fill="#E0E4E8" />
+                <Rectangle Grid.Row="2" Fill="#B0BCC6" />-->
+                <Grid Grid.Row="0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="25"/>
+                        <ColumnDefinition/>
+                        <!--Cyber G Pic-->
+                        <ColumnDefinition Width="25"/>
+                    </Grid.ColumnDefinitions>
+                </Grid>
+                <Grid Grid.Row="2">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="5"/>
+                        <ColumnDefinition/>
+                        <ColumnDefinition/>
+                        <ColumnDefinition/>
+                        <ColumnDefinition/>
+                        <ColumnDefinition/>
+                        <ColumnDefinition/>
+                        <ColumnDefinition Width="5"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid Grid.Column="1">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="30"/>
+                            <RowDefinition/>
+                            <RowDefinition Height="30"/>
+                        </Grid.RowDefinitions>
+                        <Grid Grid.Row="1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="20"/>
+                                <ColumnDefinition/>
+                                <ColumnDefinition Width="20"/>
+                            </Grid.ColumnDefinitions>
+                            <Button Grid.Column="1" Content="Save" Name="saveButton" Click="saveButton_Click"/>
+                        </Grid>
+
+                    </Grid>
+
+                    <Grid Grid.Column="2">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="30"/>
+                            <RowDefinition/>
+                            <RowDefinition Height="30"/>
+                        </Grid.RowDefinitions>
+                        <Grid Grid.Row="1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="20"/>
+                                <ColumnDefinition/>
+                                <ColumnDefinition Width="20"/>
+                            </Grid.ColumnDefinitions>
+                            <Button Grid.Column="1" Content="Load" Name="loadButton" Click="loadButton_Click"/>
+                        </Grid>
+
+                    </Grid>
+
+                    <Grid Grid.Column="3">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="30"/>
+                            <RowDefinition/>
+                            <RowDefinition Height="30"/>
+                        </Grid.RowDefinitions>
+                        <Grid Grid.Row="1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="20"/>
+                                <ColumnDefinition/>
+                                <ColumnDefinition Width="20"/>
+                            </Grid.ColumnDefinitions>
+                            <Button Grid.Column="1" Content="Pattern Factory" Name="patternFactoryButton" Click="patternFactoryButton_Click"/>
+                        </Grid>
+
+                    </Grid>
+
+                    <Grid Grid.Column="4">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="30"/>
+                            <RowDefinition/>
+                            <RowDefinition Height="30"/>
+                        </Grid.RowDefinitions>
+                        <Grid Grid.Row="1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="20"/>
+                                <ColumnDefinition/>
+                                <ColumnDefinition Width="20"/>
+                            </Grid.ColumnDefinitions>
+                            <Button Grid.Column="1" Content="Pattern Settings" Name="patternSettingsButton" Click="patternSettingsButton_Click"/>
+                        </Grid>
+
+                    </Grid>
+                    <Grid Grid.Column="5">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="30"/>
+                            <RowDefinition/>
+                            <RowDefinition Height="30"/>
+                        </Grid.RowDefinitions>
+                        <Grid Grid.Row="1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="20"/>
+                                <ColumnDefinition/>
+                                <ColumnDefinition Width="20"/>
+                            </Grid.ColumnDefinitions>
+                            <Button Grid.Column="1" Content="Other Settings" Name="otherSettingsButton" Click="otherSettingsButton_Click"/>
+                        </Grid>
+                    </Grid>
+                    <Grid Grid.Column="6">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="30"/>
+                            <RowDefinition/>
+                            <RowDefinition Height="30"/>
+                        </Grid.RowDefinitions>
+                        <Grid Grid.Row="1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="20"/>
+                                <ColumnDefinition/>
+                                <ColumnDefinition Width="20"/>
+                            </Grid.ColumnDefinitions>
+                            <Button Grid.Column="1" Content="Connection Settings" Name="connectionSettingsButton" Click="connectionSettingsButton_Click"/>
+                        </Grid>
+                    </Grid>
+                </Grid>
+                <Grid Grid.Row="1">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="5"/>
+                        <RowDefinition Height="70"/>
+                        <RowDefinition Height="30"/>
+                        <RowDefinition Height="5"/>
+                    </Grid.RowDefinitions>
+                    <Grid Grid.Row="1">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="20"/>
+                            <!--Preset-->
+                            <ColumnDefinition Width="50"/>
+                            <!--Mode-->
+                            <ColumnDefinition/>
+
+                            <!--BPM-->
+                            <ColumnDefinition Width="100"/>
+                            <!--Bass-->
+                            <ColumnDefinition Width="100"/>
+                            <!--Accompaniment-->
+                            <ColumnDefinition Width="100"/>
+                            <!--Drums-->
+                            <ColumnDefinition Width="100"/>
+                            <ColumnDefinition Width="20"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid Grid.Column="1">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="5"/>
+                                <RowDefinition Height="30"/>
+                                <RowDefinition/>
+                                <RowDefinition Height="5"/>
+                            </Grid.RowDefinitions>
+                            <Label Grid.Row="1" Content="Preset" HorizontalContentAlignment="Left" VerticalAlignment="Top"></Label>
+                            <Grid Grid.Row="2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="5"/>
+                                    <ColumnDefinition/>
+                                    <ColumnDefinition Width="5"/>
+
+                                </Grid.ColumnDefinitions>
+                                <ComboBox Grid.Column="1" VerticalAlignment="Top" Name="presetComboBox"/>
+                            </Grid>
+
+
+                        </Grid>
+                        <Grid Grid.Column="2">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="5"/>
+                                <RowDefinition Height="30"/>
+                                <RowDefinition/>
+                                <RowDefinition Height="5"/>
+                            </Grid.RowDefinitions>
+                            <Label Grid.Row="1" Content="Mode" HorizontalContentAlignment="Left" VerticalAlignment="Top"></Label>
+                            <Grid Grid.Row="2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="5"/>
+                                    <ColumnDefinition />
+                                    <ColumnDefinition Width="5"/>
+                                </Grid.ColumnDefinitions>
+                                <ComboBox Grid.Column="1" VerticalAlignment="Top" Name="modeComboBox"/>
+                            </Grid>
+
+                        </Grid>
+
+                        <Grid Grid.Column="3">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="5"/>
+                                <!--BPM Text and Button -->
+                                <RowDefinition Height="30"/>
+                                <!--BPM Slider -->
+                                <RowDefinition/>
+                                <RowDefinition Height="5"/>
+                            </Grid.RowDefinitions>
+                            <Label Grid.Row="1" Content="BPM" HorizontalContentAlignment="Left" VerticalAlignment="Top"></Label>
+                            <Grid Grid.Row="2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="5"/>
+                                    <ColumnDefinition/>
+                                    <ColumnDefinition Width="5"/>
+                                    <ColumnDefinition/>
+                                    <ColumnDefinition Width="5"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBox Grid.Column="1" Text="0" Name="bpmTextbox" VerticalAlignment="Top" Height="22" LostFocus="bpmTextbox_LostFocus" PreviewKeyDown="bpmTextbox_PreviewKeyDown"/>
+                                <Button Grid.Column="3" Content="Tap" Name="bpmButton" VerticalAlignment="Top" Height="22" Click="BpmButton_Click"/>
+                            </Grid>
+
+
+                        </Grid>
+                        <Grid Grid.Column="4">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="5"/>
+                                <RowDefinition Height="30"/>
+                                <RowDefinition/>
+                                <RowDefinition Height="5"/>
+                            </Grid.RowDefinitions>
+                            <Label Grid.Row="1" Content="Bass Track" HorizontalContentAlignment="Left" VerticalAlignment="Top"></Label>
+                            <Grid Grid.Row="2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="5"/>
+                                    <ColumnDefinition/>
+                                    <ColumnDefinition Width="5"/>
+                                </Grid.ColumnDefinitions>
+                                <ComboBox Grid.Column="1" VerticalAlignment="Top" Name="bassComboBox"/>
+                            </Grid>
+                        </Grid>
+                        <Grid Grid.Column="5">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="5"/>
+                                <RowDefinition Height="30"/>
+                                <RowDefinition/>
+                                <RowDefinition Height="5"/>
+                            </Grid.RowDefinitions>
+                            <Label Grid.Row="1" Content="Backing Track" HorizontalContentAlignment="Left" VerticalAlignment="Top"></Label>
+                            <Grid Grid.Row="2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="5"/>
+                                    <ColumnDefinition/>
+                                    <ColumnDefinition Width="5"/>
+                                </Grid.ColumnDefinitions>
+                                <ComboBox Grid.Column="1" VerticalAlignment="Top" Name="backingComboBox"/>
+                            </Grid>
+                        </Grid>
+
+                        <Grid Grid.Column="6">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="5"/>
+                                <RowDefinition Height="30"/>
+                                <RowDefinition/>
+                                <RowDefinition Height="5"/>
+                            </Grid.RowDefinitions>
+                            <Label Grid.Row="1" Content="Drum Track" HorizontalContentAlignment="Left" VerticalAlignment="Top"></Label>
+                            <Grid Grid.Row="2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="5"/>
+                                    <ColumnDefinition/>
+                                    <ColumnDefinition Width="5"/>
+                                </Grid.ColumnDefinitions>
+                                <ComboBox Grid.Column="1" VerticalAlignment="Top" Name="drumComboBox"/>
+                            </Grid>
+                        </Grid>
+
+
+
+
+                    </Grid>
+                    <Grid Grid.Row="2">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="20"/>
+                            <!--Preset-->
+                            <ColumnDefinition Width="50"/>
+                            <!--Mode-->
+                            <ColumnDefinition/>
+                            <!--BPM-->
+                            <ColumnDefinition Width="100"/>
+                            <!--Bass-->
+                            <ColumnDefinition Width="100"/>
+                            <!--backing-->
+                            <ColumnDefinition Width="100"/>
+                            <!--Drums-->
+                            <ColumnDefinition Width="100"/>
+                            <ColumnDefinition Width="20"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid Grid.Column="3">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="5"/>
+                                <ColumnDefinition/>
+                                <ColumnDefinition Width="5"/>
+                                <ColumnDefinition/>
+                                <ColumnDefinition Width="5"/>
+                            </Grid.ColumnDefinitions>
+                            <Slider Grid.Column="1" Value="0" VerticalAlignment="Top" Name="bpmSlider" ValueChanged="bpmSlider_ValueChanged"/>
+
+
+
+                        </Grid>
+                    </Grid>
+                </Grid>
+
+            </Grid>
+            <Grid Grid.Column="2">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="5"/>
+                    <ColumnDefinition/>
+                    <ColumnDefinition Width="5"/>
+                </Grid.ColumnDefinitions>
+                <Grid Grid.Column="1">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="1" />
+                        <!--Capo-->
+                        <RowDefinition Height="70" />
+                        <!--KB Transpose-->
+                        <RowDefinition Height="70" />
+                        <!--Strum Style-->
+                        <RowDefinition Height="50" />
+                        <!--Chord Hold-->
+                        <RowDefinition Height="50" />
+                        <!--Alternate Strums-->
+                        <RowDefinition Height="50" />
+                        <!--Sustain Toggle-->
+                        <RowDefinition Height="50" />
+                        <!--All Notes on Chords-->
+                        <RowDefinition Height="50" />
+                        <!--Ignore Same Chord Button-->
+                        <RowDefinition Height="50" />
+                        <!--Proper Omnichord 5ths-->
+                        <RowDefinition Height="50" />
+                        <!--Strum separation-->
+                        <RowDefinition Height="70" />
+                        <!--Mute separation-->
+                        <RowDefinition Height="70" />
+                        <!--Padding-->
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="1" />
+                    </Grid.RowDefinitions>
+
+
+                    <Grid Grid.Row="1">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="5"/>
+                            <RowDefinition Height="20"/>
+                            <RowDefinition Height="20"/>
+                            <RowDefinition Height="20"/>
+                            <RowDefinition Height="5"/>
+
+                        </Grid.RowDefinitions>
+                        <Label Grid.Row="1" Padding="0" Content="Capo" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+                        <TextBox Grid.Row="2" HorizontalAlignment="Left" VerticalAlignment="Top" Name="capoTextbox" Width="40" Text="0" LostFocus="capoTextbox_LostFocus" PreviewKeyDown="capoTextbox_PreviewKeyDown"/>
+                        <Slider Grid.Row="3" Name="capoSlider" Width="40" HorizontalAlignment="Left" ValueChanged="capoSlider_ValueChanged"/>
+                    </Grid>
+                    <Grid Grid.Row="2">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="5"/>
+                            <RowDefinition Height="20"/>
+                            <RowDefinition Height="20"/>
+                            <RowDefinition Height="20"/>
+                            <RowDefinition Height="5"/>
+
+                        </Grid.RowDefinitions>
+                        <Label Grid.Row="1" Padding="0" Content="Keyboard Transpose" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+                        <TextBox Grid.Row="2" HorizontalAlignment="Left" VerticalAlignment="Top" Name="kbTransposeTextbox" Width="40" Text="0" LostFocus="kbTransposeTextbox_LostFocus" PreviewKeyDown="kbTransposeTextbox_PreviewKeyDown"/>
+                        <Slider Grid.Row="3" Name="kbTransposeSlider" Width="40" HorizontalAlignment="Left" ValueChanged="kbTransposeSlider_ValueChanged"/>
+                    </Grid>
+                    <Grid Grid.Row="3">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="5"/>
+                            <RowDefinition Height="20"/>
+                            <RowDefinition Height="25"/>
+                            <RowDefinition Height="5"/>
+
+                        </Grid.RowDefinitions>
+                        <Label Grid.Row="1" Padding="0" Content="Strum Style" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+                        <ComboBox Grid.Row="2" HorizontalAlignment="Left" VerticalAlignment="Top" Name="strumStyleComboBox" Width="140"/>
+
+                    </Grid>
+                    <Grid Grid.Row="4">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="5"/>
+                            <RowDefinition Height="20"/>
+                            <RowDefinition Height="25"/>
+                            <RowDefinition Height="5"/>
+
+                        </Grid.RowDefinitions>
+                        <Label Grid.Row="1" Padding="0" Content="Chord Hold" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+                        <ComboBox Grid.Row="2" HorizontalAlignment="Left" VerticalAlignment="Top" Name="chordHoldComboBox" Width="80"/>
+
+                    </Grid>
+                    <Grid Grid.Row="5">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="13*"/>
+                            <ColumnDefinition Width="37*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="5"/>
+                            <RowDefinition Height="20"/>
+                            <RowDefinition Height="25"/>
+                            <RowDefinition Height="5"/>
+
+                        </Grid.RowDefinitions>
+                        <Label Grid.Row="1" Padding="0" Content="Alternative Strum Direction" HorizontalAlignment="Left" VerticalAlignment="Top" Grid.ColumnSpan="2"/>
+                        <ComboBox Grid.Row="2" HorizontalAlignment="Left" VerticalAlignment="Top" Name="alternatingStrumComboBox" Width="80" Grid.ColumnSpan="2"/>
+
+                    </Grid>
+                    <Grid Grid.Row="6">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="5"/>
+                            <RowDefinition Height="20"/>
+                            <RowDefinition Height="25"/>
+                            <RowDefinition Height="5"/>
+
+                        </Grid.RowDefinitions>
+                        <Label Grid.Row="1" Padding="0" Content="Sustain Button Mode" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+                        <ComboBox Grid.Row="2" HorizontalAlignment="Left" VerticalAlignment="Top" Name="sustainModeComboBox" Width="80"/>
+
+                    </Grid>
+                    <Grid Grid.Row="7">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="5"/>
+                            <RowDefinition Height="20"/>
+                            <RowDefinition Height="25"/>
+                            <RowDefinition Height="5"/>
+
+                        </Grid.RowDefinitions>
+                        <Label Grid.Row="1" Padding="0" Content="Chord Button Mode" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+                        <ComboBox Grid.Row="2" HorizontalAlignment="Left" VerticalAlignment="Top" Name="chordButonModeComboBox" Width="140"/>
+
+                    </Grid>
+                    <Grid Grid.Row="8">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="5"/>
+                            <RowDefinition Height="20"/>
+                            <RowDefinition Height="25"/>
+                            <RowDefinition Height="5"/>
+
+                        </Grid.RowDefinitions>
+                        <Label Grid.Row="1" Padding="0" Content="Ignore Same Chord Button" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+                        <ComboBox Grid.Row="2" HorizontalAlignment="Left" VerticalAlignment="Top" Name="ignoreSameButtonComboBox" Width="80"/>
+
+                    </Grid>
+                    <Grid Grid.Row="9">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="5"/>
+                            <RowDefinition Height="20"/>
+                            <RowDefinition Height="25"/>
+                            <RowDefinition Height="5"/>
+
+                        </Grid.RowDefinitions>
+                        <Label Grid.Row="1" Padding="0" Content="Proper Omnichord 3rd Note" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+                        <ComboBox Grid.Row="2" HorizontalAlignment="Left" VerticalAlignment="Top" Name="lower5thComboBox" Width="80"/>
+
+                    </Grid>
+                    <Grid Grid.Row="10">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="5"/>
+                            <RowDefinition Height="20"/>
+                            <RowDefinition Height="20"/>
+                            <RowDefinition Height="20"/>
+                            <RowDefinition Height="5"/>
+
+                        </Grid.RowDefinitions>
+                        <Label Grid.Row="1" Padding="0" Content="Strum Separation" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+                        <TextBox Grid.Row="2" HorizontalAlignment="Left" VerticalAlignment="Top" Name="strumSeparationTextbox" Width="40" Text="0" LostFocus="strumSeparationTextbox_LostFocus" PreviewKeyDown="strumSeparationTextbox_PreviewKeyDown"/>
+                        <Slider Grid.Row="3" Name="strumSeparationSlider" Width="40" HorizontalAlignment="Left" ValueChanged="strumSeparationSlider_ValueChanged"/>
+                    </Grid>
+                    <Grid Grid.Row="11">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="5"/>
+                            <RowDefinition Height="20"/>
+                            <RowDefinition Height="20"/>
+                            <RowDefinition Height="20"/>
+                            <RowDefinition Height="5"/>
+
+                        </Grid.RowDefinitions>
+                        <Label Grid.Row="1" Padding="0" Content="Mute Separation" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+                        <TextBox Grid.Row="2" HorizontalAlignment="Left" VerticalAlignment="Top" Name="muteSeparationTextbox" Width="40" Text="0" LostFocus="muteSeparationTextbox_LostFocus" PreviewKeyDown="muteSeparationTextbox_PreviewKeyDown"/>
+                        <Slider Grid.Row="3" Name="muteSeparationSlider" Width="40" HorizontalAlignment="Left" ValueChanged="muteSeparationSlider_ValueChanged"/>
+                    </Grid>
+                </Grid>
+
+
+
+            </Grid>
+
+            <Grid Grid.Column="3">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="30" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+                <Rectangle Grid.Row="0" Fill="#E4E4E4" />
+                <Rectangle Grid.Row="1" Fill="#D0D0D0" />
+                <Rectangle Grid.Row="2" Fill="#BCBCBC" />
+                <Rectangle Grid.Row="3" Fill="#A8A8A8" />
+                <Rectangle Grid.Row="4" Fill="#949494" />
+                <Rectangle Grid.Row="5" Fill="#808080" />
+                <Rectangle Grid.Row="6" Fill="#6C6C6C" />
+                <Rectangle Grid.Row="7" Fill="#585858" />
+                <Grid Grid.Row="0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="5"/>
+                        <ColumnDefinition/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition/>
+                        <ColumnDefinition Width="5"/>
+                    </Grid.ColumnDefinitions>
+                    <RadioButton Grid.Column="1" Content="Simple" Name="simpleRadioButton" VerticalAlignment="Center" GroupName="FretMode" Checked="simpleRadioButton_Checked"/>
+                    <RadioButton Grid.Column="3" Content="Standard" Name="standardRadioButton" VerticalAlignment="Center" GroupName="FretMode" Checked="standardRadioButton_Checked"/>
+                </Grid>
+                <Grid Grid.Row="1">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="2"/>
+                        <ColumnDefinition/>
+                        <ColumnDefinition/>
+                        <ColumnDefinition/>
+                        <ColumnDefinition Width="2"/>
+                    </Grid.ColumnDefinitions>
+
+                </Grid>
+                <Grid Grid.Row="1">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="2"/>
+                        <ColumnDefinition/>
+                        <ColumnDefinition/>
+                        <ColumnDefinition/>
+                        <ColumnDefinition Width="2"/>
+                    </Grid.ColumnDefinitions>
+                    <Border Grid.Column="1" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"/>
+                    <Border Grid.Column="2" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"/>
+                    <Border Grid.Column="3" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"/>
+                    <Grid Grid.Column="1">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="2"/>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                            <RowDefinition Height="2"/>
+                        </Grid.RowDefinitions>
+                        <Grid Grid.Row="1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2"/>
+                                <ColumnDefinition Width="30"/>
+                                <ColumnDefinition Width="68"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="2"/>
+                            </Grid.ColumnDefinitions>
+                            <Label Grid.Column="1" Content="A01" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <ComboBox Grid.Column="3" HorizontalAlignment="Center" VerticalAlignment="Center" Width="48" Name="A01ComboRoot"/>
+                        </Grid>
+                        <Grid Grid.Row="2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2"/>
+                                <ColumnDefinition />
+                                <ColumnDefinition Width="2"/>
+                            </Grid.ColumnDefinitions>
+                            <ComboBox Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Top" Width="146" Name="A01ComboChord"/>
+                        </Grid>
+                        <Grid Grid.Row="3">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2"/>
+                                <ColumnDefinition />
+                                <ColumnDefinition Width="2"/>
+                            </Grid.ColumnDefinitions>
+                            <ComboBox Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Top" Width="146" Name="A01ComboPattern"/>
+                        </Grid>
+
+                    </Grid>
+                    <Grid Grid.Column="2">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="2"/>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                            <RowDefinition Height="2"/>
+                        </Grid.RowDefinitions>
+                        <Grid Grid.Row="1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2"/>
+                                <ColumnDefinition Width="30"/>
+                                <ColumnDefinition Width="68"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="2"/>
+                            </Grid.ColumnDefinitions>
+                            <Label Grid.Column="1" Content="A02" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <ComboBox Grid.Column="3" HorizontalAlignment="Center" VerticalAlignment="Center" Width="48" Name="A02ComboRoot"/>
+                        </Grid>
+                        <Grid Grid.Row="2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2"/>
+                                <ColumnDefinition />
+                                <ColumnDefinition Width="2"/>
+                            </Grid.ColumnDefinitions>
+                            <ComboBox Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Top" Width="146" Name="A02ComboChord"/>
+                        </Grid>
+                        <Grid Grid.Row="3">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2"/>
+                                <ColumnDefinition />
+                                <ColumnDefinition Width="2"/>
+                            </Grid.ColumnDefinitions>
+                            <ComboBox Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Top" Width="146" Name="A02ComboPattern"/>
+                        </Grid>
+
+                    </Grid>
+
+
+                    <Grid Grid.Column="3">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="2"/>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                            <RowDefinition Height="2"/>
+                        </Grid.RowDefinitions>
+                        <Grid Grid.Row="1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2"/>
+                                <ColumnDefinition Width="30"/>
+                                <ColumnDefinition Width="68"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="2"/>
+                            </Grid.ColumnDefinitions>
+                            <Label Grid.Column="1" Content="A03" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <ComboBox Grid.Column="3" HorizontalAlignment="Center" VerticalAlignment="Center" Width="48" Name="A03ComboRoot"/>
+                        </Grid>
+                        <Grid Grid.Row="2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2"/>
+                                <ColumnDefinition />
+                                <ColumnDefinition Width="2"/>
+                            </Grid.ColumnDefinitions>
+                            <ComboBox Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Top" Width="146" Name="A03ComboChord"/>
+                        </Grid>
+                        <Grid Grid.Row="3">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2"/>
+                                <ColumnDefinition />
+                                <ColumnDefinition Width="2"/>
+                            </Grid.ColumnDefinitions>
+                            <ComboBox Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Top" Width="146" Name="A03ComboPattern"/>
+                        </Grid>
+
+                    </Grid>
+                </Grid>
+
+                <Grid Grid.Row="2">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="2"/>
+                        <ColumnDefinition/>
+                        <ColumnDefinition/>
+                        <ColumnDefinition/>
+                        <ColumnDefinition Width="2"/>
+                    </Grid.ColumnDefinitions>
+                    <Border Grid.Column="1" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"/>
+                    <Border Grid.Column="2" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"/>
+                    <Border Grid.Column="3" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"/>
+                    <Grid Grid.Column="1">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="2"/>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                            <RowDefinition Height="2"/>
+                        </Grid.RowDefinitions>
+                        <Grid Grid.Row="1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2"/>
+                                <ColumnDefinition Width="30"/>
+                                <ColumnDefinition Width="68"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="2"/>
+                            </Grid.ColumnDefinitions>
+                            <Label Grid.Column="1" Content="B01" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <ComboBox Grid.Column="3" HorizontalAlignment="Center" VerticalAlignment="Center" Width="48" Name="B01ComboRoot"/>
+                        </Grid>
+                        <Grid Grid.Row="2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2"/>
+                                <ColumnDefinition />
+                                <ColumnDefinition Width="2"/>
+                            </Grid.ColumnDefinitions>
+                            <ComboBox Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Top" Width="146" Name="B01ComboChord"/>
+                        </Grid>
+                        <Grid Grid.Row="3">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2"/>
+                                <ColumnDefinition />
+                                <ColumnDefinition Width="2"/>
+                            </Grid.ColumnDefinitions>
+                            <ComboBox Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Top" Width="146" Name="B01ComboPattern"/>
+                        </Grid>
+
+                    </Grid>
+                    <Grid Grid.Column="2">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="2"/>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                            <RowDefinition Height="2"/>
+                        </Grid.RowDefinitions>
+                        <Grid Grid.Row="1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2"/>
+                                <ColumnDefinition Width="30"/>
+                                <ColumnDefinition Width="68"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="2"/>
+                            </Grid.ColumnDefinitions>
+                            <Label Grid.Column="1" Content="B02" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <ComboBox Grid.Column="3" HorizontalAlignment="Center" VerticalAlignment="Center" Width="48" Name="B02ComboRoot"/>
+                        </Grid>
+                        <Grid Grid.Row="2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2"/>
+                                <ColumnDefinition />
+                                <ColumnDefinition Width="2"/>
+                            </Grid.ColumnDefinitions>
+                            <ComboBox Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Top" Width="146" Name="B02ComboChord"/>
+                        </Grid>
+                        <Grid Grid.Row="3">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2"/>
+                                <ColumnDefinition />
+                                <ColumnDefinition Width="2"/>
+                            </Grid.ColumnDefinitions>
+                            <ComboBox Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Top" Width="146" Name="B02ComboPattern"/>
+                        </Grid>
+
+                    </Grid>
+
+
+                    <Grid Grid.Column="3">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="2"/>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                            <RowDefinition Height="2"/>
+                        </Grid.RowDefinitions>
+                        <Grid Grid.Row="1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2"/>
+                                <ColumnDefinition Width="30"/>
+                                <ColumnDefinition Width="68"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="2"/>
+                            </Grid.ColumnDefinitions>
+                            <Label Grid.Column="1" Content="B03" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <ComboBox Grid.Column="3" HorizontalAlignment="Center" VerticalAlignment="Center" Width="48" Name="B03ComboRoot"/>
+                        </Grid>
+                        <Grid Grid.Row="2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2"/>
+                                <ColumnDefinition />
+                                <ColumnDefinition Width="2"/>
+                            </Grid.ColumnDefinitions>
+                            <ComboBox Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Top" Width="146" Name="B03ComboChord"/>
+                        </Grid>
+                        <Grid Grid.Row="3">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2"/>
+                                <ColumnDefinition />
+                                <ColumnDefinition Width="2"/>
+                            </Grid.ColumnDefinitions>
+                            <ComboBox Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Top" Width="146" Name="B03ComboPattern"/>
+                        </Grid>
+
+                    </Grid>
+
+                </Grid>
+                <Grid Grid.Row="3">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="2"/>
+                        <ColumnDefinition/>
+                        <ColumnDefinition/>
+                        <ColumnDefinition/>
+                        <ColumnDefinition Width="2"/>
+                    </Grid.ColumnDefinitions>
+                    <Border Grid.Column="1" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"/>
+                    <Border Grid.Column="2" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"/>
+                    <Border Grid.Column="3" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"/>
+                    <Grid Grid.Column="1">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="2"/>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                            <RowDefinition Height="2"/>
+                        </Grid.RowDefinitions>
+                        <Grid Grid.Row="1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2"/>
+                                <ColumnDefinition Width="30"/>
+                                <ColumnDefinition Width="68"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="2"/>
+                            </Grid.ColumnDefinitions>
+                            <Label Grid.Column="1" Content="C01" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <ComboBox Grid.Column="3" HorizontalAlignment="Center" VerticalAlignment="Center" Width="48" Name="C01ComboRoot"/>
+                        </Grid>
+                        <Grid Grid.Row="2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2"/>
+                                <ColumnDefinition />
+                                <ColumnDefinition Width="2"/>
+                            </Grid.ColumnDefinitions>
+                            <ComboBox Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Top" Width="146" Name="C01ComboChord"/>
+                        </Grid>
+                        <Grid Grid.Row="3">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2"/>
+                                <ColumnDefinition />
+                                <ColumnDefinition Width="2"/>
+                            </Grid.ColumnDefinitions>
+                            <ComboBox Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Top" Width="146" Name="C01ComboPattern"/>
+                        </Grid>
+
+                    </Grid>
+                    <Grid Grid.Column="2">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="2"/>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                            <RowDefinition Height="2"/>
+                        </Grid.RowDefinitions>
+                        <Grid Grid.Row="1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2"/>
+                                <ColumnDefinition Width="30"/>
+                                <ColumnDefinition Width="68"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="2"/>
+                            </Grid.ColumnDefinitions>
+                            <Label Grid.Column="1" Content="C02" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <ComboBox Grid.Column="3" HorizontalAlignment="Center" VerticalAlignment="Center" Width="48" Name="C02ComboRoot"/>
+                        </Grid>
+                        <Grid Grid.Row="2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2"/>
+                                <ColumnDefinition />
+                                <ColumnDefinition Width="2"/>
+                            </Grid.ColumnDefinitions>
+                            <ComboBox Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Top" Width="146" Name="C02ComboChord"/>
+                        </Grid>
+                        <Grid Grid.Row="3">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2"/>
+                                <ColumnDefinition />
+                                <ColumnDefinition Width="2"/>
+                            </Grid.ColumnDefinitions>
+                            <ComboBox Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Top" Width="146" Name="C02ComboPattern"/>
+                        </Grid>
+
+                    </Grid>
+
+
+                    <Grid Grid.Column="3">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="2"/>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                            <RowDefinition Height="2"/>
+                        </Grid.RowDefinitions>
+                        <Grid Grid.Row="1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2"/>
+                                <ColumnDefinition Width="30"/>
+                                <ColumnDefinition Width="68"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="2"/>
+                            </Grid.ColumnDefinitions>
+                            <Label Grid.Column="1" Content="C03" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <ComboBox Grid.Column="3" HorizontalAlignment="Center" VerticalAlignment="Center" Width="48" Name="C03ComboRoot"/>
+                        </Grid>
+                        <Grid Grid.Row="2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2"/>
+                                <ColumnDefinition />
+                                <ColumnDefinition Width="2"/>
+                            </Grid.ColumnDefinitions>
+                            <ComboBox Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Top" Width="146" Name="C03ComboChord"/>
+                        </Grid>
+                        <Grid Grid.Row="3">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2"/>
+                                <ColumnDefinition />
+                                <ColumnDefinition Width="2"/>
+                            </Grid.ColumnDefinitions>
+                            <ComboBox Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Top" Width="146" Name="C03ComboPattern"/>
+                        </Grid>
+
+                    </Grid>
+                </Grid>
+                <Grid Grid.Row="4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="2"/>
+                        <ColumnDefinition/>
+                        <ColumnDefinition/>
+                        <ColumnDefinition/>
+                        <ColumnDefinition Width="2"/>
+                    </Grid.ColumnDefinitions>
+                    <Border Grid.Column="1" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"/>
+                    <Border Grid.Column="2" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"/>
+                    <Border Grid.Column="3" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"/>
+                    <Grid Grid.Column="1">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="2"/>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                            <RowDefinition Height="2"/>
+                        </Grid.RowDefinitions>
+                        <Grid Grid.Row="1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2"/>
+                                <ColumnDefinition Width="30"/>
+                                <ColumnDefinition Width="68"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="2"/>
+                            </Grid.ColumnDefinitions>
+                            <Label Grid.Column="1" Content="D01" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <ComboBox Grid.Column="3" HorizontalAlignment="Center" VerticalAlignment="Center" Width="48" Name="D01ComboRoot"/>
+                        </Grid>
+                        <Grid Grid.Row="2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2"/>
+                                <ColumnDefinition />
+                                <ColumnDefinition Width="2"/>
+                            </Grid.ColumnDefinitions>
+                            <ComboBox Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Top" Width="146" Name="D01ComboChord"/>
+                        </Grid>
+                        <Grid Grid.Row="3">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2"/>
+                                <ColumnDefinition />
+                                <ColumnDefinition Width="2"/>
+                            </Grid.ColumnDefinitions>
+                            <ComboBox Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Top" Width="146" Name="D01ComboPattern"/>
+                        </Grid>
+
+                    </Grid>
+                    <Grid Grid.Column="2">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="2"/>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                            <RowDefinition Height="2"/>
+                        </Grid.RowDefinitions>
+                        <Grid Grid.Row="1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2"/>
+                                <ColumnDefinition Width="30"/>
+                                <ColumnDefinition Width="68"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="2"/>
+                            </Grid.ColumnDefinitions>
+                            <Label Grid.Column="1" Content="D02" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <ComboBox Grid.Column="3" HorizontalAlignment="Center" VerticalAlignment="Center" Width="48" Name="D02ComboRoot"/>
+                        </Grid>
+                        <Grid Grid.Row="2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2"/>
+                                <ColumnDefinition />
+                                <ColumnDefinition Width="2"/>
+                            </Grid.ColumnDefinitions>
+                            <ComboBox Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Top" Width="146" Name="D02ComboChord"/>
+                        </Grid>
+                        <Grid Grid.Row="3">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2"/>
+                                <ColumnDefinition />
+                                <ColumnDefinition Width="2"/>
+                            </Grid.ColumnDefinitions>
+                            <ComboBox Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Top" Width="146" Name="D02ComboPattern"/>
+                        </Grid>
+
+                    </Grid>
+
+
+                    <Grid Grid.Column="3">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="2"/>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                            <RowDefinition Height="2"/>
+                        </Grid.RowDefinitions>
+                        <Grid Grid.Row="1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2"/>
+                                <ColumnDefinition Width="30"/>
+                                <ColumnDefinition Width="68"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="2"/>
+                            </Grid.ColumnDefinitions>
+                            <Label Grid.Column="1" Content="D03" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <ComboBox Grid.Column="3" HorizontalAlignment="Center" VerticalAlignment="Center" Width="48" Name="D03ComboRoot"/>
+                        </Grid>
+                        <Grid Grid.Row="2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2"/>
+                                <ColumnDefinition />
+                                <ColumnDefinition Width="2"/>
+                            </Grid.ColumnDefinitions>
+                            <ComboBox Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Top" Width="146" Name="D03ComboChord"/>
+                        </Grid>
+                        <Grid Grid.Row="3">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2"/>
+                                <ColumnDefinition />
+                                <ColumnDefinition Width="2"/>
+                            </Grid.ColumnDefinitions>
+                            <ComboBox Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Top" Width="146" Name="D03ComboPattern"/>
+                        </Grid>
+
+                    </Grid>
+                </Grid>
+                <Grid Grid.Row="5">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="2"/>
+                        <ColumnDefinition/>
+                        <ColumnDefinition/>
+                        <ColumnDefinition/>
+                        <ColumnDefinition Width="2"/>
+                    </Grid.ColumnDefinitions>
+                    <Border Grid.Column="1" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"/>
+                    <Border Grid.Column="2" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"/>
+                    <Border Grid.Column="3" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"/>
+                    <Grid Grid.Column="1">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="2"/>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                            <RowDefinition Height="2"/>
+                        </Grid.RowDefinitions>
+                        <Grid Grid.Row="1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2"/>
+                                <ColumnDefinition Width="30"/>
+                                <ColumnDefinition Width="68"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="2"/>
+                            </Grid.ColumnDefinitions>
+                            <Label Grid.Column="1" Content="E01" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <ComboBox Grid.Column="3" HorizontalAlignment="Center" VerticalAlignment="Center" Width="48" Name="E01ComboRoot"/>
+                        </Grid>
+                        <Grid Grid.Row="2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2"/>
+                                <ColumnDefinition />
+                                <ColumnDefinition Width="2"/>
+                            </Grid.ColumnDefinitions>
+                            <ComboBox Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Top" Width="146" Name="E01ComboChord"/>
+                        </Grid>
+                        <Grid Grid.Row="3">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2"/>
+                                <ColumnDefinition />
+                                <ColumnDefinition Width="2"/>
+                            </Grid.ColumnDefinitions>
+                            <ComboBox Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Top" Width="146" Name="E01ComboPattern"/>
+                        </Grid>
+
+                    </Grid>
+                    <Grid Grid.Column="2">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="2"/>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                            <RowDefinition Height="2"/>
+                        </Grid.RowDefinitions>
+                        <Grid Grid.Row="1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2"/>
+                                <ColumnDefinition Width="30"/>
+                                <ColumnDefinition Width="68"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="2"/>
+                            </Grid.ColumnDefinitions>
+                            <Label Grid.Column="1" Content="E02" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <ComboBox Grid.Column="3" HorizontalAlignment="Center" VerticalAlignment="Center" Width="48" Name="E02ComboRoot"/>
+                        </Grid>
+                        <Grid Grid.Row="2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2"/>
+                                <ColumnDefinition />
+                                <ColumnDefinition Width="2"/>
+                            </Grid.ColumnDefinitions>
+                            <ComboBox Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Top" Width="146" Name="E02ComboChord"/>
+                        </Grid>
+                        <Grid Grid.Row="3">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2"/>
+                                <ColumnDefinition />
+                                <ColumnDefinition Width="2"/>
+                            </Grid.ColumnDefinitions>
+                            <ComboBox Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Top" Width="146" Name="E02ComboPattern"/>
+                        </Grid>
+
+                    </Grid>
+
+
+                    <Grid Grid.Column="3">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="2"/>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                            <RowDefinition Height="2"/>
+                        </Grid.RowDefinitions>
+                        <Grid Grid.Row="1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2"/>
+                                <ColumnDefinition Width="30"/>
+                                <ColumnDefinition Width="68"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="2"/>
+                            </Grid.ColumnDefinitions>
+                            <Label Grid.Column="1" Content="E03" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <ComboBox Grid.Column="3" HorizontalAlignment="Center" VerticalAlignment="Center" Width="48" Name="E03ComboRoot"/>
+                        </Grid>
+                        <Grid Grid.Row="2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2"/>
+                                <ColumnDefinition />
+                                <ColumnDefinition Width="2"/>
+                            </Grid.ColumnDefinitions>
+                            <ComboBox Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Top" Width="146" Name="E03ComboChord"/>
+                        </Grid>
+                        <Grid Grid.Row="3">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2"/>
+                                <ColumnDefinition />
+                                <ColumnDefinition Width="2"/>
+                            </Grid.ColumnDefinitions>
+                            <ComboBox Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Top" Width="146" Name="E03ComboPattern"/>
+                        </Grid>
+
+                    </Grid>
+                </Grid>
+                <Grid Grid.Row="6">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="2"/>
+                        <ColumnDefinition/>
+                        <ColumnDefinition/>
+                        <ColumnDefinition/>
+                        <ColumnDefinition Width="2"/>
+                    </Grid.ColumnDefinitions>
+                    <Border Grid.Column="1" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"/>
+                    <Border Grid.Column="2" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"/>
+                    <Border Grid.Column="3" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"/>
+                    <Grid Grid.Column="1">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="2"/>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                            <RowDefinition Height="2"/>
+                        </Grid.RowDefinitions>
+                        <Grid Grid.Row="1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2"/>
+                                <ColumnDefinition Width="30"/>
+                                <ColumnDefinition Width="68"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="2"/>
+                            </Grid.ColumnDefinitions>
+                            <Label Grid.Column="1" Content="F01" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <ComboBox Grid.Column="3" HorizontalAlignment="Center" VerticalAlignment="Center" Width="48" Name="F01ComboRoot"/>
+                        </Grid>
+                        <Grid Grid.Row="2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2"/>
+                                <ColumnDefinition />
+                                <ColumnDefinition Width="2"/>
+                            </Grid.ColumnDefinitions>
+                            <ComboBox Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Top" Width="146" Name="F01ComboChord"/>
+                        </Grid>
+                        <Grid Grid.Row="3">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2"/>
+                                <ColumnDefinition />
+                                <ColumnDefinition Width="2"/>
+                            </Grid.ColumnDefinitions>
+                            <ComboBox Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Top" Width="146" Name="F01ComboPattern"/>
+                        </Grid>
+
+                    </Grid>
+                    <Grid Grid.Column="2">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="2"/>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                            <RowDefinition Height="2"/>
+                        </Grid.RowDefinitions>
+                        <Grid Grid.Row="1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2"/>
+                                <ColumnDefinition Width="30"/>
+                                <ColumnDefinition Width="68"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="2"/>
+                            </Grid.ColumnDefinitions>
+                            <Label Grid.Column="1" Content="F02" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <ComboBox Grid.Column="3" HorizontalAlignment="Center" VerticalAlignment="Center" Width="48" Name="F02ComboRoot"/>
+                        </Grid>
+                        <Grid Grid.Row="2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2"/>
+                                <ColumnDefinition />
+                                <ColumnDefinition Width="2"/>
+                            </Grid.ColumnDefinitions>
+                            <ComboBox Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Top" Width="146" Name="F02ComboChord"/>
+                        </Grid>
+                        <Grid Grid.Row="3">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2"/>
+                                <ColumnDefinition />
+                                <ColumnDefinition Width="2"/>
+                            </Grid.ColumnDefinitions>
+                            <ComboBox Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Top" Width="146" Name="F02ComboPattern"/>
+                        </Grid>
+
+                    </Grid>
+
+
+                    <Grid Grid.Column="3">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="2"/>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                            <RowDefinition Height="2"/>
+                        </Grid.RowDefinitions>
+                        <Grid Grid.Row="1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2"/>
+                                <ColumnDefinition Width="30"/>
+                                <ColumnDefinition Width="68"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="2"/>
+                            </Grid.ColumnDefinitions>
+                            <Label Grid.Column="1" Content="F03" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <ComboBox Grid.Column="3" HorizontalAlignment="Center" VerticalAlignment="Center" Width="48" Name="F03ComboRoot"/>
+                        </Grid>
+                        <Grid Grid.Row="2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2"/>
+                                <ColumnDefinition />
+                                <ColumnDefinition Width="2"/>
+                            </Grid.ColumnDefinitions>
+                            <ComboBox Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Top" Width="146" Name="F03ComboChord"/>
+                        </Grid>
+                        <Grid Grid.Row="3">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2"/>
+                                <ColumnDefinition />
+                                <ColumnDefinition Width="2"/>
+                            </Grid.ColumnDefinitions>
+                            <ComboBox Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Top" Width="146" Name="F03ComboPattern"/>
+                        </Grid>
+
+                    </Grid>
+                </Grid>
+                <Grid Grid.Row="7">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="2"/>
+                        <ColumnDefinition/>
+                        <ColumnDefinition/>
+                        <ColumnDefinition/>
+                        <ColumnDefinition Width="2"/>
+                    </Grid.ColumnDefinitions>
+                    <Border Grid.Column="1" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"/>
+                    <Border Grid.Column="2" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"/>
+                    <Border Grid.Column="3" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"/>
+                    <Grid Grid.Column="1">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="2"/>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                            <RowDefinition Height="2"/>
+                        </Grid.RowDefinitions>
+                        <Grid Grid.Row="1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2"/>
+                                <ColumnDefinition Width="30"/>
+                                <ColumnDefinition Width="68"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="2"/>
+                            </Grid.ColumnDefinitions>
+                            <Label Grid.Column="1" Content="G01" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <ComboBox Grid.Column="3" HorizontalAlignment="Center" VerticalAlignment="Center" Width="48" Name="G01ComboRoot"/>
+                        </Grid>
+                        <Grid Grid.Row="2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2"/>
+                                <ColumnDefinition />
+                                <ColumnDefinition Width="2"/>
+                            </Grid.ColumnDefinitions>
+                            <ComboBox Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Top" Width="146" Name="G01ComboChord"/>
+                        </Grid>
+                        <Grid Grid.Row="3">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2"/>
+                                <ColumnDefinition />
+                                <ColumnDefinition Width="2"/>
+                            </Grid.ColumnDefinitions>
+                            <ComboBox Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Top" Width="146" Name="G01ComboPattern"/>
+                        </Grid>
+
+                    </Grid>
+                    <Grid Grid.Column="2">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="2"/>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                            <RowDefinition Height="2"/>
+                        </Grid.RowDefinitions>
+                        <Grid Grid.Row="1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2"/>
+                                <ColumnDefinition Width="30"/>
+                                <ColumnDefinition Width="68"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="2"/>
+                            </Grid.ColumnDefinitions>
+                            <Label Grid.Column="1" Content="G02" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <ComboBox Grid.Column="3" HorizontalAlignment="Center" VerticalAlignment="Center" Width="48" Name="G02ComboRoot"/>
+                        </Grid>
+                        <Grid Grid.Row="2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2"/>
+                                <ColumnDefinition />
+                                <ColumnDefinition Width="2"/>
+                            </Grid.ColumnDefinitions>
+                            <ComboBox Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Top" Width="146" Name="G02ComboChord"/>
+                        </Grid>
+                        <Grid Grid.Row="3">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2"/>
+                                <ColumnDefinition />
+                                <ColumnDefinition Width="2"/>
+                            </Grid.ColumnDefinitions>
+                            <ComboBox Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Top" Width="146" Name="G02ComboPattern"/>
+                        </Grid>
+
+                    </Grid>
+
+
+                    <Grid Grid.Column="3">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="2"/>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                            <RowDefinition Height="2"/>
+                        </Grid.RowDefinitions>
+                        <Grid Grid.Row="1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2"/>
+                                <ColumnDefinition Width="30"/>
+                                <ColumnDefinition Width="68"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="2"/>
+                            </Grid.ColumnDefinitions>
+                            <Label Grid.Column="1" Content="G03" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <ComboBox Grid.Column="3" HorizontalAlignment="Center" VerticalAlignment="Center" Width="48" Name="G03ComboRoot"/>
+                        </Grid>
+                        <Grid Grid.Row="2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2"/>
+                                <ColumnDefinition />
+                                <ColumnDefinition Width="2"/>
+                            </Grid.ColumnDefinitions>
+                            <ComboBox Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Top" Width="146" Name="G03ComboChord"/>
+                        </Grid>
+                        <Grid Grid.Row="3">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2"/>
+                                <ColumnDefinition />
+                                <ColumnDefinition Width="2"/>
+                            </Grid.ColumnDefinitions>
+                            <ComboBox Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Top" Width="146" Name="G03ComboPattern"/>
+                        </Grid>
+
+                    </Grid>
+                </Grid>
+                <Grid Grid.Row="2">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="2"/>
+                        <ColumnDefinition/>
+                        <ColumnDefinition/>
+                        <ColumnDefinition/>
+                        <ColumnDefinition Width="2"/>
+                    </Grid.ColumnDefinitions>
+                    <Border Grid.Column="1" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"/>
+                    <Border Grid.Column="2" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"/>
+                    <Border Grid.Column="3" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"/>
+                </Grid>
+                <Grid Grid.Row="3">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="2"/>
+                        <ColumnDefinition/>
+                        <ColumnDefinition/>
+                        <ColumnDefinition/>
+                        <ColumnDefinition Width="2"/>
+                    </Grid.ColumnDefinitions>
+                    <Border Grid.Column="1" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"/>
+                    <Border Grid.Column="2" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"/>
+                    <Border Grid.Column="3" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"/>
+                </Grid>
+                <Grid Grid.Row="4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="2"/>
+                        <ColumnDefinition/>
+                        <ColumnDefinition/>
+                        <ColumnDefinition/>
+                        <ColumnDefinition Width="2"/>
+                    </Grid.ColumnDefinitions>
+                    <Border Grid.Column="1" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"/>
+                    <Border Grid.Column="2" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"/>
+                    <Border Grid.Column="3" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"/>
+                </Grid>
+                <Grid Grid.Row="5">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="2"/>
+                        <ColumnDefinition/>
+                        <ColumnDefinition/>
+                        <ColumnDefinition/>
+                        <ColumnDefinition Width="2"/>
+                    </Grid.ColumnDefinitions>
+                    <Border Grid.Column="1" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"/>
+                    <Border Grid.Column="2" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"/>
+                    <Border Grid.Column="3" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"/>
+                </Grid>
+                <Grid Grid.Row="6">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="2"/>
+                        <ColumnDefinition/>
+                        <ColumnDefinition/>
+                        <ColumnDefinition/>
+                        <ColumnDefinition Width="2"/>
+                    </Grid.ColumnDefinitions>
+                    <Border Grid.Column="1" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"/>
+                    <Border Grid.Column="2" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"/>
+                    <Border Grid.Column="3" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"/>
+                </Grid>
+                <Grid Grid.Row="7">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="2"/>
+                        <ColumnDefinition/>
+                        <ColumnDefinition/>
+                        <ColumnDefinition/>
+                        <ColumnDefinition Width="2"/>
+                    </Grid.ColumnDefinitions>
+                    <Border Grid.Column="1" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"/>
+                    <Border Grid.Column="2" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"/>
+                    <Border Grid.Column="3" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"/>
+                </Grid>
+                <!-- You can add children here that will be arranged in the 8 rows -->
+            </Grid>
+        </Grid>
+    </Grid>
+</Window>

@@ -1,0 +1,56 @@
+﻿<Window x:Class="CyberG.ConnectionWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:CyberG"
+        mc:Ignorable="d"
+        Title="{DynamicResource ConnectionWindowTitle}" Height="100" Width="200"
+        ResizeMode="NoResize">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="5px"/>
+            <RowDefinition/>
+            <RowDefinition Height="5px"/>
+            <RowDefinition/>
+            <RowDefinition Height="5px"/>
+        </Grid.RowDefinitions>
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="5"/>
+                <ColumnDefinition/>
+                <ColumnDefinition Width="5"/>
+            </Grid.ColumnDefinitions>
+            <Grid Grid.Column="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition/>
+                    <ColumnDefinition Width="5"/>
+                    <ColumnDefinition/>
+                </Grid.ColumnDefinitions>
+                <Label Grid.Column="0" Content="{DynamicResource ComPort}"></Label>
+                <ComboBox Grid.Column="2" Name="comPortComboBox"/>
+            </Grid>
+        </Grid>
+        
+        <Grid Grid.Row="3">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="5"/>
+                <ColumnDefinition/>
+                <ColumnDefinition Width="5"/>
+            </Grid.ColumnDefinitions>
+            <Grid Grid.Column="1">
+                
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition/>
+                    <ColumnDefinition Width="5"/>
+                    <ColumnDefinition/>
+                </Grid.ColumnDefinitions>
+                <Button Grid.Column="0" Name ="refreshButton" Content="{DynamicResource Refresh}" Click="refreshButton_Click"/>
+                <Button Grid.Column="2" Name="connectButton" Content="{DynamicResource Connect}" Click="connectButton_Click"/>
+            
+
+            </Grid>
+            
+        </Grid>
+    </Grid>
+</Window>

@@ -1,0 +1,49 @@
+﻿<Window x:Class="CyberG.SerialLogWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:CyberG"
+        mc:Ignorable="d"
+        Title="{DynamicResource SerialCommunicationWindow}" Height="450" Width="800">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="5"/>
+            <RowDefinition/>
+            <RowDefinition Height="5"/>
+            <RowDefinition Height="30px"/>
+            <RowDefinition Height="5"/>
+        </Grid.RowDefinitions>
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="5px"/>
+                <ColumnDefinition/>
+                <ColumnDefinition Width="5px"/>
+            </Grid.ColumnDefinitions>
+
+            <ListBox 
+                Grid.Column="1" 
+                Name="LogListBox"  
+                ItemsSource="{x:Static local:SerialLog.LogEntries}"
+                FontFamily="Consolas"
+                FontSize="10"
+                />
+
+
+        </Grid>
+        <Grid Grid.Row="3">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="60px"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <Button
+        Grid.Column="1" 
+        Name="clearButton"  
+                Content="{DynamicResource ClearLog}" 
+                Click="clearButton_Click"
+        />
+        </Grid>
+    </Grid>
+</Window>
