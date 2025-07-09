@@ -48,6 +48,13 @@ public class SerialDevice
     public const string GET_ISKB = "ISKB";
     public const string SET_BPM = "BPMW";
     public const string GET_BPM = "BPMR";
+    public const string SET_SIMPLE_CHORD_MODE = "SCMW";
+    public const string GET_SIMPLE_CHORD_MODE = "SCMR";
+    public const string GET_NECK_ASSIGNMENT = "NASR";
+    public const string SET_NECK_ASSIGNMENT = "NASW";
+    public const string GET_NECK_PATTERN = "NAPR";
+    public const string SET_NECK_PATTERN = "NAPW";
+    public const string STOP_ALL_NOTES = "STOP";
     public const bool ignoreGetPreset = false;
     public const bool ignoreGetKB = false;
     private bool isWaiting = false;
@@ -252,7 +259,7 @@ public class SerialDevice
         {
             lock (_lock)
             {
-                return _lastCommandSent.First();
+                return _lastParamSent.First();
             }
         }
     }
@@ -304,11 +311,11 @@ public class SerialDevice
             // No full line received yet
             int i = 0;
         }
-        catch (IOException)
+        catch (IOException ex)
         {
             OnDeviceDisconnected();
         }
-        catch (InvalidOperationException)
+        catch (InvalidOperationException ex)
         {
             OnDeviceDisconnected();
         }

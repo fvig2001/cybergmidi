@@ -9,7 +9,7 @@
         >
     <!-- Title="MainWindow" Width="1600" Height="900"  -->
 
-    <Grid>
+    <Grid Name ="RootGrid">
         <Grid.RowDefinitions>
             <RowDefinition Height="5"/>
             <RowDefinition/>
@@ -69,7 +69,12 @@
                             <RowDefinition/>
                             <RowDefinition Height="0"/>
                         </Grid.RowDefinitions>
-                        <Rectangle Grid.Row="1" Fill="#F0F4F8" />
+                        <Image Grid.Row="1" Name="DisplayPic"
+                           Source="Images/guitarReady.png" 
+                           Stretch="UniformToFill" 
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"
+                               />
                     </Grid>
 
                 </Grid>
@@ -497,7 +502,7 @@
 
                         </Grid.RowDefinitions>
                         <Label Grid.Row="1" Padding="0" Content="Chord Button Mode" HorizontalAlignment="Left" VerticalAlignment="Top"/>
-                        <ComboBox Grid.Row="2" HorizontalAlignment="Left" VerticalAlignment="Top" Name="chordButonModeComboBox" Width="140"/>
+                        <ComboBox Grid.Row="2" HorizontalAlignment="Left" VerticalAlignment="Top" Name="chordButtonModeComboBox" Width="140"/>
 
                     </Grid>
                     <Grid Grid.Row="8">
@@ -578,13 +583,17 @@
                 <Grid Grid.Row="0">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="5"/>
-                        <ColumnDefinition/>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition/>
+                        <ColumnDefinition Width="100"/>
                         <ColumnDefinition Width="5"/>
+                        <ColumnDefinition Width="100"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="30"/>
+                        <ColumnDefinition Width="5"/>
+
                     </Grid.ColumnDefinitions>
                     <RadioButton Grid.Column="1" Content="Simple" Name="simpleRadioButton" VerticalAlignment="Center" GroupName="FretMode" Checked="simpleRadioButton_Checked"/>
                     <RadioButton Grid.Column="3" Content="Standard" Name="standardRadioButton" VerticalAlignment="Center" GroupName="FretMode" Checked="standardRadioButton_Checked"/>
+                    <Button Grid.Column="5" Name="stopButton" VerticalAlignment="Center" Height="28" Width="28" Click="stopButton_Click"/>
                 </Grid>
                 <Grid Grid.Row="1">
                     <Grid.ColumnDefinitions>
@@ -1549,4 +1558,5 @@
             </Grid>
         </Grid>
     </Grid>
+    
 </Window>

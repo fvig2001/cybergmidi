@@ -22,7 +22,7 @@ namespace CyberG
         public const int PRESETMAX = 6;
         public const int MAINWINDOW_BPM_TAPS_MIN = 2;
         public const bool NEED_DEBUG_WINDOWS = true;
-        public const int MAINWINDOW_PING_TIME = 2;
+        public const int MAINWINDOW_PING_TIME = 120;
     }
 
 

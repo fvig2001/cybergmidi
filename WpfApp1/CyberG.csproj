@@ -9,9 +9,31 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="Images\GuitarRead.png" />
+    <None Remove="Images\GuitarReady.png" />
+    <None Remove="Images\PianoRead.png" />
+    <None Remove="Images\PianoReady.png" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Microsoft.Xaml.Behaviors.Wpf" Version="1.1.135" />
     <PackageReference Include="System.IO.Ports" Version="9.0.6" />
     <PackageReference Include="System.Management" Version="9.0.6" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Images\GuitarRead.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="Images\GuitarReady.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="Images\PianoRead.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="Images\PianoReady.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Resource>
   </ItemGroup>
 
 </Project>

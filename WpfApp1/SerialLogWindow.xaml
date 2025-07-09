@@ -12,6 +12,10 @@
             <RowDefinition/>
             <RowDefinition Height="5"/>
             <RowDefinition Height="30px"/>
+            <RowDefinition Height="5px"/>
+            <RowDefinition Height="30px"/>
+            <RowDefinition Height="5px"/>
+            <RowDefinition Height="30px"/>
             <RowDefinition Height="5"/>
         </Grid.RowDefinitions>
         <Grid Grid.Row="1">
@@ -45,6 +49,24 @@
                 Content="{DynamicResource ClearLog}" 
                 Click="clearButton_Click"
         />
+        </Grid>
+        <Grid Grid.Row="5">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="350px"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <TextBox Grid.Column="1" Name="cmdTextbox" VerticalContentAlignment="Center" KeyDown="InputBox_KeyDown"/>
+        </Grid>
+        <Grid Grid.Row="7">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="60px"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <Button Grid.Column="1" Name="sendButton" Content="{DynamicResource Send}" Click="sendButton_Click" />
         </Grid>
     </Grid>
 </Window>

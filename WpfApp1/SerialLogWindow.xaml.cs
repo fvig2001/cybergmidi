@@ -71,6 +71,15 @@ namespace CyberG
                 }, DispatcherPriority.Background);
             }
         }
+        private void InputBox_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter)
+            {
+
+                sendButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                e.Handled = true; // Optional: prevent beep or other handling
+            }
+        }
 
         private ScrollViewer GetScrollViewer(DependencyObject o)
         {
@@ -84,7 +93,28 @@ namespace CyberG
             }
             return null;
         }
-    
+
+        private void sendButton_Click(object sender, RoutedEventArgs e)
+        {
+
+            string[] parts = cmdTextbox.Text.Split(',');
+            
+            if (parts.Length > 0)
+            {
+                string cmd = parts[0];
+                string param = "";
+                for (int i = 1; i < parts.Length; i++)
+                {
+                    if (i > 1)
+                    {
+                        param = param + ",";
+                    }
+                    param = param + parts[i];
+                }
+                SerialManager.Device.Send(cmd, param);
+            }
+
+        }
     }
 
 }
