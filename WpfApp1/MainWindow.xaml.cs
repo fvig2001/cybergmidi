@@ -997,6 +997,10 @@ namespace CyberG
             if (capoTextbox != null)
             {
                 capoTextbox.Text = e.NewValue.ToString("F0");
+                if (!isPresetReading)
+                {
+                    SendCmd(SerialDevice.SET_CAPO, curPreset.ToString()+"," + capoTextbox.Text);
+                }
             }
         }
         private void kbTransposeSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
