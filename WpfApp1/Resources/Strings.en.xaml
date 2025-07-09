@@ -26,23 +26,40 @@
     <sys:String x:Key="RootNote10">A</sys:String>
     <sys:String x:Key="RootNote11">A#</sys:String>
     <sys:String x:Key="RootNote12">B</sys:String>
-    <sys:String x:Key="ChordNote1">Major Chord</sys:String>
-    <sys:String x:Key="ChordNote2">Minor Chord</sys:String>
-    <sys:String x:Key="ChordNote3">Diminished Chord</sys:String>
-    <sys:String x:Key="ChordNote4">Augmented Chord</sys:String>
-    <sys:String x:Key="ChordNote5">Major 7th Chord</sys:String>
-    <sys:String x:Key="ChordNote6">Minor 7th Chord</sys:String>
-    <sys:String x:Key="ChordNote7">Dominant 7th Chord</sys:String>
-    <sys:String x:Key="ChordNote8">Minor 7♭5 Chord</sys:String>
-    <sys:String x:Key="ChordNote9">Major 6th Chord</sys:String>
-    <sys:String x:Key="ChordNote10">Minor 6th Chord</sys:String>
-    <sys:String x:Key="ChordNote11">Suspended 2nd Chord</sys:String>
-    <sys:String x:Key="ChordNote12">Suspended 4th Chord</sys:String>
-    <sys:String x:Key="ChordNote13">Add 9 Chord</sys:String>
-    <sys:String x:Key="ChordNote14">Add 11 Chord</sys:String>
-    <sys:String x:Key="ChordNote15">9th Chord</sys:String>
-    <sys:String x:Key="ChordNote16">11th Chord</sys:String>
-    <sys:String x:Key="ChordNote17">13th Chord</sys:String>
+    <sys:String x:Key="ChordNote1">Major</sys:String>
+    <sys:String x:Key="ChordNote2">Minor</sys:String>
+    <sys:String x:Key="ChordNote3">Diminished</sys:String>
+    <sys:String x:Key="ChordNote4">Augmented</sys:String>
+    <sys:String x:Key="ChordNote5">Major 7th</sys:String>
+    <sys:String x:Key="ChordNote6">Minor 7th</sys:String>
+    <sys:String x:Key="ChordNote7">Dominant 7th</sys:String>
+    <sys:String x:Key="ChordNote8">Minor 7♭5</sys:String>
+    <sys:String x:Key="ChordNote9">Major 6th</sys:String>
+    <sys:String x:Key="ChordNote10">Minor 6th</sys:String>
+    <sys:String x:Key="ChordNote11">Suspended 2nd</sys:String>
+    <sys:String x:Key="ChordNote12">Suspended 4th</sys:String>
+    <sys:String x:Key="ChordNote13">Add 9</sys:String>
+    <sys:String x:Key="ChordNote14">Add 11</sys:String>
+    <sys:String x:Key="ChordNote15">9th</sys:String>
+    <sys:String x:Key="ChordNote16">11th</sys:String>
+    <sys:String x:Key="ChordNote17">13th</sys:String>
+    <sys:String x:Key="ChordNote18">Major Add 9</sys:String>
+    <sys:String x:Key="ChordNote19">Dominant 7♭9</sys:String>
+    <sys:String x:Key="ChordNote20">Dominant 7♯9</sys:String>
+    <sys:String x:Key="ChordNote21">Dominant 7♭5</sys:String>
+    <sys:String x:Key="ChordNote22">Dominant 7♯5</sys:String>
+    <sys:String x:Key="ChordNote23">Minor Major 7</sys:String>
+    <sys:String x:Key="ChordNote24">Major 7♭5</sys:String>
+    <sys:String x:Key="ChordNote25">Diminished 7</sys:String>
+    <sys:String x:Key="ChordNote26">Power</sys:String>
+
+    <!-- Optional/Advanced -->
+    <sys:String x:Key="ChordNote27">Dominant 13♭9</sys:String>
+    <sys:String x:Key="ChordNote28">Dominant 7sus4</sys:String>
+    <sys:String x:Key="ChordNote29">Quartal</sys:String>
+    <sys:String x:Key="ChordNote30">Cluster</sys:String>
+
+
     <sys:String x:Key="GuitarPattern">Guitar Strum Pattern</sys:String>
     <sys:String x:Key="ComPort">COM Port</sys:String>
     <sys:String x:Key="ConnectionWindowTitle">Connect to Device</sys:String>
@@ -55,6 +72,7 @@
     <sys:String x:Key="SerialCommunicationWindow">Serial Communication Window</sys:String>
     <sys:String x:Key="NotConnected">Not Connected</sys:String>
     <sys:String x:Key="Connected">Connected</sys:String>
+    <sys:String x:Key="Send">Send</sys:String>
 
 
 
