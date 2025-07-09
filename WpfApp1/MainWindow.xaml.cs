@@ -66,16 +66,28 @@ namespace CyberG
             }
             if (!Config.NODEVICEMODE)
             {
-                //SerialManager.Device.DataReceived += OnMainSerialDataReceived;
-                SerialManager.Device.DeviceDisconnected += OnMainDeviceDisconnectedReceived;
-                StartSerialPingTimer();
+                if (SerialManager.isDeviceConnected())
+                {
+                    //SerialManager.Device.DataReceived += OnMainSerialDataReceived;
+                    
+                    StartSerialPingTimer();
+                }
             }
+        }
+        private void RemoveDisconnectHandler()
+        {
+            SerialManager.Device.DeviceDisconnected -= OnMainDeviceDisconnectedReceived;
+        }
+        private void AddDisconnectHandler()
+        {
+            SerialManager.Device.DeviceDisconnected += OnMainDeviceDisconnectedReceived;
         }
         private void SendCmd(string cmd, string param = "")
         {
             if (!SerialManager.isDeviceConnected())
             {
                 DebugLog.addToLog(debugType.sendDebug, "Error! Tried to send " + cmd + " while device is disconected.");
+                SerialManager.Device.RaiseDeviceDisconnected();
                 return;
             }
             try
@@ -180,9 +192,15 @@ namespace CyberG
         }
         private void OnMainDeviceDisconnectedReceived(object sender, EventArgs e)
         {
+            RemoveDisconnectHandler();
             Dispatcher.Invoke(() =>
             {
                 MessageBox.Show("Serial device disconnected.");
+                isSerialEnabled = false;
+                PauseSerial();
+                openConnectionWindow(true);
+
+
             });
         }
         private bool checkResult(List<string> parsedData)
@@ -191,7 +209,7 @@ namespace CyberG
             {
                 if (parsedData[0] != "OK")
                 {
-                    DebugLog.addToLog(debugType.replyDebug, "Command " + SerialManager.Device.LastCommandSent.First() + " did not return OK");
+                    DebugLog.addToLog(debugType.replyDebug, "Command " + SerialManager.Device.LastCommandSent + " did not return OK");
                 }
                 else 
                 {
@@ -200,7 +218,7 @@ namespace CyberG
             }
             else
             {
-                DebugLog.addToLog(debugType.replyDebug, "Command " + SerialManager.Device.LastCommandSent.First() + " returned empty?");
+                DebugLog.addToLog(debugType.replyDebug, "Command " + SerialManager.Device.LastCommandSent + " returned empty?");
             }
             return false;
         }
@@ -1105,7 +1123,7 @@ namespace CyberG
             }
         }
 
-        void openConnectionWindow()
+        void openConnectionWindow(bool isDisconnected = false)
         {
             isSerialEnabled = false;
             PauseSerial();
@@ -1123,6 +1141,11 @@ namespace CyberG
                 statusEllipse.Fill = (Brush)Application.Current.Resources["STATUSNG"];
                 statusLabel.Content = (string)Application.Current.Resources["NotConnected"];
             }
+            if (isDisconnected)
+            {
+                SendCmd(SerialDevice.GET_PRESET);
+            }
+            AddDisconnectHandler();
         }
         private async void connectionSettingsButton_Click(object sender, RoutedEventArgs e)
         {

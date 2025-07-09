@@ -67,7 +67,7 @@ public class SerialDevice
     public int BaudRate { get; set; }
     public bool isUSB { get; set; }
 
-    private SerialPort _serialPort;
+    private static SerialPort _serialPort;
 
     public bool IsConnected => _serialPort?.IsOpen ?? false;
     public event EventHandler<string> DataReceived;
@@ -75,6 +75,12 @@ public class SerialDevice
 
     private SerialDataReceivedEventHandler _internalHandler;
 
+    public void RaiseDeviceDisconnected()
+    {
+        OnDeviceDisconnected();
+        DeviceDisconnected?.Invoke(this, EventArgs.Empty);
+        
+    }
     public SerialDevice(string portName, int baudRate)
     {
         PortName = portName;
@@ -329,7 +335,7 @@ public class SerialManager
 
     public static bool isInitialized() => _instance != null;
 
-    public static void Initialize(string port, int baud)
+    public static void Initialize(string port, int baud, bool forceConnect = false)
     {
         if (_instance == null)
             _instance = new SerialDevice(port, baud);
@@ -337,10 +343,21 @@ public class SerialManager
         {
             _instance.PortName = port;
             _instance.BaudRate = baud;
+            if (forceConnect)
+            {
+                _instance.Disconnect();
+                _instance = null;
+                _instance = new SerialDevice(port, baud);
+                
+
+            }
         }
     }
 
-    public static bool isDeviceConnected() => isInitialized() && Device.IsConnected;
+    public static bool isDeviceConnected()
+    {
+        return isInitialized() && Device.IsConnected;
+    }
 
     public static void Disconnect()
     {

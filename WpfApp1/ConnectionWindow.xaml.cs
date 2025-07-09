@@ -42,8 +42,7 @@ namespace CyberG
         private void ResetComPortComboBox()
         {
             int myPort = -1;
-            var ports = SerialPort.GetPortNames();
-
+            var ports = SerialPort.GetPortNames().Distinct();
             var sortedPorts = ports
                 .OrderBy(port =>
                 {
@@ -173,7 +172,7 @@ namespace CyberG
             }
             if (!skip && !string.IsNullOrWhiteSpace(selectedPort))
             {
-                SerialManager.Initialize(selectedPort, USB_SERIAL_BAUD);
+                SerialManager.Initialize(selectedPort, USB_SERIAL_BAUD, forceConnect);
                 if (SerialManager.Device.Connect())
                 {
                     //todo: consider case where there is no reply
