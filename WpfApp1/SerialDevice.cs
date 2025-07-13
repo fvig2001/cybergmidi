@@ -14,6 +14,8 @@ public class SerialDevice
 {
     public const string SET_CHORD_HOLD = "CH_W";
     public const string GET_CHORD_HOLD = "CH_R";
+    public const string SET_MUTE_WHEN_LET_GO = "MWLW";
+    public const string GET_MUTE_WHEN_LET_GO = "MWLR";
     public const string SET_ALTERNATING_STRUM = "ASDW";
     public const string GET_ALTERNATING_STRUM = "ASDR";
     public const string SET_SUSTAIN_MODE = "UTSW";
@@ -41,6 +43,7 @@ public class SerialDevice
     public const string GET_ACCOMPANIMENT_ENABLE = "AENR";
     public const string SET_DRUMS_ENABLE = "DENW";
     public const string GET_DRUMS_ENABLE = "DENR";
+    public const string GET_DEVICE_ID = "DEVI";
     public const string GET_DEVICE_MODE = "OMMR";
     public const string SET_DEVICE_MODE = "OMMW";
     public const string GET_PRESET = "PRSR";
@@ -199,6 +202,14 @@ public class SerialDevice
         _queueSignal.Set();
     }
 
+    public bool HasDisconnectHandler(EventHandler handler)
+    {
+        return DeviceDisconnected?.GetInvocationList().Contains(handler) ?? false;
+    }
+    public void NotifyDisconnect()
+    {
+        DeviceDisconnected?.Invoke(this, EventArgs.Empty);
+    }
     public void clearLastCommand()
     {
         lock (_lock)
@@ -266,6 +277,7 @@ public class SerialDevice
 
     private void OnSerialDataReceived(object sender, SerialDataReceivedEventArgs e)
     {
+        bool isDebug = false;
         try
         {
             while (true)
@@ -275,7 +287,11 @@ public class SerialDevice
 
                 lock (_lock)
                 {
-                    if (!data.StartsWith("OK"))
+                    if (data.StartsWith("DB"))
+                    {
+                        isDebug = true;
+                    }
+                    else if (data.StartsWith("NG"))
                     {
                         //if (_lastCommandSent.Count > 0 && _lastParamSent.Count > 0)
                         {
@@ -286,9 +302,17 @@ public class SerialDevice
 
                     //if (_lastCommandSent.Count > 0 && _lastParamSent.Count > 0)
                     {
-                        string cmd = _lastCommandSent.First();
-                        string param = _lastParamSent.First();
-
+                        string cmd = "";
+                        string param = "";
+                        if (isDebug)
+                        {
+                        }
+                        else
+                        {
+                            cmd = _lastCommandSent.First();
+                            param = _lastParamSent.First();
+                        }
+                        
                         if (!(cmd == GET_PRESET && ignoreGetPreset) &&
                             !(cmd == GET_ISKB && ignoreGetKB))
                         {

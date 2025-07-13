@@ -12,7 +12,8 @@ namespace CyberG
     {
         sendDebug = 0,
         replyDebug,
-        miscDebug
+        miscDebug,
+        deviceDebug
     }
     class DebugLog
     {

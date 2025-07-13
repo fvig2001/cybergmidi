@@ -23,10 +23,24 @@
                 <ColumnDefinition Width="16"/>
                 <ColumnDefinition Width="100"/>
                 <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="5"/>
+                <!--Set all -->
+                <ColumnDefinition Width="455"/>
+                <ColumnDefinition Width="8"/>
             </Grid.ColumnDefinitions>
             <Ellipse Grid.Column="1" Width="14" Height="14" Fill="{DynamicResource STATUSNG}" Stroke="Black" StrokeThickness="1" Name="statusEllipse"/>
             <Label Grid.Column="2" FontSize="8" Content="{DynamicResource NotConnected}" Name="statusLabel" VerticalAlignment="Top" VerticalContentAlignment="Top"/>
+            <Grid Grid.Column="4">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition/>
+                    <ColumnDefinition Width="1"/>
+                    <ColumnDefinition/>
+                    <ColumnDefinition Width="1"/>
+                    <ColumnDefinition/>
+                </Grid.ColumnDefinitions>
+                <!--== <ComboBox Grid.Column="0" Name="allX"/>
+                <ComboBox Grid.Column="2" Name="allGuitarPatterns"/>-->
+            </Grid>
+            
         </Grid>
 
         <Grid Grid.Row="1">
@@ -258,7 +272,7 @@
                                     <ColumnDefinition />
                                     <ColumnDefinition Width="5"/>
                                 </Grid.ColumnDefinitions>
-                                <ComboBox Grid.Column="1" VerticalAlignment="Top" Name="modeComboBox"/>
+                                <ComboBox Grid.Column="1" VerticalAlignment="Top" Name="modeComboBox" SelectionChanged="modeComboBox_SelectionChanged"/>
                             </Grid>
 
                         </Grid>
@@ -437,7 +451,7 @@
                             <RowDefinition Height="5"/>
 
                         </Grid.RowDefinitions>
-                        <Label Grid.Row="1" Padding="0" Content="Keyboard Transpose" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+                        <Label Grid.Row="1" Padding="0" Content="Paddle Note Transpose" HorizontalAlignment="Left" VerticalAlignment="Top"/>
                         <TextBox Grid.Row="2" HorizontalAlignment="Left" VerticalAlignment="Top" Name="kbTransposeTextbox" Width="40" Text="0" LostFocus="kbTransposeTextbox_LostFocus" PreviewKeyDown="kbTransposeTextbox_PreviewKeyDown"/>
                         <Slider Grid.Row="3" Name="kbTransposeSlider" Width="40" HorizontalAlignment="Left" ValueChanged="kbTransposeSlider_ValueChanged"/>
                     </Grid>
@@ -477,7 +491,7 @@
                             <RowDefinition Height="5"/>
 
                         </Grid.RowDefinitions>
-                        <Label Grid.Row="1" Padding="0" Content="Alternative Strum Direction" HorizontalAlignment="Left" VerticalAlignment="Top" Grid.ColumnSpan="2"/>
+                        <Label Grid.Row="1" Padding="0" Content="{DynamicResource AlternatingStrum}" HorizontalAlignment="Left" VerticalAlignment="Top" Grid.ColumnSpan="2"/>
                         <ComboBox Grid.Row="2" HorizontalAlignment="Left" VerticalAlignment="Top" Name="alternatingStrumComboBox" Width="80" Grid.ColumnSpan="2"/>
 
                     </Grid>
@@ -586,6 +600,8 @@
                         <ColumnDefinition Width="100"/>
                         <ColumnDefinition Width="5"/>
                         <ColumnDefinition Width="100"/>
+                        <ColumnDefinition Width="5"/>
+                        <ColumnDefinition Width="146"/>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="30"/>
                         <ColumnDefinition Width="5"/>
@@ -593,7 +609,8 @@
                     </Grid.ColumnDefinitions>
                     <RadioButton Grid.Column="1" Content="Simple" Name="simpleRadioButton" VerticalAlignment="Center" GroupName="FretMode" Checked="simpleRadioButton_Checked"/>
                     <RadioButton Grid.Column="3" Content="Standard" Name="standardRadioButton" VerticalAlignment="Center" GroupName="FretMode" Checked="standardRadioButton_Checked"/>
-                    <Button Grid.Column="5" Name="stopButton" VerticalAlignment="Center" Height="28" Width="28" Click="stopButton_Click"/>
+                    <ComboBox Grid.Column="5" HorizontalAlignment="Center" VerticalAlignment="Center" Width="146" Name="setAllGuitarPatternComboBox"/>
+                    <Button Grid.Column="7" Name="stopButton" VerticalAlignment="Center" Height="28" Width="28" Click="stopButton_Click"/>
                 </Grid>
                 <Grid Grid.Row="1">
                     <Grid.ColumnDefinitions>

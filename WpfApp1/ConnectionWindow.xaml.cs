@@ -154,7 +154,99 @@ namespace CyberG
         {
             ResetComPortComboBox();
         }
+        private void PauseSerial()
+        {
+            if (SerialManager.Device != null)
+            {
+                SerialManager.Device.DataReceived -= OnConnectionWindowSerialDataReceived;
+            }
+        }
+        private void ResumeSerial()
+        {
+            if (SerialManager.Device != null)
+            {
+                SerialManager.Device.DataReceived += OnConnectionWindowSerialDataReceived;
+            }
+        }
 
+        private void OnConnectionWindowSerialDataReceived(object sender, string data)
+        {
+
+            Dispatcher.Invoke(() => {
+                string response = data.Trim();
+                List<string> parsedData = SerialReceiveParser.Parse(response);
+
+                bool isDebug = false;
+                if (parsedData.Count != 0)
+                {
+                    bool isOK = false;
+                    if (parsedData[0] == "DB")
+                    {
+                        isDebug = true;
+                    }
+                    int nTemp = -1;
+                    bool bTemp = false;
+                    //curPreset
+                    if (isDebug)
+                    {
+                        string dbgMsg = "";
+                        for (int i = 2; i < parsedData.Count; i++)
+                        {
+                            dbgMsg += parsedData[i];
+                        }
+                        DebugLog.addToLog(debugType.deviceDebug, dbgMsg);
+                    }
+                    else
+                    {
+                        string command = SerialManager.Device.LastCommandSent;
+                        if (command == SerialDevice.GET_DEVICE_ID)
+                        {
+                            if (parsedData.Count >= 2)
+                            {
+                                
+                                if (parsedData[0] == "OK" && parsedData[2] == "0")
+                                {
+                                    isOK = true;
+                                    PauseSerial();
+                                    Close();
+                                }
+                               
+                            }
+
+                        }
+                        if (!isOK)
+                        {
+                            MessageBox.Show("Error! " + SerialManager.Device.PortName + " is another device! Pick another COM port.");
+                        }
+                        //if here 
+                    }
+                }
+                if (!isDebug)
+                {
+                    SerialManager.Device.clearLastCommand();
+                }
+
+            });
+        }
+
+
+        private void SendCmd(string cmd, string param = "")
+        {
+            if (!SerialManager.isDeviceConnected())
+            {
+                //DebugLog.addToLog(debugType.sendDebug, "Error! Tried to send " + cmd + " while device is disconected.");
+                SerialManager.Device.RaiseDeviceDisconnected();
+                return;
+            }
+            try
+            {
+                SerialManager.Device.Send(cmd, param); // Or your custom heartbeat command
+            }
+            catch (Exception ex)
+            {
+
+            }
+        }
         private void connectButton_Click(object sender, RoutedEventArgs e)
         {
             string selectedPort = comPortComboBox.SelectedItem as string;
@@ -177,7 +269,9 @@ namespace CyberG
                 {
                     //todo: consider case where there is no reply
                     //SerialManager.Device.Send("DEVI");
-                    Close();
+                    //Close();
+                    ResumeSerial();
+                    SendCmd(SerialDevice.GET_DEVICE_ID);
                 }
                 else
                 {

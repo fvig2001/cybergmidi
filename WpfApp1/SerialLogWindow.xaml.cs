@@ -34,6 +34,22 @@ namespace CyberG
         }
 
 
+        private void MyListBox_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.C && Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
+            {
+                if (LogListBox.SelectedItems != null && LogListBox.SelectedItems.Count > 0)
+                {
+                    string copiedText = string.Join(
+                        System.Environment.NewLine,
+                        LogListBox.SelectedItems.Cast<string>()
+                    );
+
+                    Clipboard.SetText(copiedText);
+                    e.Handled = true;
+                }
+            }
+        }
 
         private void LogListBox_Loaded(object sender, RoutedEventArgs e)
         {

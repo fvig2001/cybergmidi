@@ -73,8 +73,6 @@ namespace CyberG
             {
                 if (SerialManager.isDeviceConnected())
                 {
-                    //SerialManager.Device.DataReceived += OnMainSerialDataReceived;
-                    
                     StartSerialPingTimer();
                 }
             }
@@ -116,14 +114,20 @@ namespace CyberG
         }
         private void AddDisconnectHandler()
         {
-            SerialManager.Device.DeviceDisconnected += OnMainDeviceDisconnectedReceived;
+            if (SerialManager.isDeviceConnected())
+            {
+                SerialManager.Device.DeviceDisconnected += OnMainDeviceDisconnectedReceived;
+            }
         }
         private void SendCmd(string cmd, string param = "")
         {
             if (!SerialManager.isDeviceConnected())
             {
-                DebugLog.addToLog(debugType.sendDebug, "Error! Tried to send " + cmd + " while device is disconected.");
-                SerialManager.Device.RaiseDeviceDisconnected();
+                //DebugLog.addToLog(debugType.sendDebug, "Error! Tried to send " + cmd + " while device is disconected.");
+                if (SerialManager.Device != null)
+                {
+                    SerialManager.Device.RaiseDeviceDisconnected();
+                }
                 return;
             }
             try
@@ -132,7 +136,14 @@ namespace CyberG
             }
             catch (Exception ex)
             {
-                addToDebugLog(debugType.sendDebug, "Error sending " + cmd);
+                //addToDebugLog(debugType.sendDebug, "Error sending " + cmd);
+                
+                if (SerialManager.isInitialized() && SerialManager.Device.HasDisconnectHandler(OnMainDeviceDisconnectedReceived))
+                {
+                    SerialManager.Device.NotifyDisconnect();
+                }
+        
+        
             }
         }
         private void UpdateReadPresetValues()
@@ -254,7 +265,8 @@ namespace CyberG
             RemoveDisconnectHandler();
             Dispatcher.Invoke(() =>
             {
-                MessageBox.Show("Serial device disconnected.");
+                //MessageBox.Show("Serial device disconnected.");
+                MessageBox.Show(this, "Serial device disconnected.");
                 isSerialEnabled = false;
                 PauseSerial();
                 openConnectionWindow(true);
@@ -403,6 +415,66 @@ namespace CyberG
                     return false;
                 }
             }
+
+
+            else if (command == SerialDevice.SET_ALTERNATING_STRUM)
+            {
+                if (!checkCommandParamCount(parsedData, 2))
+                {
+                    return false;
+                }
+            }
+            else if (command == SerialDevice.SET_BASS_ENABLE)
+            {
+                if (!checkCommandParamCount(parsedData, 2))
+                {
+                    return false;
+                }
+            }
+            else if (command == SerialDevice.SET_DRUMS_ENABLE)
+            {
+                if (!checkCommandParamCount(parsedData, 2))
+                {
+                    return false;
+                }
+            }
+            else if (command == SerialDevice.SET_ACCOMPANIMENT_ENABLE)
+            {
+                if (!checkCommandParamCount(parsedData, 2))
+                {
+                    return false;
+                }
+            }
+            else if (command == SerialDevice.SET_MUTE_WHEN_LET_GO)
+            {
+                if (!checkCommandParamCount(parsedData, 2))
+                {
+                    return false;
+                }
+            }
+            else if (command == SerialDevice.SET_CHORD_HOLD)
+            {
+                if (!checkCommandParamCount(parsedData, 2))
+                {
+                    return false;
+                }
+            }
+            else if (command == SerialDevice.SET_SUSTAIN_MODE   )
+            {
+                if (!checkCommandParamCount(parsedData, 2))
+                {
+                    return false;
+                }
+            }
+            else if (command == SerialDevice.SET_IGNORE_MODE)
+            {
+                if (!checkCommandParamCount(parsedData, 2))
+                {
+                    return false;
+                }
+            }
+
+
             else if (command == SerialDevice.SET_BPM)
             {
                 if (!checkCommandParamCount(parsedData, 2))
@@ -718,343 +790,417 @@ namespace CyberG
         {
 
             Dispatcher.Invoke(() => {
-                string command = SerialManager.Device.LastCommandSent;
                 string response = data.Trim();
                 List<string> parsedData = SerialReceiveParser.Parse(response);
                 
-                bool isGood = false;
+                bool isDebug = false;
                 if (parsedData.Count != 0)
-                
                 {
+                    if (parsedData[0] == "DB")
+                    {
+                        isDebug = true;
+                    }
                     int nTemp = -1;
                     bool bTemp = false;
                     //curPreset
-                    if (command == SerialDevice.GET_PRESET)
+                    if (isDebug)
                     {
-                        if (checkReceivedValid(parsedData))
+                        string dbgMsg = "";
+                        for (int i = 2; i < parsedData.Count; i++)
                         {
-                            nTemp = int.Parse(parsedData[2]);
-                            if (nTemp != curPreset)
+                            dbgMsg += parsedData[i];
+                        }
+                        DebugLog.addToLog(debugType.deviceDebug,dbgMsg);
+                    }
+                    else
+                    {
+                        string command = SerialManager.Device.LastCommandSent;
+                        if (command == SerialDevice.GET_PRESET)
+                        {
+                            if (checkReceivedValid(parsedData))
                             {
-                                curPreset = nTemp;
-                                Dispatcher.BeginInvoke(new Action(() =>
+                                nTemp = int.Parse(parsedData[2]);
+                                if (nTemp != curPreset)
                                 {
-                                    presetComboBox.SelectedIndex = curPreset;
-                                    UpdateReadPresetValues();
-                                }));
+                                    curPreset = nTemp;
+                                    Dispatcher.BeginInvoke(new Action(() =>
+                                    {
+                                        presetComboBox.SelectedIndex = curPreset;
+                                        UpdateReadPresetValues();
+                                    }));
 
+                                }
                             }
                         }
-                    }
-                    else if (command == SerialDevice.SET_PRESET)
-                    {
-                        //we don't care about first 2
-                        if (!checkReceivedValid(parsedData))
-                        {
-
-                        }
-                        else
-                        {
-                            //curPreset = nTemp;
-                            Dispatcher.BeginInvoke(new Action(() =>
-                            {
-                                UpdateReadPresetValues();
-                            }));
-                        }
-                    }
-
-                    else if (command == SerialDevice.STOP_ALL_NOTES)
-                    {
-                        if (!checkReceivedValid(parsedData))
-                        {
-
-                        }
-
-                    }
-
-                    else if (command == SerialDevice.GET_NECK_PATTERN)
-                    {
-                        if (!checkReceivedValid(parsedData))
-                        {
-
-                        }
-
-                    }
-                    else if (command == SerialDevice.GET_ISKB)
-                    {
-                        if (checkReceivedValid(parsedData))
+                        else if (command == SerialDevice.SET_PRESET)
                         {
                             //we don't care about first 2
-                            bTemp = int.Parse(parsedData[2]) > 0;
-                            if (bTemp != isKeyboard)
+                            if (!checkReceivedValid(parsedData))
                             {
-                                //todo force image change here
-                                isKeyboard = bTemp;
+
+                            }
+                            else
+                            {
+                                //curPreset = nTemp;
                                 Dispatcher.BeginInvoke(new Action(() =>
                                 {
-                                    MessageBox.Show("Is Keyboard is now " + bTemp.ToString());
+                                    UpdateReadPresetValues();
                                 }));
                             }
                         }
-                    }
-                    else if (command == SerialDevice.SET_SIMPLE_CHORD_MODE)
-                    {
-                        if (!checkReceivedValid(parsedData))
-                        {
 
-                        }
-                    }
-                    else if (command == SerialDevice.SET_KB_TRANSPOSE)
-                    {
-                        if (!checkReceivedValid(parsedData))
+                        else if (command == SerialDevice.STOP_ALL_NOTES)
                         {
-
-                        }
-                    }
-                    else if (command == SerialDevice.SET_PROPER_OMNICHORD)
-                    {
-                        if (!checkReceivedValid(parsedData))
-                        {
-
-                        }
-                    }
-                    else if (command == SerialDevice.SET_BPM)
-                    {
-                        if (!checkReceivedValid(parsedData))
-                        {
-
-                        }
-                    }
-                    else if (command == SerialDevice.SET_MUTE_SEPARATION)
-                    {
-                        if (!checkReceivedValid(parsedData))
-                        {
-
-                        }
-                    }
-
-                    else if (command == SerialDevice.SET_STRUM_SEPARATION)
-                    {
-                        if (!checkReceivedValid(parsedData))
-                        {
-
-                        }
-                    }
-                    else if (command == SerialDevice.GET_STRUM_SEPARATION)
-                    {
-                        if (checkReceivedValid(parsedData))
-                        {
-                            nTemp = int.Parse(parsedData[2]);
-                            strumSeparationTextbox.Text = nTemp.ToString();
-                            UpdateSliderFromTextBox(strumSeparationSlider, strumSeparationTextbox);
-                            sendSetStrumSeparation();
-                        }
-                    }
-                    else if (command == SerialDevice.GET_MUTE_SEPARATION)
-                    {
-                        if (checkReceivedValid(parsedData))
-                        {
-                            nTemp = int.Parse(parsedData[2]);
-                            muteSeparationTextbox.Text = nTemp.ToString();
-                            UpdateSliderFromTextBox(muteSeparationSlider, muteSeparationTextbox);
-                            sendSetMuteSeparation();
-                        }
-                    }
-                    else if (command == SerialDevice.GET_KB_TRANSPOSE)
-                    {
-                        if (checkReceivedValid(parsedData))
-                        {
-                            nTemp = int.Parse(parsedData[2]);
-                            kbTransposeTextbox.Text = nTemp.ToString();
-                            UpdateSliderFromTextBox(kbTransposeSlider, kbTransposeTextbox);
-                        }
-                    }
-                    else if (command == SerialDevice.GET_CAPO)
-                    {
-                        if (checkReceivedValid(parsedData))
-                        {
-                            nTemp = int.Parse(parsedData[2]);
-                            capoTextbox.Text = nTemp.ToString();
-                            UpdateSliderFromTextBox(capoSlider, capoTextbox);
-                        }
-                    }
-                    else if (command == SerialDevice.GET_BASS_ENABLE)
-                    {
-                        if (checkReceivedValid(parsedData))
-                        {
-                            nTemp = int.Parse(parsedData[2]);
-                            bassComboBox.SelectedIndex = nTemp;
-                        }
-                    }
-
-
-
-                    else if (command == SerialDevice.GET_CHORD_HOLD)
-                    {
-                        if (checkReceivedValid(parsedData))
-                        {
-                            nTemp = int.Parse(parsedData[2]);
-                            chordHoldComboBox.SelectedIndex = nTemp;
-                        }
-                    }
-                    else if (command == SerialDevice.GET_ALTERNATING_STRUM)
-                    {
-                        if (checkReceivedValid(parsedData))
-                        {
-                            nTemp = int.Parse(parsedData[2]);
-                            alternatingStrumComboBox.SelectedIndex = nTemp;
-                        }
-                    }
-                    else if (command == SerialDevice.GET_SUSTAIN_MODE)
-                    {
-                        if (checkReceivedValid(parsedData))
-                        {
-                            nTemp = int.Parse(parsedData[2]);
-                            sustainModeComboBox.SelectedIndex = nTemp;
-                        }
-                    }
-                    else if (command == SerialDevice.GET_CHORD_MODE)
-                    {
-                        if (checkReceivedValid(parsedData))
-                        {
-                            nTemp = int.Parse(parsedData[2]);
-                            chordButtonModeComboBox.SelectedIndex = nTemp;
-                        }
-                    }
-                    else if (command == SerialDevice.GET_IGNORE_MODE)
-                    {
-                        if (checkReceivedValid(parsedData))
-                        {
-                            nTemp = int.Parse(parsedData[2]);
-                            ignoreSameButtonComboBox.SelectedIndex = nTemp;
-                        }
-                    }
-                    else if (command == SerialDevice.GET_PROPER_OMNICHORD)
-                    {
-                        if (checkReceivedValid(parsedData))
-                        {
-                            nTemp = int.Parse(parsedData[2]);
-                            lower5thComboBox.SelectedIndex = nTemp;
-                        }
-                    }
-
-                    else if (command == SerialDevice.GET_NECK_PATTERN)
-                    {
-                        if (checkReceivedValid(parsedData))
-                        {
-                            int curRow = -1;
-                            int curCol = -1;
-                            string[] parts = SerialManager.Device.LastParamSent.Split(',');
-
-                            if (parts.Length >= 3 &&
-                                int.TryParse(parts[1], out curRow) &&
-                                int.TryParse(parts[2], out curCol))
+                            if (!checkReceivedValid(parsedData))
                             {
-                                allComboPatterns[curRow * NECK_COLS + curCol].SelectedIndex = int.Parse(parsedData[2]);
-                            }
-                            else
-                            {
-                                DebugLog.addToLog(debugType.replyDebug, "Error! Parsing " + command + " encountered unexpected parsing issue.");
+
                             }
 
                         }
-                    }
-                    else if (command == SerialDevice.GET_NECK_ASSIGNMENT)
-                    {
-                        if (checkReceivedValid(parsedData))
-                        {
-                            int curRow = -1;
-                            int curCol = -1;
-                            string[] parts = SerialManager.Device.LastParamSent.Split(',');
 
-                            if (parts.Length >= 3 &&
-                                int.TryParse(parts[1], out curRow) &&
-                                int.TryParse(parts[2], out curCol))
+                        else if (command == SerialDevice.GET_NECK_PATTERN)
+                        {
+                            if (!checkReceivedValid(parsedData))
                             {
-                                allComboRoots[curRow * NECK_COLS + curCol].SelectedIndex = int.Parse(parsedData[2]);
-                                allComboChords[curRow * NECK_COLS + curCol].SelectedIndex = int.Parse(parsedData[3]);
-                            }
-                            else 
-                            {
-                                DebugLog.addToLog(debugType.replyDebug, "Error! Parsing " + command + " encountered unexpected parsing issue.");
-                            }
-                            
-                        }
-                    }
 
-                    else if (command == SerialDevice.GET_SIMPLE_CHORD_MODE)
-                    {
-                        if (checkReceivedValid(parsedData))
-                        {
-                            nTemp = int.Parse(parsedData[2]);
-                            if (nTemp == 0)
-                            {
-                                standardRadioButton.IsChecked = true;
-                            }
-                            else
-                            {
-                                simpleRadioButton.IsChecked = true;
                             }
                         }
-                    }
-                    else if (command == SerialDevice.GET_ACCOMPANIMENT_ENABLE)
-                    {
-                        if (checkReceivedValid(parsedData))
+                        else if (command == SerialDevice.GET_ISKB)
                         {
-                            nTemp = int.Parse(parsedData[2]);
-                            backingComboBox.SelectedIndex = nTemp;
+                            if (checkReceivedValid(parsedData))
+                            {
+                                //we don't care about first 2
+                                bTemp = int.Parse(parsedData[2]) > 0;
+                                bool oldKb = isKeyboard;
+                                if (bTemp != isKeyboard)
+                                {
+                                    //todo force image change here
+                                    isKeyboard = bTemp;
+                                    if (oldKb != isKeyboard)
+                                    {
+                                        Dispatcher.BeginInvoke(new Action(() =>
+                                        {
+                                            ChangePicDisplayed();
+                                        }));
+                                    }
+                                }
+                            }
                         }
-                    }
-                    else if (command == SerialDevice.GET_DRUMS_ENABLE)
-                    {
-                        if (checkReceivedValid(parsedData))
+                        else if (command == SerialDevice.SET_SIMPLE_CHORD_MODE)
                         {
-                            nTemp = int.Parse(parsedData[2]);
-                            drumComboBox.SelectedIndex = nTemp;
+                            if (!checkReceivedValid(parsedData))
+                            {
+
+                            }
                         }
-                    }
-                    else if (command == SerialDevice.GET_STRUM_STYLE)
-                    {
-                        if (checkReceivedValid(parsedData))
+                        else if (command == SerialDevice.SET_KB_TRANSPOSE)
                         {
-                            nTemp = int.Parse(parsedData[2]);
-                            strumStyleComboBox.SelectedIndex = nTemp;
+                            if (!checkReceivedValid(parsedData))
+                            {
+
+                            }
                         }
-                    }
-                    else if (command == SerialDevice.GET_DEVICE_MODE)
-                    {
-                        if (checkReceivedValid(parsedData))
+                        else if (command == SerialDevice.SET_PROPER_OMNICHORD)
                         {
-                            nTemp = int.Parse(parsedData[2]);
-                            modeComboBox.SelectedIndex = nTemp;
+                            if (!checkReceivedValid(parsedData))
+                            {
+
+                            }
                         }
 
-                    }
-                    else if (command == SerialDevice.GET_BPM)
-                    {
-                        if (parsedData.Count >= 3)
+                        else if (command == SerialDevice.SET_ALTERNATING_STRUM)
                         {
-                            if (parsedData[0] != "OK")
+                            if (!checkReceivedValid(parsedData))
                             {
-                            }
-                            else
-                            {
-                                changeBPM(int.Parse(parsedData[2]));
-                                isPresetReading = false;
-                                ChangePicDisplayed();
-                                RootGrid.IsEnabled = true;
-                                _serialLogWindow.sendButton.IsEnabled = true;
-                                _serialLogWindow.cmdTextbox.IsEnabled = true;
-                                //todo revert picture back
+
                             }
                         }
-                        isSerialEnabled = true;//restart ping
+                        else if (command == SerialDevice.SET_BASS_ENABLE)
+                        {
+                            if (!checkReceivedValid(parsedData))
+                            {
 
+                            }
+                        }
+                        else if (command == SerialDevice.SET_DRUMS_ENABLE)
+                        {
+                            if (!checkReceivedValid(parsedData))
+                            {
+
+                            }
+                        }
+                        else if (command == SerialDevice.SET_ACCOMPANIMENT_ENABLE)
+                        {
+                            if (!checkReceivedValid(parsedData))
+                            {
+
+                            }
+                        }
+
+                        else if (command == SerialDevice.SET_MUTE_WHEN_LET_GO)
+                        {
+                            if (!checkReceivedValid(parsedData))
+                            {
+
+                            }
+                        }
+                        else if (command == SerialDevice.SET_CHORD_HOLD)
+                        {
+                            if (!checkReceivedValid(parsedData))
+                            {
+
+                            }
+                        }
+                        else if (command == SerialDevice.SET_SUSTAIN_MODE)
+                        {
+                            if (!checkReceivedValid(parsedData))
+                            {
+
+                            }
+                        }
+                        else if (command == SerialDevice.SET_IGNORE_MODE)
+                        {
+                            if (!checkReceivedValid(parsedData))
+                            {
+
+                            }
+                        }
+
+                        else if (command == SerialDevice.SET_BPM)
+                        {
+                            if (!checkReceivedValid(parsedData))
+                            {
+
+                            }
+                        }
+                        else if (command == SerialDevice.SET_MUTE_SEPARATION)
+                        {
+                            if (!checkReceivedValid(parsedData))
+                            {
+
+                            }
+                        }
+
+                        else if (command == SerialDevice.SET_STRUM_SEPARATION)
+                        {
+                            if (!checkReceivedValid(parsedData))
+                            {
+
+                            }
+                        }
+                        else if (command == SerialDevice.GET_STRUM_SEPARATION)
+                        {
+                            if (checkReceivedValid(parsedData))
+                            {
+                                nTemp = int.Parse(parsedData[2]);
+                                strumSeparationTextbox.Text = nTemp.ToString();
+                                UpdateSliderFromTextBox(strumSeparationSlider, strumSeparationTextbox);
+                                sendSetStrumSeparation();
+                            }
+                        }
+                        else if (command == SerialDevice.GET_MUTE_SEPARATION)
+                        {
+                            if (checkReceivedValid(parsedData))
+                            {
+                                nTemp = int.Parse(parsedData[2]);
+                                muteSeparationTextbox.Text = nTemp.ToString();
+                                UpdateSliderFromTextBox(muteSeparationSlider, muteSeparationTextbox);
+                                sendSetMuteSeparation();
+                            }
+                        }
+                        else if (command == SerialDevice.GET_KB_TRANSPOSE)
+                        {
+                            if (checkReceivedValid(parsedData))
+                            {
+                                nTemp = int.Parse(parsedData[2]);
+                                kbTransposeTextbox.Text = nTemp.ToString();
+                                UpdateSliderFromTextBox(kbTransposeSlider, kbTransposeTextbox);
+                            }
+                        }
+                        else if (command == SerialDevice.GET_CAPO)
+                        {
+                            if (checkReceivedValid(parsedData))
+                            {
+                                nTemp = int.Parse(parsedData[2]);
+                                capoTextbox.Text = nTemp.ToString();
+                                UpdateSliderFromTextBox(capoSlider, capoTextbox);
+                            }
+                        }
+                        else if (command == SerialDevice.GET_BASS_ENABLE)
+                        {
+                            if (checkReceivedValid(parsedData))
+                            {
+                                nTemp = int.Parse(parsedData[2]);
+                                bassComboBox.SelectedIndex = nTemp;
+                            }
+                        }
+
+                        else if (command == SerialDevice.GET_CHORD_HOLD)
+                        {
+                            if (checkReceivedValid(parsedData))
+                            {
+                                nTemp = int.Parse(parsedData[2]);
+                                chordHoldComboBox.SelectedIndex = nTemp;
+                            }
+                        }
+                        else if (command == SerialDevice.GET_ALTERNATING_STRUM)
+                        {
+                            if (checkReceivedValid(parsedData))
+                            {
+                                nTemp = int.Parse(parsedData[2]);
+                                alternatingStrumComboBox.SelectedIndex = nTemp;
+                            }
+                        }
+                        else if (command == SerialDevice.GET_SUSTAIN_MODE)
+                        {
+                            if (checkReceivedValid(parsedData))
+                            {
+                                nTemp = int.Parse(parsedData[2]);
+                                sustainModeComboBox.SelectedIndex = nTemp;
+                            }
+                        }
+                        else if (command == SerialDevice.GET_CHORD_MODE)
+                        {
+                            if (checkReceivedValid(parsedData))
+                            {
+                                nTemp = int.Parse(parsedData[2]);
+                                chordButtonModeComboBox.SelectedIndex = nTemp;
+                            }
+                        }
+                        else if (command == SerialDevice.GET_IGNORE_MODE)
+                        {
+                            if (checkReceivedValid(parsedData))
+                            {
+                                nTemp = int.Parse(parsedData[2]);
+                                ignoreSameButtonComboBox.SelectedIndex = nTemp;
+                            }
+                        }
+                        else if (command == SerialDevice.GET_PROPER_OMNICHORD)
+                        {
+                            if (checkReceivedValid(parsedData))
+                            {
+                                nTemp = int.Parse(parsedData[2]);
+                                lower5thComboBox.SelectedIndex = nTemp;
+                            }
+                        }
+
+                        else if (command == SerialDevice.GET_NECK_PATTERN)
+                        {
+                            if (checkReceivedValid(parsedData))
+                            {
+                                int curRow = -1;
+                                int curCol = -1;
+                                string[] parts = SerialManager.Device.LastParamSent.Split(',');
+
+                                if (parts.Length >= 3 &&
+                                    int.TryParse(parts[1], out curRow) &&
+                                    int.TryParse(parts[2], out curCol))
+                                {
+                                    allComboPatterns[curRow * NECK_COLS + curCol].SelectedIndex = int.Parse(parsedData[2]);
+                                }
+                                else
+                                {
+                                    DebugLog.addToLog(debugType.replyDebug, "Error! Parsing " + command + " encountered unexpected parsing issue.");
+                                }
+
+                            }
+                        }
+                        else if (command == SerialDevice.GET_NECK_ASSIGNMENT)
+                        {
+                            if (checkReceivedValid(parsedData))
+                            {
+                                int curRow = -1;
+                                int curCol = -1;
+                                string[] parts = SerialManager.Device.LastParamSent.Split(',');
+
+                                if (parts.Length >= 3 &&
+                                    int.TryParse(parts[1], out curRow) &&
+                                    int.TryParse(parts[2], out curCol))
+                                {
+                                    allComboRoots[curRow * NECK_COLS + curCol].SelectedIndex = int.Parse(parsedData[2]);
+                                    allComboChords[curRow * NECK_COLS + curCol].SelectedIndex = int.Parse(parsedData[3]);
+                                }
+                                else
+                                {
+                                    DebugLog.addToLog(debugType.replyDebug, "Error! Parsing " + command + " encountered unexpected parsing issue.");
+                                }
+
+                            }
+                        }
+
+                        else if (command == SerialDevice.GET_SIMPLE_CHORD_MODE)
+                        {
+                            if (checkReceivedValid(parsedData))
+                            {
+                                nTemp = int.Parse(parsedData[2]);
+                                if (nTemp == 0)
+                                {
+                                    standardRadioButton.IsChecked = true;
+                                }
+                                else
+                                {
+                                    simpleRadioButton.IsChecked = true;
+                                }
+                            }
+                        }
+                        else if (command == SerialDevice.GET_ACCOMPANIMENT_ENABLE)
+                        {
+                            if (checkReceivedValid(parsedData))
+                            {
+                                nTemp = int.Parse(parsedData[2]);
+                                backingComboBox.SelectedIndex = nTemp;
+                            }
+                        }
+                        else if (command == SerialDevice.GET_DRUMS_ENABLE)
+                        {
+                            if (checkReceivedValid(parsedData))
+                            {
+                                nTemp = int.Parse(parsedData[2]);
+                                drumComboBox.SelectedIndex = nTemp;
+                            }
+                        }
+                        else if (command == SerialDevice.GET_STRUM_STYLE)
+                        {
+                            if (checkReceivedValid(parsedData))
+                            {
+                                nTemp = int.Parse(parsedData[2]);
+                                strumStyleComboBox.SelectedIndex = nTemp;
+                            }
+                        }
+                        else if (command == SerialDevice.GET_DEVICE_MODE)
+                        {
+                            if (checkReceivedValid(parsedData))
+                            {
+                                nTemp = int.Parse(parsedData[2]);
+                                modeComboBox.SelectedIndex = nTemp;
+                            }
+
+                        }
+                        else if (command == SerialDevice.GET_BPM)
+                        {
+                            if (parsedData.Count >= 3)
+                            {
+                                if (parsedData[0] != "OK")
+                                {
+                                }
+                                else
+                                {
+                                    changeBPM(int.Parse(parsedData[2]));
+                                    isPresetReading = false;
+                                    ChangePicDisplayed();
+                                    RootGrid.IsEnabled = true;
+                                    _serialLogWindow.sendButton.IsEnabled = true;
+                                    _serialLogWindow.cmdTextbox.IsEnabled = true;
+                                    //todo revert picture back
+                                }
+                            }
+                            isSerialEnabled = true;//restart ping
+
+                        }
                     }
                 }
-                //if (isGood)
+                if (!isDebug)
                 {
-                    //clean up serial state to allow next serial command
                     SerialManager.Device.clearLastCommand();
                 }
 
@@ -1079,7 +1225,7 @@ namespace CyberG
 
         private async Task WaitForSerialProcessingAsync()
         {
-            int timeoutMs = 5000; // Max time to wait
+            int timeoutMs = 500; // Max time to wait
             int waited = 0;
             int interval = 100; // Check every 100ms
 
@@ -1488,6 +1634,10 @@ namespace CyberG
             {
                 kbTransposeTextbox.Text = e.NewValue.ToString("F0");
             }
+            if (!isPresetReading)
+            {
+                SendCmd(SerialDevice.SET_KB_TRANSPOSE, curPreset.ToString() + ',' + kbTransposeTextbox.Text);
+            }
         }
         private void SetupSliders()
         {
@@ -1537,20 +1687,20 @@ namespace CyberG
             presetComboBox.SelectedIndex = -1;
 
             var optionsOmni = new[] { (string)Application.Current.Resources["OmniMode1"], (string)Application.Current.Resources["OmniMode2"], (string)Application.Current.Resources["OmniMode3"], (string)Application.Current.Resources["OmniMode4"] };
+            
             modeComboBox.ItemsSource = optionsOmni;
             modeComboBox.SelectedIndex = 0;
 
             var optionsStrumStyle = new[] { (string)Application.Current.Resources["StrumStyle1"], (string)Application.Current.Resources["StrumStyle2"], (string)Application.Current.Resources["StrumStyle3"] };
             strumStyleComboBox.ItemsSource = optionsStrumStyle;
-            strumStyleComboBox.SelectedIndex = 0;
-
+            strumStyleComboBox.SelectedIndex = 0; 
             strumStyleComboBox.SelectionChanged += strumStyleComboBox_SelectionChanged;
             var optionsToggleStyle = new[] { (string)Application.Current.Resources["Pressed"], (string)Application.Current.Resources["Toggled"] };
             sustainModeComboBox.ItemsSource = optionsToggleStyle;
             sustainModeComboBox.SelectedIndex = 0;
 
 
-            var optionsChordModeStyle = new[] { (string)Application.Current.Resources["ChordMode1"], (string)Application.Current.Resources["ChordMode2"] };
+            var optionsChordModeStyle = new[] { (string)Application.Current.Resources["ChordMode2"], (string)Application.Current.Resources["ChordMode1"] };
             chordButtonModeComboBox.ItemsSource = optionsChordModeStyle;
             chordButtonModeComboBox.SelectedIndex = 0;
             var optionsRootNoteStyle = new[] { (string)Application.Current.Resources["RootNote1"], (string)Application.Current.Resources["RootNote2"], (string)Application.Current.Resources["RootNote3"], (string)Application.Current.Resources["RootNote4"], (string)Application.Current.Resources["RootNote5"], (string)Application.Current.Resources["RootNote6"], (string)Application.Current.Resources["RootNote7"], (string)Application.Current.Resources["RootNote8"], (string)Application.Current.Resources["RootNote9"], (string)Application.Current.Resources["RootNote10"], (string)Application.Current.Resources["RootNote11"], (string)Application.Current.Resources["RootNote12"] };
@@ -1572,9 +1722,9 @@ namespace CyberG
             }
 
             var optionsChordNoteStyle = new[] 
-            { (string)Application.Current.Resources["ChordNote1"], (string)Application.Current.Resources["ChordNote2"], (string)Application.Current.Resources["ChordNote3"], (string)Application.Current.Resources["ChordNote4"], (string)Application.Current.Resources["ChordNote5"], (string)Application.Current.Resources["ChordNote6"], (string)Application.Current.Resources["ChordNote7"], (string)Application.Current.Resources["ChordNote8"], (string)Application.Current.Resources["ChordNote9"], (string)Application.Current.Resources["ChordNote10"], 
-              (string)Application.Current.Resources["ChordNote11"], (string)Application.Current.Resources["ChordNote12"], (string)Application.Current.Resources["ChordNote13"], (string)Application.Current.Resources["ChordNote14"], (string)Application.Current.Resources["ChordNote15"], (string)Application.Current.Resources["ChordNote16"], (string)Application.Current.Resources["ChordNote17"], (string)Application.Current.Resources["ChordNote18"],(string)Application.Current.Resources["ChordNote19"],
-              (string)Application.Current.Resources["ChordNote21"], (string)Application.Current.Resources["ChordNote22"], (string)Application.Current.Resources["ChordNote23"], (string)Application.Current.Resources["ChordNote24"], (string)Application.Current.Resources["ChordNote25"], (string)Application.Current.Resources["ChordNote26"], (string)Application.Current.Resources["ChordNote27"], (string)Application.Current.Resources["ChordNote28"],(string)Application.Current.Resources["ChordNote29"],
+            { (string)Application.Current.Resources["ChordNote1"], (string)Application.Current.Resources["ChordNote2"], (string)Application.Current.Resources["ChordNote3"], (string)Application.Current.Resources["ChordNote4"], (string)Application.Current.Resources["ChordNote5"], (string)Application.Current.Resources["ChordNote6"], (string)Application.Current.Resources["ChordNote7"], (string)Application.Current.Resources["ChordNote8"], (string)Application.Current.Resources["ChordNote9"],
+              (string)Application.Current.Resources["ChordNote10"], (string)Application.Current.Resources["ChordNote11"], (string)Application.Current.Resources["ChordNote12"], (string)Application.Current.Resources["ChordNote13"], (string)Application.Current.Resources["ChordNote14"], (string)Application.Current.Resources["ChordNote15"], (string)Application.Current.Resources["ChordNote16"], (string)Application.Current.Resources["ChordNote17"], (string)Application.Current.Resources["ChordNote18"],(string)Application.Current.Resources["ChordNote19"],
+              (string)Application.Current.Resources["ChordNote20"] ,(string)Application.Current.Resources["ChordNote21"], (string)Application.Current.Resources["ChordNote22"], (string)Application.Current.Resources["ChordNote23"], (string)Application.Current.Resources["ChordNote24"], (string)Application.Current.Resources["ChordNote25"], (string)Application.Current.Resources["ChordNote26"], (string)Application.Current.Resources["ChordNote27"], (string)Application.Current.Resources["ChordNote28"],(string)Application.Current.Resources["ChordNote29"],
               (string)Application.Current.Resources["ChordNote30"]
             };
             allComboChords = new List<ComboBox>
@@ -1606,6 +1756,7 @@ namespace CyberG
             var optionsChordPatternStyle = Enumerable.Range(1, MaxGuitarPatternCount)
                 .Select(i => $"{baseLabel} {i}")
                 .ToArray();
+
             allComboPatterns = new List<ComboBox>
             {
                 A01ComboPattern, A02ComboPattern, A03ComboPattern,
@@ -1625,9 +1776,72 @@ namespace CyberG
             {
                 cb.SelectionChanged += PatternComboBox_SelectionChanged;
             }
+            setAllGuitarPatternComboBox.ItemsSource = optionsChordPatternStyle;
+            setAllGuitarPatternComboBox.SelectedIndex = -1;
+            setAllGuitarPatternComboBox.SelectionChanged += AllPatternComboBox_SelectionChanged;
+
+
+            //set generic handler
+            alternatingStrumComboBox.SelectionChanged += GenericComboBox_SelectionChanged;
+            bassComboBox.SelectionChanged += GenericComboBox_SelectionChanged;
+            drumComboBox.SelectionChanged += GenericComboBox_SelectionChanged;
+            backingComboBox.SelectionChanged += GenericComboBox_SelectionChanged;
+            chordHoldComboBox.SelectionChanged += GenericComboBox_SelectionChanged;
+            sustainModeComboBox.SelectionChanged += GenericComboBox_SelectionChanged;
+            chordButtonModeComboBox.SelectionChanged += GenericComboBox_SelectionChanged;
+            ignoreSameButtonComboBox.SelectionChanged += GenericComboBox_SelectionChanged;
+        }
+        private void GenericComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (isPresetReading || !initDone)
+            {
+                return;
+            }
+            if (sender == alternatingStrumComboBox)
+            {
+                SendCmd(SerialDevice.SET_ALTERNATING_STRUM, curPreset.ToString() + ',' + ((ComboBox)sender).SelectedIndex);
+            }
+            else if (sender == bassComboBox)
+            {
+                SendCmd(SerialDevice.SET_BASS_ENABLE, curPreset.ToString() + ',' + ((ComboBox)sender).SelectedIndex);
+            }
+            else if (sender == drumComboBox)
+            {
+                SendCmd(SerialDevice.SET_DRUMS_ENABLE, curPreset.ToString() + ',' + ((ComboBox)sender).SelectedIndex);
+            }
+            else if (sender == backingComboBox)
+            {
+                SendCmd(SerialDevice.SET_ACCOMPANIMENT_ENABLE, curPreset.ToString() + ',' + ((ComboBox)sender).SelectedIndex);
+            }
+            else if (sender == chordHoldComboBox)
+            {
+                SendCmd(SerialDevice.SET_CHORD_HOLD, curPreset.ToString() + ',' + ((ComboBox)sender).SelectedIndex);
+                int toSend = -1;
+                if (((ComboBox)sender).SelectedIndex == 0 )
+                {
+                    toSend = 1;
+                }
+                else if (((ComboBox)sender).SelectedIndex == 1)
+                {
+                    toSend = 0;
+                }
+                SendCmd(SerialDevice.SET_MUTE_WHEN_LET_GO, curPreset.ToString() + ',' + toSend.ToString());
+            }
+            else if (sender == sustainModeComboBox)
+            {
+                SendCmd(SerialDevice.SET_SUSTAIN_MODE, curPreset.ToString() + ',' + ((ComboBox)sender).SelectedIndex);
+            }
+            else if (sender == ignoreSameButtonComboBox)
+            {
+                SendCmd(SerialDevice.SET_IGNORE_MODE, curPreset.ToString() + ',' + ((ComboBox)sender).SelectedIndex);
+            }
+            else if (sender == chordButtonModeComboBox)
+            {
+                SendCmd(SerialDevice.SET_CHORD_MODE, curPreset.ToString() + ',' + ((ComboBox)sender).SelectedIndex);
+            }
         }
 
-        void openConnectionWindow(bool isDisconnected = false)
+        public void openConnectionWindow(bool isDisconnected = false)
         {
             isSerialEnabled = false;
             PauseSerial();
@@ -1767,19 +1981,33 @@ namespace CyberG
                 {
                     row = index1 / NECK_COLS;
                     col = index1 % NECK_COLS;
-                    SendCmd(SerialDevice.SET_NECK_ASSIGNMENT, row.ToString() + "," + col.ToString() + "," + allComboRoots[index1].SelectedIndex.ToString() + ',' + allComboChords[index1].SelectedIndex.ToString());
+                    SendCmd(SerialDevice.SET_NECK_ASSIGNMENT, curPreset.ToString() + ',' + row.ToString() + "," + col.ToString() + "," + allComboRoots[index1].SelectedIndex.ToString() + ',' + allComboChords[index1].SelectedIndex.ToString());
                 }
                 else if (index2 != -1)
                 {
                     row = index2 / NECK_COLS;
                     col = index2 % NECK_COLS;
-                    SendCmd(SerialDevice.SET_NECK_ASSIGNMENT, row.ToString() + "," + col.ToString() + "," + allComboRoots[index2].SelectedIndex.ToString() + ',' + allComboChords[index2].SelectedIndex.ToString());
+                    SendCmd(SerialDevice.SET_NECK_ASSIGNMENT, curPreset.ToString() + ',' + row.ToString() + "," + col.ToString() + "," + allComboRoots[index2].SelectedIndex.ToString() + ',' + allComboChords[index2].SelectedIndex.ToString());
                 }
                 else 
                 {
                     DebugLog.addToLog(debugType.sendDebug, "Error! Invalid index for Chord Root Setting");
                 }
             }
+        }
+
+        private void AllPatternComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (isPresetReading || setAllGuitarPatternComboBox.SelectedIndex==-1)
+            {
+                return;
+            }
+            for (int i = 0; i < allComboPatterns.Count; i++)
+            {
+                allComboPatterns[i].SelectedIndex = setAllGuitarPatternComboBox.SelectedIndex;
+            }
+            setAllGuitarPatternComboBox.SelectedIndex = -1;
+
         }
 
         private void PatternComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -1798,13 +2026,22 @@ namespace CyberG
                 {
                     row = index / NECK_COLS;
                     col = index % NECK_COLS;
-                    SendCmd(SerialDevice.SET_NECK_PATTERN, row.ToString() + "," + col.ToString() + "," + allComboPatterns[index].SelectedIndex.ToString());
+                    SendCmd(SerialDevice.SET_NECK_PATTERN, curPreset.ToString() + ',' + row.ToString() + "," + col.ToString() + "," + allComboPatterns[index].SelectedIndex.ToString());
                 }
                 else
                 {
                     DebugLog.addToLog(debugType.sendDebug, "Error! Invalid index for Pattern Setting");
                 }
             }
+        }
+
+        private void modeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (isPresetReading || !initDone)
+            {
+                return;
+            }
+            SendCmd(SerialDevice.SET_DEVICE_MODE, curPreset.ToString() + ',' + modeComboBox.SelectedIndex.ToString());
         }
     }
 }

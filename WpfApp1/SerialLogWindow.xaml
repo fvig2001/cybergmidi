@@ -33,6 +33,7 @@
          VirtualizingStackPanel.IsVirtualizing="True"
          VirtualizingStackPanel.VirtualizationMode="Standard"
          ScrollViewer.CanContentScroll="False"
+         KeyDown="MyListBox_KeyDown"
          Loaded="LogListBox_Loaded" />
                 
         </Grid>
