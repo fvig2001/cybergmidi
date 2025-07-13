@@ -15,7 +15,8 @@
 
 #define OMNICHORD_OCTAVE_RANGE 8
 #define OMNICHORD_ROOT_START 48
-
+extern uint8_t preset;
+extern std::vector<int8_t> guitarTranspose;
 extern bool debug;
 extern bool debug2;
 void DebugPrintf(const char* format, ...) {
@@ -288,75 +289,34 @@ public:
   std::vector<uint8_t> getChordNotes() const {
     return notes;
   }
-  std::vector<uint8_t> getCompleteChordNotes() const {
+  std::vector<uint8_t> getCompleteChordNotes(bool useTranspose = false) const {
     std::vector<uint8_t> complete;
-    uint8_t offset = 0;
-    complete.push_back(rootNote);
+    int offset = 0;
+    if (useTranspose)
+    {
+      offset = guitarTranspose[preset];
+    }
+    //uint8_t offset = 0;
+    complete.push_back(rootNote + offset);
     
     for (uint8_t i = 0; i < notes.size(); i++) {
       if (notes[i] != 0) //skip power note repeated note
       {
-        complete.push_back(notes[i] + rootNote - offset);
+        complete.push_back(notes[i] + rootNote + offset);
       }
     }
     return complete;
   }
-  //skips 5th and 11th as needed
-  std::vector<uint8_t> getCompleteChordNotesNo5No11() const {
-    std::vector<uint8_t> complete;
-    complete.push_back(rootNote);
-    bool skip;
-    for (uint8_t i = 0; i < notes.size(); i++) {
-      skip = false;
-      if (notes.size() > 2 && i == 1 && notes[i] == 7) //do not add 5th which is on 1
-      {
-        skip = true;
-      }
-      //else if (notes.size() > 3 && i != notes.size() - 1) //assume 3rd and last not only
-      //{
-        //skip = true; //only get last
-      //}
-      else if (notes.size() >= 6 && notes[i] == 17 ) // skip 11th on 13th
-      {
-        skip = true; //only get last
-      }
-      if (!skip)
-      {
-        if (notes[i] != 0) //skip power note repeated note
-        {
-          complete.push_back(notes[i] + rootNote);
-        }
-      }
-    }
-    return complete;
-  }
-  //get only 3 notes
-  std::vector<uint8_t> getCompleteChordNotesNo5() const {
-    std::vector<uint8_t> complete;
-    complete.push_back(rootNote);
-    bool skip;
-    for (uint8_t i = 0; i < notes.size(); i++) {
-      skip = false;
-      if (notes.size() > 2 && i == 1 && notes[i] == 7) //do not add 5th which is on 1
-      {
-        skip = true;
-      }
-      else if (notes.size() > 3 && i != notes.size() - 1) //assume 3rd and last not only
-      {
-        skip = true; //only get last
-      }
-    
-      if (!skip)
-      {
-        complete.push_back(notes[i] + rootNote);
-      }
-    }
-    return complete;
-  }
+
 //get only 3 notes
-std::vector<uint8_t> getCompleteChordNotes3() const {
+std::vector<uint8_t> getCompleteChordNotes3(bool useTranspose = false) const {
     std::vector<uint8_t> complete;
-    complete.push_back(rootNote);  // Always include root
+    int offset = 0;
+    if (useTranspose)
+    {
+      offset = guitarTranspose[preset];
+    }
+    complete.push_back(rootNote + offset);  // Always include root
 
     int third = -1;
     int color = -1;
@@ -412,11 +372,11 @@ std::vector<uint8_t> getCompleteChordNotes3() const {
 
     // Add chosen tones if found
     if (third != -1) {
-        complete.push_back((rootNote + third) % 128);
+        complete.push_back((rootNote + third + offset) % 128);
     }
 
     if (color != -1 && color != third) {
-        complete.push_back((rootNote + color) % 128);
+        complete.push_back((rootNote + color + offset) % 128);
     }
     /*
     // If we still don't have 3 notes, fill with first valid remaining note (fallback)
@@ -428,10 +388,11 @@ std::vector<uint8_t> getCompleteChordNotes3() const {
         }
     }
     */
+    //if notes is exactly 3, use the original
     if (complete.size() < 3 && notes.size() == 2)
     {
-      complete.push_back(rootNote + notes[1]);
-      complete[1] = rootNote + notes[0];
+      complete.push_back(rootNote + notes[1] + offset);
+      complete[1] = rootNote + notes[0] + offset;
     }
     return complete;
 }
