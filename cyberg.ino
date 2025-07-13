@@ -1,81 +1,15 @@
+#define DEBUG false
+#define DEBUGNOTEPRINT false
 #include <usb_midi.h>
 #include <vector>
 #include <SD.h>
-#include "helperClasses.h"
+//#include "helperClasses.h"
+#include "stateconfig.h"
 #include "omniChordBacking.h"
-//defines
-#define MIN_BACKING_TYPE 0
-#define MAX_BACKING_TYPE 10
-#define DEBUG true
-#define DEBUGNOTEPRINT false
-#define OMNICHORD_TRANSPOSE_MAX 2
-#define OMNICHORD_TRANSPOSE_MIN -2
-#define GUITAR_TRANSPOSE_MAX 12
-#define GUITAR_TRANSPOSE_MIN -12
-#define GUITAR_PALMING_DELAY_MIN 0
-#define GUITAR_PALMING_DELAY_MAX 50
-#define QUARTERNOTETICKS 192
-#define INDEFINITE_HOLD_TIME 65535
-#define MAX_BPM 300
-#define MIN_BPM 50 //lowest BPM 
-#define MAX_PRESET 6
-#define NECK_COLUMNS 3
-#define NECK_ROWS 7
-
-#define PROGRAM_ACOUSTIC_GUITAR 24
-#define PROGRAM_ACOUSTIC_BASS 32
-#define PROGRAM_HARPSICORD 6
-#define PROGRAM_DRUMS 114
-
-#define MAX_CUSTOM_PATTERNS 3
-#define MAX_BASS_PATTERNS 1
-#define MAX_ACCOMPANIMENT_PATTERNS 1
-#define MAX_STRUM_SEPARATION 100
-#define MIN_STRUM_SEPARATION 0
-#define MIN_IGNORED_GUITAR 21
-#define MAX_IGNORED_GUITAR 26
-#define BPM_COMPUTE_BUTTON 25
-#define DRUM_STARTSTOP_BUTTON 26
-#define DRUM_FILL_BUTTON 24
-#define SUSTAIN_BUTTON 22
-#define MIDI_BUTTON_CHANNEL_NOTE_OFFSET 0
-#define BT_PRESS_ACTIVATE_COUNT 5
-
-#define DRUM_INTRO_ID 0
-#define DRUM_LOOP_ID 1
-#define DRUM_LOOPHALF_ID 2
-#define DRUM_FILL_ID 3
-#define DRUM_END_ID 4
-#define MAX_RELATIVE_OFFSET 5
-#define MIN_RELATIVE_OFFSET -5
-
-#define DEVICE_TYPE 0 //0 = Cyber G, 1 = MidiPlus Band
-
-#define MAX_NOTE 127
-#define REST_NOTE 255
-
-#define MAX_OFFSET 65535
-#define MAX_HOLDTIME 768
-
-//#define USE_AND
-// --- PIN DEFINITIONS ---
-#define NOTE_OFF_PIN 10       // Digital input for turning off all notes
-#define START_TRIGGER_PIN 11  // Digital input for triggering CC message
-#define BT_ON_PIN 19
-#define BT_STATUS_PIN 20
-#define BUTTON_1_PIN 4  //unused due to hardware issues (device turns on)
-#define BUTTON_2_PIN 5
-#define BUTTON_3_PIN 6  //unused due to hardware issues (device hangs)
-
-
-
-#define MAX_STRUM_STYLE 3
-// Other constants
-#define ACTUAL_NECKBUTTONS 27
-//#define NECKBUTTONS 21
+#include "lookups.h"
 
 extern "C" char* sbrk(int incr);  // Get current heap end
-
+bool debug2=true;//for testing
 std::vector<SequencerNote> SequencerNotes; //queue of guitar notes
 std::vector<SequencerNote> StaggeredSequencerNotes; //queue of staggered guitar notes
 
@@ -135,7 +69,7 @@ std::vector<SequencerNote> * getDrumPattern(uint8_t pattern)
 
 void addEntryToPattern(std::vector<SequencerNote> *pattern, uint8_t note, uint16_t offset, uint16_t holdTime, uint8_t velocity, int8_t relativeOctave, uint8_t channel)
 {
-  if (pattern == NULL)
+  if (pattern == NULL && debug)
   {
     Serial.printf("Error! Pattern passed is null!\n");
   }
@@ -151,7 +85,7 @@ void addEntryToPattern(std::vector<SequencerNote> *pattern, uint8_t note, uint16
 
 void sendPatternData(std::vector<SequencerNote> *pattern, bool isSerialOut = true)
 {
-  if (pattern == NULL)
+  if (pattern == NULL && debug)
   {
     Serial.printf("Error! Pattern passed is null!\n");
   }
@@ -162,7 +96,7 @@ void sendPatternData(std::vector<SequencerNote> *pattern, bool isSerialOut = tru
   {
     sn = pattern->at(i);
     snprintf(buffer, sizeof(buffer), "%d,%d,%d,%d,%d,%d\n", sn.note, sn.offset, sn.holdTime, sn.velocity, sn.channel, sn.relativeOctave);
-    if (!isSerialOut)
+    if (!isSerialOut && debug)
     {
       Serial.printf("%s", buffer);  
     }
@@ -173,84 +107,11 @@ void sendPatternData(std::vector<SequencerNote> *pattern, bool isSerialOut = tru
   }
 }
 
-//state
-bool buttonPressedChanged = false; //flag for kb know that fret button pressed was changed
-bool isSustain = false; //actual sustain state
-bool isSustainPressed = false; //sustain button is still pressed
-bool bassStart = false;
-bool accompanimentStart = false;
-DrumState drumState = DrumStopped;
-DrumState drumNextState = DrumNone;
-bool isStrumUp = false; // used for alternating strumming order
-//int strum; 
-//int lastStrum;
-bool ignoringIdlePing = false;
-int tickCount = 0;
-int transpose = 0; //piano
-uint8_t preset = 0;
-int curProgram = 0;
-uint8_t playMode = 0;
-int neckButtonPressed = -1;
-int lastNeckButtonPressed = -1;
-int lastValidNeckButtonPressed = -1; 
-int lastValidNeckButtonPressed2 = -1; //for use with non guitar serial
-int lastBassNeckButtonPressed = -1;
-int lastAccompanimentNeckButtonPressed = -1;
-bool isKeyboard = false;
-bool prevButtonBTState = HIGH;
-bool button2State = HIGH;
-bool prevButton1State = HIGH;
-bool prevButton2State = HIGH;
-bool prevButton3State = HIGH;
-volatile bool sendClockTick = false;
-IntervalTimer tickTimer;
-int lastTransposeValueDetected = 0;
-
-//config
-bool presetButtonPressed = false;
-bool debug = DEBUG;
-bool stopSoundsOnPresetChange = true;
-bool midiClockEnable = true;
-
-uint8_t backingState = 1; //0 = stock, 1-10 - uses omnichord 108 backing
-//uint16_t deviceBPM = 128;
-std::vector<bool> isSimpleChordMode;
-std::vector<bool> enableAllNotesOnChords;
-std::vector<bool> enableButtonMidi;
-std::vector<uint8_t> omniChordModeGuitar; //omnichord modes
-std::vector<bool> muteWhenLetGo;
-std::vector<bool> ignoreSameChord;
-std::vector<uint16_t> presetBPM;
-
-std::vector<bool> chordHold;
-std::vector<bool> alternateDirection;
-std::vector<bool> useToggleSustain;
-std::vector<int8_t> guitarTranspose; //capo setting
-std::vector<int8_t> omniKBTransposeOffset;  //used to determine if omnichord keyboard is shifted up or down by octave
-std::vector<uint8_t> simpleChordSetting; //strum style
-std::vector<uint8_t> strumSeparation;             //time unit separation between notes //default 1
-std::vector<uint8_t> muteSeparation;             //time unit separation between muting notes //default 1
-std::vector<bool> drumsEnabled;
-std::vector<bool> bassEnabled;
-std::vector<bool> accompanimentEnabled;
-std::vector<bool> properOmniChord5ths;
-//todo use these 
-//std::vector<noteOffset> bassNoteOffsets;
-//std::vector<noteOffset> accompanimentNoteOffsets;
-//std::vector<std::vector<noteOffset>> guitarNoteOffsets;
-
-uint16_t DrumPatternID;
-uint16_t BassPatternID;
-uint16_t GuitarPatternID0;
-uint16_t GuitarPatternID1;
-uint16_t GuitarPatternID2;
 
 unsigned int computeTickInterval(int bpm) {
   // 60,000,000 microseconds per minute / (BPM * 192 ticks per quarter note)
   return ((60000 / bpm)/(QUARTERNOTETICKS*1.0))*1000;
 }
-
-
 
 // --- STATE TRACKING ---
 bool b2Ignored = false;
@@ -292,384 +153,6 @@ bool hexStringAndMatches(const char* input, const char* target, int hexLen) {
   }
 
   return true;
-}
-
-const MidiMessage hexToNote(uint8_t index)
-{
-  switch (index)
-  {
-    case 0:  return { "aa55000a22010000000400", 0 };
-    case 1:  return { "aa55000a22010000000200", 1 };
-    case 2:  return { "aa55000a22010000000100", 2 };
-    case 3:  return { "aa55000a22010000002000", 3 };
-    case 4:  return { "aa55000a22010000001000", 4 };
-    case 5:  return { "aa55000a22010000000800", 5 };
-    case 6:  return { "aa55000a22010000010000", 6 };
-    case 7:  return { "aa55000a22010000008000", 7 };
-    case 8:  return { "aa55000a22010000004000", 8 };
-    case 9:  return { "aa55000a22010000080000", 9 };
-    case 10: return { "aa55000a22010000040000", 10 };
-    case 11: return { "aa55000a22010000020000", 11 };
-    case 12: return { "aa55000a22010000400000", 12 };
-    case 13: return { "aa55000a22010000200000", 13 };
-    case 14: return { "aa55000a22010000100000", 14 };
-    case 15: return { "aa55000a22010002000000", 15 };
-    case 16: return { "aa55000a22010001000000", 16 };
-    case 17: return { "aa55000a22010000800000", 17 };
-    case 18: return { "aa55000a22010010000000", 18 };
-    case 19: return { "aa55000a22010008000000", 19 };
-    case 20: return { "aa55000a22010004000000", 20 };
-    case 21: return { "aa55000a22010080000000", 21 };
-    case 22: return { "aa55000a22010040000000", 22 };
-    case 23: return { "aa55000a22010020000000", 23 };
-    case 24: return { "aa55000a22010400000000", 24 };
-    case 25: return { "aa55000a22010200000000", 25 };
-    case 26: return { "aa55000a22010100000000", 26 };
-    default: return { "aa55000a22010000000000", 255 }; // note off
-  }
-}
-const HexToProgram hexToProgram(uint8_t index)
-{
-  switch (index)
-  {
-    case 0:  return { "aa550003220200d8", 3 };
-    default: return { "aa5500032202ffd9", 9 }; // note off
-  }
-}
-
-const HexToControl hexToControl(uint8_t index)
-{
-  switch (index)
-  {
-    case 0:  return { "f5550003201401", 2 };  // right
-    case 1:  return { "f5550003201402", 1 };  // Left
-    case 2:  return { "f5550003201403", 5 };  // Both
-    case 3:  return { "f5550003201000", 4 };  // Circle not Lit
-    case 4:  return { "f5550003201001", 3 };  // Circle Lit
-    default:  return { "f5550003201400", 0 };  //ignore
-  }
-}
-
-Chord GetPianoChords(uint8_t index)
-{
-  switch (index)
-  {
-    case majorChordType:  return Chord({ 4, 7 });               // Major
-    case minorChordType:  return Chord({ 3, 7 });               // Minor
-    case diminishedChordType:  return Chord({ 3, 6 });               // Diminished
-    case augmentedChordType:  return Chord({ 4, 8 });               // Augmented
-    case major7thChordType:  return Chord({ 4, 7, 11 });           // Major 7th
-    case minor7thChordType:  return Chord({ 3, 7, 10 });           // Minor 7th
-    case dominant7thChordType:  return Chord({ 4, 7, 10 });           // Dominant 7th
-    case minor7Flat5ChordType:  return Chord({ 3, 6, 10 });           // Minor 7♭5
-    case major6thChordType:  return Chord({ 4, 7, 9 });            // Major 6th
-    case minor6thChordType:  return Chord({ 3, 7, 9 });            // Minor 6th
-    case suspended2ChordType: return Chord({ 2, 7 });               // Suspended 2
-    case suspended4ChordType: return Chord({ 5, 7 });               // Suspended 4
-    case add9ChordType: return Chord({ 4, 7, 2 });            // Add 9
-    case add11ChordType: return Chord({ 4, 7, 11 });           // Add 11 (same as major7th)
-    case ninthChordType: return Chord({ 4, 7, 10, 14 });       // 9th
-    case eleventhChordType: return Chord({ 4, 7, 10, 14, 17 });   // 11th
-    default: return Chord({ 4, 7, 10, 14, 17, 21 });// 13th
-  }
-}
-
-const std::vector<uint8_t>& GetAllChordsGuitar(uint8_t chordTypeIndex, uint8_t key)
-{
-  static const std::vector<uint8_t> empty = {};
-
-  switch (chordTypeIndex)
-  {
-    case majorChordType: // majorChordGuitar
-      switch (key)
-      {
-        case 0:  static const std::vector<uint8_t> c0 = { 48, 52, 55, 60, 64 }; return c0;
-        case 1:  static const std::vector<uint8_t> c1 = { 49, 56, 61, 65, 68 }; return c1;
-        case 2:  static const std::vector<uint8_t> c2 = { 50, 57, 62, 66 }; return c2;
-        case 3:  static const std::vector<uint8_t> c3 = { 51, 58, 63, 67, 70 }; return c3;
-        case 4:  static const std::vector<uint8_t> c4 = { 40, 47, 52, 56, 59, 64 }; return c4;
-        case 5:  static const std::vector<uint8_t> c5 = { 41, 48, 53, 57, 60, 65 }; return c5;
-        case 6:  static const std::vector<uint8_t> c6 = { 42, 49, 54, 58, 61, 66 }; return c6;
-        case 7:  static const std::vector<uint8_t> c7 = { 43, 47, 50, 55, 59, 67 }; return c7;
-        case 8:  static const std::vector<uint8_t> c8 = { 44, 51, 56, 60, 63, 68 }; return c8;
-        case 9:  static const std::vector<uint8_t> c9 = { 45, 52, 57, 61, 64 }; return c9;
-        case 10: static const std::vector<uint8_t> c10 = { 46, 50, 58, 65, 70 }; return c10;
-        default: static const std::vector<uint8_t> c11 = { 47, 54, 59, 63, 66 }; return c11;
-      }
-
-    case minorChordType: // minorChordGuitar
-      switch (key)
-      {
-        case 0:  static const std::vector<uint8_t> c0 = { 48, 51, 60, 63, 67 }; return c0;
-        case 1:  static const std::vector<uint8_t> c1 = { 49, 54, 61, 64, 68 }; return c1;
-        case 2:  static const std::vector<uint8_t> c2 = { 50, 57, 62, 65 }; return c2;
-        case 3:  static const std::vector<uint8_t> c3 = { 51, 58, 63, 66, 70 }; return c3;
-        case 4:  static const std::vector<uint8_t> c4 = { 40, 47, 52, 55, 59, 64 }; return c4;
-        case 5:  static const std::vector<uint8_t> c5 = { 41, 48, 53, 56, 60 }; return c5;
-        case 6:  static const std::vector<uint8_t> c6 = { 42, 49, 54, 57, 61 }; return c6;
-        case 7:  static const std::vector<uint8_t> c7 = { 43, 50, 55, 58, 62 }; return c7;
-        case 8:  static const std::vector<uint8_t> c8 = { 44, 51, 56, 59, 63 }; return c8;
-        case 9:  static const std::vector<uint8_t> c9 = { 45, 52, 57, 60, 64 }; return c9;
-        case 10: static const std::vector<uint8_t> c10 = { 46, 53, 58, 61, 65 }; return c10;
-        default: static const std::vector<uint8_t> c11 = { 47, 54, 59, 62, 66 }; return c11;
-      }
-    case diminishedChordType:
-      switch (key)
-      {
-        case 0:  static const std::vector<uint8_t> c0 = { 60, 63, 66 }; return c0;
-        case 1:  static const std::vector<uint8_t> c1 = { 61, 64, 67 }; return c1;
-        case 2:  static const std::vector<uint8_t> c2 = { 62, 65, 68 }; return c2;
-        case 3:  static const std::vector<uint8_t> c3 = { 63, 66, 69 }; return c3;
-        case 4:  static const std::vector<uint8_t> c4 = { 64, 67, 70 }; return c4;
-        case 5:  static const std::vector<uint8_t> c5 = { 65, 68, 71 }; return c5;
-        case 6:  static const std::vector<uint8_t> c6 = { 66, 69, 72 }; return c6;
-        case 7:  static const std::vector<uint8_t> c7 = { 67, 70, 73 }; return c7;
-        case 8:  static const std::vector<uint8_t> c8 = { 68, 71, 74 }; return c8;
-        case 9:  static const std::vector<uint8_t> c9 = { 69, 72, 75 }; return c9;
-        case 10: static const std::vector<uint8_t> c10 = { 70, 73, 76 }; return c10;
-        default: static const std::vector<uint8_t> c11 = { 71, 74, 77 }; return c11;
-      }
-
-    case augmentedChordType:
-          switch (key)
-      {
-        case 0:  static const std::vector<uint8_t> c0 = { 48, 52, 56, 60, 64 }; return c0;
-        case 1:  static const std::vector<uint8_t> c1 = { 49, 53, 57, 61, 65 }; return c1;
-        case 2:  static const std::vector<uint8_t> c2 = { 50, 54, 58, 62, 66 }; return c2;
-        case 3:  static const std::vector<uint8_t> c3 = { 51, 55, 59, 63, 67 }; return c3;
-        case 4:  static const std::vector<uint8_t> c4 = { 52, 56, 60, 64, 68 }; return c4;
-        case 5:  static const std::vector<uint8_t> c5 = { 53, 57, 61, 65, 69 }; return c5;
-        case 6:  static const std::vector<uint8_t> c6 = { 54, 58, 62, 66, 70 }; return c6;
-        case 7:  static const std::vector<uint8_t> c7 = { 55, 59, 63, 67, 71 }; return c7;
-        case 8:  static const std::vector<uint8_t> c8 = { 56, 60, 64, 68, 72 }; return c8;
-        case 9:  static const std::vector<uint8_t> c9 = { 57, 61, 65, 69, 73 }; return c9;
-        case 10: static const std::vector<uint8_t> c10 = { 58, 62, 66, 70, 74 }; return c10;
-        default: static const std::vector<uint8_t> c11 = { 59, 63, 67, 71, 75 }; return c11;
-      }
-    case major7thChordType:
-      switch (key)
-      {
-        case 0:  static const std::vector<uint8_t> c0 = { 48, 52, 55, 71, 64 }; return c0;
-        case 1:  static const std::vector<uint8_t> c1 = { 49, 53, 56, 72, 65 }; return c1;
-        case 2:  static const std::vector<uint8_t> c2 = { 50, 54, 57, 73, 66 }; return c2;
-        case 3:  static const std::vector<uint8_t> c3 = { 51, 55, 58, 74, 67 }; return c3;
-        case 4:  static const std::vector<uint8_t> c4 = { 52, 56, 59, 75, 68 }; return c4;
-        case 5:  static const std::vector<uint8_t> c5 = { 53, 57, 60, 76, 69 }; return c5;
-        case 6:  static const std::vector<uint8_t> c6 = { 54, 58, 61, 77, 70 }; return c6;
-        case 7:  static const std::vector<uint8_t> c7 = { 55, 59, 62, 78, 71 }; return c7;
-        case 8:  static const std::vector<uint8_t> c8 = { 56, 60, 63, 79, 72 }; return c8;
-        case 9:  static const std::vector<uint8_t> c9 = { 57, 61, 64, 80, 73 }; return c9;
-        case 10: static const std::vector<uint8_t> c10 = { 58, 62, 65, 81, 74 }; return c10;
-        default: static const std::vector<uint8_t> c11 = { 59, 63, 66, 82, 75 }; return c11;
-      }
-
-    case minor7thChordType:
-      switch (key)
-      {
-        case 0:  static const std::vector<uint8_t> c0 = { 48, 55, 58, 63, 67 }; return c0;
-        case 1:  static const std::vector<uint8_t> c1 = { 49, 56, 59, 64, 68 }; return c1;
-        case 2:  static const std::vector<uint8_t> c2 = { 50, 57, 60, 65, 69 }; return c2;
-        case 3:  static const std::vector<uint8_t> c3 = { 51, 58, 61, 66, 70 }; return c3;
-        case 4:  static const std::vector<uint8_t> c4 = { 52, 59, 62, 67, 71 }; return c4;
-        case 5:  static const std::vector<uint8_t> c5 = { 53, 60, 63, 68, 72 }; return c5;
-        case 6:  static const std::vector<uint8_t> c6 = { 54, 61, 64, 69, 73 }; return c6;
-        case 7:  static const std::vector<uint8_t> c7 = { 55, 62, 65, 70, 74 }; return c7;
-        case 8:  static const std::vector<uint8_t> c8 = { 56, 63, 66, 71, 75 }; return c8;
-        case 9:  static const std::vector<uint8_t> c9 = { 57, 64, 67, 72, 76 }; return c9;
-        case 10: static const std::vector<uint8_t> c10 = { 58, 65, 68, 73, 77 }; return c10;
-        default: static const std::vector<uint8_t> c11 = { 59, 66, 69, 74, 78 }; return c11;
-      }
-
-      case dominant7thChordType:
-        switch (key)
-        {
-          case 0:  static const std::vector<uint8_t> c0 = { 48, 52, 58, 60, 64 }; return c0;
-          case 1:  static const std::vector<uint8_t> c1 = { 49, 56, 59, 65, 68 }; return c1;
-          case 2:  static const std::vector<uint8_t> c2 = { 50, 57, 60, 66 }; return c2;
-          case 3:  static const std::vector<uint8_t> c3 = { 51, 58, 61, 67, 68 }; return c3;
-          case 4:  static const std::vector<uint8_t> c4 = { 40, 47, 52, 56, 62, 64 }; return c4;
-          case 5:  static const std::vector<uint8_t> c5 = { 41, 48, 51, 57, 60 }; return c5;
-          case 6:  static const std::vector<uint8_t> c6 = { 42, 46, 49, 52 }; return c6;
-          case 7:  static const std::vector<uint8_t> c7 = { 43, 47, 50, 55, 59, 65 }; return c7;
-          case 8:  static const std::vector<uint8_t> c8 = { 56, 63, 66, 72, 75 }; return c8;
-          case 9:  static const std::vector<uint8_t> c9 = { 45, 52, 55, 61, 64 }; return c9;
-          case 10: static const std::vector<uint8_t> c10 = { 46, 53, 56, 62, 65 }; return c10;
-          default: static const std::vector<uint8_t> c11 = { 47, 51, 57, 59, 66 }; return c11;
-        }
-
-      case minor7Flat5ChordType:
-        switch (key)
-        {
-          case 0:  static const std::vector<uint8_t> c0  = { 48, 51, 58, 60, 66 }; return c0;
-          case 1:  static const std::vector<uint8_t> c1  = { 49, 52, 59, 61, 67 }; return c1;
-          case 2:  static const std::vector<uint8_t> c2  = { 50, 53, 60, 62, 68 }; return c2;
-          case 3:  static const std::vector<uint8_t> c3  = { 51, 54, 61, 63, 69 }; return c3;
-          case 4:  static const std::vector<uint8_t> c4  = { 52, 55, 62, 64, 70 }; return c4;
-          case 5:  static const std::vector<uint8_t> c5  = { 53, 56, 63, 65, 71 }; return c5;
-          case 6:  static const std::vector<uint8_t> c6  = { 54, 57, 64, 66, 72 }; return c6;
-          case 7:  static const std::vector<uint8_t> c7  = { 55, 58, 65, 67, 73 }; return c7;
-          case 8:  static const std::vector<uint8_t> c8  = { 56, 59, 66, 68, 74 }; return c8;
-          case 9:  static const std::vector<uint8_t> c9  = { 57, 60, 67, 69, 75 }; return c9;
-          case 10: static const std::vector<uint8_t> c10 = { 58, 61, 68, 70, 76 }; return c10;
-          default: static const std::vector<uint8_t> c11 = { 59, 62, 69, 71, 77 }; return c11;
-        }
-
-      case major6thChordType:
-        switch (key)
-        {
-          case 0:  static const std::vector<uint8_t> c0  = { 48, 52, 57, 60, 64 }; return c0;
-          case 1:  static const std::vector<uint8_t> c1  = { 49, 53, 58, 61, 65 }; return c1;
-          case 2:  static const std::vector<uint8_t> c2  = { 50, 54, 59, 62, 66 }; return c2;
-          case 3:  static const std::vector<uint8_t> c3  = { 51, 55, 60, 63, 67 }; return c3;
-          case 4:  static const std::vector<uint8_t> c4  = { 52, 56, 61, 64, 68 }; return c4;
-          case 5:  static const std::vector<uint8_t> c5  = { 53, 57, 62, 65, 69 }; return c5;
-          case 6:  static const std::vector<uint8_t> c6  = { 54, 58, 63, 66, 70 }; return c6;
-          case 7:  static const std::vector<uint8_t> c7  = { 55, 59, 64, 67, 71 }; return c7;
-          case 8:  static const std::vector<uint8_t> c8  = { 56, 60, 65, 68, 72 }; return c8;
-          case 9:  static const std::vector<uint8_t> c9  = { 57, 61, 66, 69, 73 }; return c9;
-          case 10: static const std::vector<uint8_t> c10 = { 58, 62, 67, 70, 74 }; return c10;
-          default: static const std::vector<uint8_t> c11 = { 59, 63, 68, 71, 75 }; return c11;
-        }
-
-      case minor6thChordType:
-        switch (key)
-        {
-          case 0:  static const std::vector<uint8_t> c0  = { 48, 51, 57, 60, 67 }; return c0;
-          case 1:  static const std::vector<uint8_t> c1  = { 49, 52, 58, 61, 68 }; return c1;
-          case 2:  static const std::vector<uint8_t> c2  = { 50, 53, 59, 62, 69 }; return c2;
-          case 3:  static const std::vector<uint8_t> c3  = { 51, 54, 60, 63, 70 }; return c3;
-          case 4:  static const std::vector<uint8_t> c4  = { 52, 55, 61, 64, 71 }; return c4;
-          case 5:  static const std::vector<uint8_t> c5  = { 53, 56, 62, 65, 72 }; return c5;
-          case 6:  static const std::vector<uint8_t> c6  = { 54, 57, 63, 66, 73 }; return c6;
-          case 7:  static const std::vector<uint8_t> c7  = { 55, 58, 64, 67, 74 }; return c7;
-          case 8:  static const std::vector<uint8_t> c8  = { 56, 59, 65, 68, 75 }; return c8;
-          case 9:  static const std::vector<uint8_t> c9  = { 57, 60, 66, 69, 76 }; return c9;
-          case 10: static const std::vector<uint8_t> c10 = { 58, 61, 67, 70, 77 }; return c10;
-          default: static const std::vector<uint8_t> c11 = { 59, 62, 68, 71, 78 }; return c11;
-        }
-
-      case suspended2ChordType:
-        switch (key)
-        {
-          case 0:  static const std::vector<uint8_t> c0  = { 48, 50, 55, 62, 67 }; return c0;
-          case 1:  static const std::vector<uint8_t> c1  = { 49, 51, 56, 63, 68 }; return c1;
-          case 2:  static const std::vector<uint8_t> c2  = { 50, 52, 57, 64, 69 }; return c2;
-          case 3:  static const std::vector<uint8_t> c3  = { 51, 53, 58, 65, 70 }; return c3;
-          case 4:  static const std::vector<uint8_t> c4  = { 52, 54, 59, 66, 71 }; return c4;
-          case 5:  static const std::vector<uint8_t> c5  = { 53, 55, 60, 67, 72 }; return c5;
-          case 6:  static const std::vector<uint8_t> c6  = { 54, 56, 61, 68, 73 }; return c6;
-          case 7:  static const std::vector<uint8_t> c7  = { 55, 57, 62, 69, 74 }; return c7;
-          case 8:  static const std::vector<uint8_t> c8  = { 56, 58, 63, 70, 75 }; return c8;
-          case 9:  static const std::vector<uint8_t> c9  = { 57, 59, 64, 71, 76 }; return c9;
-          case 10: static const std::vector<uint8_t> c10 = { 58, 60, 65, 72, 77 }; return c10;
-          default: static const std::vector<uint8_t> c11 = { 59, 61, 66, 73, 78 }; return c11;
-        }
-
-    case suspended4ChordType:
-      switch (key)
-      {
-        case 0:  static const std::vector<uint8_t> c0  = { 48, 53, 55, 60, 65 }; return c0;
-        case 1:  static const std::vector<uint8_t> c1  = { 49, 56, 61, 66, 68 }; return c1;
-        case 2:  static const std::vector<uint8_t> c2  = { 50, 57, 62, 67 };     return c2;
-        case 3:  static const std::vector<uint8_t> c3  = { 51, 58, 63, 68, 70 }; return c3;
-        case 4:  static const std::vector<uint8_t> c4  = { 40, 47, 52, 57, 59, 64 }; return c4;
-        case 5:  static const std::vector<uint8_t> c5  = { 53, 60, 65, 70, 72 }; return c5;
-        case 6:  static const std::vector<uint8_t> c6  = { 54, 61, 66, 71, 73 }; return c6;
-        case 7:  static const std::vector<uint8_t> c7  = { 43, 50, 55, 60, 67 }; return c7;
-        case 8:  static const std::vector<uint8_t> c8  = { 56, 63, 68, 73, 75 }; return c8;
-        case 9:  static const std::vector<uint8_t> c9  = { 45, 52, 57, 62, 64 }; return c9;
-        case 10: static const std::vector<uint8_t> c10 = { 46, 53, 58, 63, 65 }; return c10;
-        default: static const std::vector<uint8_t> c11 = { 47, 54, 59, 64 };     return c11;
-      }
-
-      case add9ChordType:
-        switch (key)
-        {
-          case 0:  static const std::vector<uint8_t> c0  = { 48, 52, 55, 62, 64 }; return c0;
-          case 1:  static const std::vector<uint8_t> c1  = { 49, 53, 56, 63, 65 }; return c1;
-          case 2:  static const std::vector<uint8_t> c2  = { 50, 54, 57, 64, 66 }; return c2;
-          case 3:  static const std::vector<uint8_t> c3  = { 51, 55, 58, 65, 67 }; return c3;
-          case 4:  static const std::vector<uint8_t> c4  = { 52, 56, 59, 66, 68 }; return c4;
-          case 5:  static const std::vector<uint8_t> c5  = { 53, 57, 60, 67, 69 }; return c5;
-          case 6:  static const std::vector<uint8_t> c6  = { 54, 58, 61, 68, 70 }; return c6;
-          case 7:  static const std::vector<uint8_t> c7  = { 55, 59, 62, 69, 71 }; return c7;
-          case 8:  static const std::vector<uint8_t> c8  = { 56, 60, 63, 70, 72 }; return c8;
-          case 9:  static const std::vector<uint8_t> c9  = { 57, 61, 64, 71, 73 }; return c9;
-          case 10: static const std::vector<uint8_t> c10 = { 58, 62, 65, 72, 74 }; return c10;
-          default: static const std::vector<uint8_t> c11 = { 59, 63, 66, 73, 75 }; return c11;
-        }
-
-      case add11ChordType:
-        switch (key)
-        {
-          case 0:  static const std::vector<uint8_t> c0  = { 48, 52, 55, 60, 65 }; return c0;
-          case 1:  static const std::vector<uint8_t> c1  = { 50, 54, 57, 62, 67 }; return c1;
-          case 2:  static const std::vector<uint8_t> c2  = { 51, 55, 58, 63, 68 }; return c2;
-          case 3:  static const std::vector<uint8_t> c3  = { 52, 56, 59, 64, 69 }; return c3;
-          case 4:  static const std::vector<uint8_t> c4  = { 53, 57, 60, 65, 70 }; return c4;
-          case 5:  static const std::vector<uint8_t> c5  = { 54, 58, 61, 66, 71 }; return c5;
-          case 6:  static const std::vector<uint8_t> c6  = { 55, 59, 62, 67, 72 }; return c6;
-          case 7:  static const std::vector<uint8_t> c7  = { 56, 60, 63, 68, 73 }; return c7;
-          case 8:  static const std::vector<uint8_t> c8  = { 57, 61, 64, 69, 74 }; return c8;
-          case 9:  static const std::vector<uint8_t> c9  = { 58, 62, 65, 70, 75 }; return c9;
-          case 10: static const std::vector<uint8_t> c10 = { 59, 63, 66, 71, 76 }; return c10;
-          default: static const std::vector<uint8_t> c11 = { 60, 64, 67, 72, 77 }; return c11;
-        }
-
-      case ninthChordType:
-        switch (key)
-        {
-          case 0:  static const std::vector<uint8_t> c0  = { 48, 55, 58, 64, 70, 74 }; return c0;
-          case 1:  static const std::vector<uint8_t> c1  = { 49, 56, 59, 65, 71, 75 }; return c1;
-          case 2:  static const std::vector<uint8_t> c2  = { 50, 57, 60, 66, 72, 76 }; return c2;
-          case 3:  static const std::vector<uint8_t> c3  = { 51, 58, 61, 67, 73, 77 }; return c3;
-          case 4:  static const std::vector<uint8_t> c4  = { 52, 59, 62, 68, 74, 78 }; return c4;
-          case 5:  static const std::vector<uint8_t> c5  = { 53, 60, 63, 69, 75, 79 }; return c5;
-          case 6:  static const std::vector<uint8_t> c6  = { 54, 61, 64, 70, 76, 80 }; return c6;
-          case 7:  static const std::vector<uint8_t> c7  = { 55, 62, 65, 71, 77, 81 }; return c7;
-          case 8:  static const std::vector<uint8_t> c8  = { 56, 63, 66, 72, 78, 82 }; return c8;
-          case 9:  static const std::vector<uint8_t> c9  = { 57, 64, 67, 73, 79, 83 }; return c9;
-          case 10: static const std::vector<uint8_t> c10 = { 58, 65, 68, 74, 80, 84 }; return c10;
-          default: static const std::vector<uint8_t> c11 = { 59, 66, 69, 75, 81, 85 }; return c11;
-        }
-
-      case eleventhChordType:
-        switch (key)
-        {
-          case 0:  static const std::vector<uint8_t> c0  = { 43, 53, 58, 60, 64 }; return c0;
-          case 1:  static const std::vector<uint8_t> c1  = { 44, 54, 59, 61, 65 }; return c1;
-          case 2:  static const std::vector<uint8_t> c2  = { 45, 55, 60, 62, 66 }; return c2;
-          case 3:  static const std::vector<uint8_t> c3  = { 46, 56, 61, 63, 67 }; return c3;
-          case 4:  static const std::vector<uint8_t> c4  = { 47, 57, 62, 64, 68 }; return c4;
-          case 5:  static const std::vector<uint8_t> c5  = { 48, 58, 63, 65, 69 }; return c5;
-          case 6:  static const std::vector<uint8_t> c6  = { 49, 59, 64, 66, 70 }; return c6;
-          case 7:  static const std::vector<uint8_t> c7  = { 50, 60, 65, 67, 71 }; return c7;
-          case 8:  static const std::vector<uint8_t> c8  = { 51, 61, 66, 68, 72 }; return c8;
-          case 9:  static const std::vector<uint8_t> c9  = { 52, 62, 67, 69, 73 }; return c9;
-          case 10: static const std::vector<uint8_t> c10 = { 53, 63, 68, 70, 74 }; return c10;
-          default: static const std::vector<uint8_t> c11 = { 54, 64, 69, 71, 75 }; return c11;
-        }
-
-
-      default:
-        switch (key)
-        {
-          case 0:  static const std::vector<uint8_t> c0  = { 60, 62, 64, 57, 58 }; return c0;
-          case 1:  static const std::vector<uint8_t> c1  = { 61, 63, 65, 58, 59 }; return c1;
-          case 2:  static const std::vector<uint8_t> c2  = { 62, 64, 66, 59, 60 }; return c2;
-          case 3:  static const std::vector<uint8_t> c3  = { 63, 65, 67, 60, 61 }; return c3;
-          case 4:  static const std::vector<uint8_t> c4  = { 64, 66, 68, 61, 62 }; return c4;
-          case 5:  static const std::vector<uint8_t> c5  = { 65, 67, 69, 62, 63 }; return c5;
-          case 6:  static const std::vector<uint8_t> c6  = { 66, 68, 70, 63, 64 }; return c6;
-          case 7:  static const std::vector<uint8_t> c7  = { 67, 69, 71, 64, 65 }; return c7;
-          case 8:  static const std::vector<uint8_t> c8  = { 68, 70, 72, 65, 66 }; return c8;
-          case 9:  static const std::vector<uint8_t> c9  = { 69, 71, 73, 66, 67 }; return c9;
-          case 10: static const std::vector<uint8_t> c10 = { 70, 72, 74, 67, 68 }; return c10;
-          default: static const std::vector<uint8_t> c11 = { 71, 73, 75, 68, 69 }; return c11;
-        }
-
-    
-  }
 }
 
 //[preset][buttonpressed] //combines patterns for paddle and piano mode
@@ -748,8 +231,8 @@ void preparePatterns() {
 
 enum OmniChordModeType {
   OmniChordOffType = 0,   //no omnichord
-  OmniChordStandardType,  //needs button to be held
-  OmniChordStandardHoldType,
+  OmniChordOffGuitarType, //no omnichord but uses guitar chords instead
+  OmniChordStandardType,  //basic omnichord mode where paddles adjust octave
   OmniChordGuitarType,  //requires paddle
 };
 
@@ -1053,7 +536,12 @@ std::vector<uint8_t> getGuitarChordNotesFromNeck(uint8_t row, uint8_t column, ui
   {
     column = 0;
   }
+  
   neckAssignment n = neckAssignments[usePreset][row * NECK_COLUMNS + column];
+  if (debug)
+  {
+    Serial.printf("getGuitarChordNotesFromNeck %d %d %d root %d chord %d\n", usePreset, row, column, (int) n.key, n.chordType);
+  }
   //Serial.printf("GT row %d col %d preset %d\n",row, column, usePreset);
   //Serial.printf("ChordType GT to chord = %d\n",(int)n.chordType);
   //Serial.printf("ChordType GT to key = %d\n",(int)n.key);
@@ -1070,6 +558,10 @@ Chord getKeyboardChordNotesFromNeck(uint8_t row, uint8_t column, uint8_t usePres
     column = 0;
   }
   neckAssignment n = neckAssignments[usePreset][row * NECK_COLUMNS + column];
+  if (debug)
+  {
+    Serial.printf("getKeyboardChordNotesFromNeck %d %d %d root %d chord %d\n", usePreset, row, column, (int) n.key, n.chordType);
+  }
   //Serial.printf("ChordType KB to row = %d preset = %d\n",(int)n.chordType, usePreset);
   //now based on neck assignment, we will need to determine enum value then return the value
   //return chords[(uint8_t)n.chordType];
@@ -1144,34 +636,7 @@ void prepareConfig() {
     GuitarPatternID0 = 0;
     GuitarPatternID1 = 0;
     GuitarPatternID2 = 0;
-    
-/*
-    for (int i = 0; i < 3; i++) 
-    {
-      std::vector<noteOffset> row;
-
-      for (int j = 0; j < 3; j++) {
-          noteOffset s;
-          s.noteOffsets = {0, 0, 0};
-          row.push_back(s);
-      }
-
-      guitarNoteOffsets.push_back(row);
-    }
-
-    for (int i = 0; i < 3; i++)
-    {
-      noteOffset s2;
-      s2.noteOffsets = {0, 0, 0};
-      bassNoteOffsets.push_back(s2);
-      noteOffset s3;
-      s3.noteOffsets = {0, 0, 0};
-      accompanimentNoteOffsets.push_back(s3);
-    }
-    
-*/    
   }
-  //Serial.printf("prepareConfig! Exit\n");
 }
 
 void prepareChords() {
@@ -1188,7 +653,7 @@ void prepareChords() {
     {
       for (int j = 0; j < NECK_COLUMNS; j++) 
       {
-        assignedFretPatterns.push_back(AssignedPattern(simpleChordSetting[x], getKeyboardChordNotesFromNeck(i, j, x), getGuitarChordNotesFromNeck(i, j, x), rootNotes[i], false, 0));
+        assignedFretPatterns.push_back(AssignedPattern(simpleChordSetting[x], getKeyboardChordNotesFromNeck(i, j, x), getGuitarChordNotesFromNeck(i, j, x), rootNotes[i], 0));
       }
     }
     lastPressedChord = assignedFretPatterns[0].assignedChord;
@@ -1201,7 +666,7 @@ void prepareChords() {
 }
 
 void printChords() {
-  for (int i = 0 ; i <= thirteenthChordType; i++ )
+  for (int i = 0 ; i <= clusterChordType; i++ )
   {
     GetPianoChords(i).printChordInfo();
   }
@@ -1318,7 +783,10 @@ bool loadPatternFiles(bool loadFromBackup = false) {
   };
   if (backingState != 0)
   {
-    Serial.printf("Setting Backing State and files to %d\n", backingState);
+    if (debug)
+    {
+      Serial.printf("Setting Backing State and files to %d\n", backingState);
+    }
     handleOmnichordBackingChange(backingState);
   }
   if (!savePatternRelatedConfig())
@@ -1332,7 +800,8 @@ bool loadPatternFiles(bool loadFromBackup = false) {
   }
   File f = SD.open(myFile.c_str(), FILE_READ);
   if (!f) {
-    Serial.println("Error loading pattern config!");
+    if (debug)
+      Serial.println("Error loading pattern config!");
     return false;
   }
   if (!loadFromBackup)
@@ -1377,7 +846,7 @@ bool loadPatternFiles(bool loadFromBackup = false) {
     } else if (trimmed == "DRUM_END_START") {
       currentPattern = &DrumEndSequencer;
       currentChannel = DRUM_CHANNEL;
-    /*
+    
     } else if (trimmed == "GUITAR_A_START") {
       currentPattern = &SequencerPatternA;
       currentChannel = GUITAR_CHANNEL;
@@ -1387,7 +856,6 @@ bool loadPatternFiles(bool loadFromBackup = false) {
     } else if (trimmed == "GUITAR_C_START") {
       currentPattern = &SequencerPatternC;
       currentChannel = GUITAR_CHANNEL;
-      */
     } else if (trimmed == "BASS_START") {
       currentPattern = &BassSequencerPattern;
       currentChannel = BASS_CHANNEL;
@@ -1439,7 +907,7 @@ void setup() {
   Serial.begin(115200);  // USB debug monitor
 
   usbMIDI.begin();
-
+  isKeyboard = false;
   while (!Serial && millis() < 3000)
     ;  // Wait for Serial Monitor
   if (debug) {
@@ -1448,7 +916,8 @@ void setup() {
   Serial3.println("AT\r\n");  // Send AT command
 
   if (!SD.begin(BUILTIN_SDCARD)) {
-    Serial.println("Error! SD card failed to initialize!");
+    if (debug)
+      Serial.println("Error! SD card failed to initialize!");
     return;
   }
 
@@ -1733,7 +1202,7 @@ void updateNotes(std::vector<uint8_t> &chordNotesA, std::vector<uint8_t> &chordN
           }
         }
 
-        if (!updated)
+        if (!updated && debug)
         {
             Serial.printf("Note %d did not match any in chord A\n", originalNote);
         }
@@ -1802,6 +1271,54 @@ void updateNotes(std::vector<uint8_t> &chordNotesA, std::vector<uint8_t> &chordN
   //Serial.printf("Updated notes is %d, ignored %d\n", modded, ignored);
 }
 */
+void generateOmnichordNoteMap(uint8_t note)
+{
+  //need to create a note list
+  omniChordNewNotes.clear();
+  //int offset = -1 * SEMITONESPEROCTAVE;  //move down by 1 octave since original uses middle C
+  int offset = 0;  //move down by 1 octave since original uses middle C
+
+  //std::vector<uint8_t> chordNotes = assignedFretPatternsByPreset[preset][msg.note].getChords().getCompleteChordNotes();  //get notes
+  //std::vector<uint8_t> chordNotes = getActualAssignedChord(msg.note).getChords().getCompleteChordNotes();  //get notes
+  std::vector<uint8_t> chordNotes = getActualAssignedChord(note).getChords().getCompleteChordNotes3();  //get notes
+  
+  //sprintf(tempS, "paco 1 proper omni = %d", properOmniChord5ths[preset]?1:0);
+  if (properOmniChord5ths[preset])
+  {
+    for (uint8_t i = 0; i < chordNotes.size(); i++)
+    {
+      //if (chordNotes[i] == chordNotes[0] + 7 )
+      if (i == 2) // assumed to be always done for 3rd note/5ths
+      {
+        chordNotes[i] -= SEMITONESPEROCTAVE;
+      }
+      //chordNotes[i] += 12; //correct too low
+    }
+  }
+  //Serial.printf("chordNotes = ");
+  //for (uint8_t i = 0; i < chordNotes.size(); i++)
+  //{
+  //Serial.printf("%d ", chordNotes[i]);
+  //}
+  //Serial.printf("\n");
+  //create list of notes that repeat and shift every time all notes have been added for omnichord mode
+  while (omniChordNewNotes.size() < omniChordOrigNotes.size()) {
+    if (omniChordNewNotes.size() != 0) {
+      offset += SEMITONESPEROCTAVE;
+    }
+    for (uint8_t i = 0; i < chordNotes.size() && omniChordNewNotes.size() < omniChordOrigNotes.size(); i++) 
+    {
+      omniChordNewNotes.push_back(chordNotes[i] + offset + SEMITONESPEROCTAVE * omniKBTransposeOffset[preset]);
+    }
+  }
+  //Serial.printf("OmnichordnewNotes = ");
+  //for (uint8_t i = 0; i < omniChordNewNotes.size(); i++)
+  //{
+  //  Serial.printf("%d ", omniChordNewNotes[i]);
+  //}
+  //Serial.printf("\n");
+
+}
 void checkSerialGuitar(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen, uint8_t channel) {
   size_t last_len = 0;
   uint8_t rootNote = 0;
@@ -1886,7 +1403,7 @@ void checkSerialGuitar(HardwareSerial& serialPort, char* buffer, uint8_t& buffer
                 if (drumState == DrumStopped)
                 {
                   if (debug) {
-                  Serial.printf("Starting drum sequencer\n");
+                    Serial.printf("Starting drum sequencer\n");
                   }
                   if (drumsEnabled[preset])
                   {
@@ -1914,7 +1431,8 @@ void checkSerialGuitar(HardwareSerial& serialPort, char* buffer, uint8_t& buffer
                 }
                 else
                 {
-                  Serial.printf("Stopping drum sequencer\n");
+                  if (debug)
+                    Serial.printf("Stopping drum sequencer\n");
                   bassStart = false;
                   accompanimentStart = false;
                   if (backingState != 0)
@@ -1941,8 +1459,15 @@ void checkSerialGuitar(HardwareSerial& serialPort, char* buffer, uint8_t& buffer
               }
               else
               {
-                Serial.printf("Adding drum fill\n");
-                drumNextState = DrumLoopFill;
+                if (DrumFillSequencer.size() > 0 && debug)
+                {
+                  Serial.printf("Adding drum fill\n");
+                  drumNextState = DrumLoopFill;
+                }
+                else if (debug)
+                {
+                  Serial.printf("Drum fill is empty\n");
+                }
               }
             }
           } 
@@ -1972,6 +1497,7 @@ void checkSerialGuitar(HardwareSerial& serialPort, char* buffer, uint8_t& buffer
               if (!isKeyboard) {
                 myTranspose = 0;
               } else {
+                //capo
                 myTranspose = guitarTranspose[preset];
               }
               //if (debug) {
@@ -1987,49 +1513,9 @@ void checkSerialGuitar(HardwareSerial& serialPort, char* buffer, uint8_t& buffer
                 if (omniChordModeGuitar[preset] > OmniChordOffType && (!isKeyboard || (isKeyboard && omniChordModeGuitar[preset] != OmniChordOffType))) 
                 {
                   //check if button pressed is the same
-                  if (lastValidNeckButtonPressed != neckButtonPressed || omniChordNewNotes.size() == 0) {
-                    //need to create a note list
-                    omniChordNewNotes.clear();
-                    //int offset = -1 * SEMITONESPEROCTAVE;  //move down by 1 octave since original uses middle C
-                    int offset = 0;  //move down by 1 octave since original uses middle C
-
-                    //std::vector<uint8_t> chordNotes = assignedFretPatternsByPreset[preset][msg.note].getChords().getCompleteChordNotes();  //get notes
-                    std::vector<uint8_t> chordNotes = getActualAssignedChord(msg.note).getChords().getCompleteChordNotes();  //get notes
-
-                    if (properOmniChord5ths[preset])
-                    {
-                      for (uint8_t i = 0; i < chordNotes.size(); i++)
-                      {
-                        //if (chordNotes[i] == chordNotes[0] + 7 )
-                        if (i == 2) // assumed to be always done for 3rd note/5ths
-                        {
-                          chordNotes[i] -= SEMITONESPEROCTAVE;
-                        }
-                        //chordNotes[i] += 12; //correct too low
-                      }
-                    }
-                    //Serial.printf("chordNotes = ");
-                    //for (uint8_t i = 0; i < chordNotes.size(); i++)
-                    //{
-                    //Serial.printf("%d ", chordNotes[i]);
-                    //}
-                    //Serial.printf("\n");
-                    //create list of notes that repeat and shift every time all notes have been added for omnichord mode
-                    while (omniChordNewNotes.size() < omniChordOrigNotes.size()) {
-                      if (omniChordNewNotes.size() != 0) {
-                        offset += SEMITONESPEROCTAVE;
-                      }
-                      for (uint8_t i = 0; i < chordNotes.size() && omniChordNewNotes.size() < omniChordOrigNotes.size(); i++) 
-                      {
-                        omniChordNewNotes.push_back(chordNotes[i] + offset + SEMITONESPEROCTAVE * omniKBTransposeOffset[preset]);
-                      }
-                    }
-                    //Serial.printf("OmnichordnewNotes = ");
-                    //for (uint8_t i = 0; i < omniChordNewNotes.size(); i++)
-                    //{
-                    //  Serial.printf("%d ", omniChordNewNotes[i]);
-                    //}
-                    //Serial.printf("\n");
+                  if (lastValidNeckButtonPressed != neckButtonPressed || omniChordNewNotes.size() == 0) 
+                  {
+                    generateOmnichordNoteMap(msg.note);
                   }
                 }
                 //plays guitar chords when neck button is pressed for non omnichord guitar mode
@@ -2098,10 +1584,10 @@ void checkSerialGuitar(HardwareSerial& serialPort, char* buffer, uint8_t& buffer
                     else
                     {
                       //
-                      //chordNotesA = assignedFretPatternsByPreset[preset][lastValidNeckButtonPressed2].getChords().getCompleteChordNotesNo5();  //get notes
-                      //chordNotesB = assignedFretPatternsByPreset[preset][lastValidNeckButtonPressed].getChords().getCompleteChordNotesNo5();  //get notes
-                      chordNotesA = getActualAssignedChord(lastValidNeckButtonPressed2).getChords().getCompleteChordNotesNo5();  //get notes
-                      chordNotesB = getActualAssignedChord(lastValidNeckButtonPressed).getChords().getCompleteChordNotesNo5();  //get notes
+                      //chordNotesA = assignedFretPatternsByPreset[preset][lastValidNeckButtonPressed2].getChords().getCompleteChordNotes3();  //get notes
+                      //chordNotesB = assignedFretPatternsByPreset[preset][lastValidNeckButtonPressed].getChords().getCompleteChordNotes3();  //get notes
+                      chordNotesA = getActualAssignedChord(lastValidNeckButtonPressed2).getChords().getCompleteChordNotes3();  //get notes
+                      chordNotesB = getActualAssignedChord(lastValidNeckButtonPressed).getChords().getCompleteChordNotes3();  //get notes
                     }
                     if (StaggeredSequencerNotes.size() > 0)
                     {
@@ -2391,41 +1877,44 @@ bool savePatternFiles(bool saveToBackup = false) {
     }
 
     //save guitar patterns
-    if (SequencerPatternA.size() > 0)
+    if (!saveToBackup)
     {
-      snprintf(buffer, sizeof(buffer), "GUITAR_A_START\n");
-      f.print(buffer);
-      for (auto& seqNote : SequencerPatternA)
+      if (SequencerPatternA.size() > 0)
       {
-        snprintf(buffer, sizeof(buffer), "%d,%d,%d,%d,%d\n", seqNote.note, seqNote.holdTime, seqNote.offset, seqNote.velocity, seqNote.relativeOctave);
+        snprintf(buffer, sizeof(buffer), "GUITAR_A_START\n");
+        f.print(buffer);
+        for (auto& seqNote : SequencerPatternA)
+        {
+          snprintf(buffer, sizeof(buffer), "%d,%d,%d,%d,%d\n", seqNote.note, seqNote.holdTime, seqNote.offset, seqNote.velocity, seqNote.relativeOctave);
+          f.print(buffer);
+        }
+        snprintf(buffer, sizeof(buffer), "GUITAR_A_END\n");
         f.print(buffer);
       }
-      snprintf(buffer, sizeof(buffer), "GUITAR_A_END\n");
-      f.print(buffer);
-    }
-    if (SequencerPatternB.size() > 0)
-    {
-      snprintf(buffer, sizeof(buffer), "GUITAR_B_START\n");
-      f.print(buffer);
-      for (auto& seqNote : SequencerPatternB)
+      if (SequencerPatternB.size() > 0)
       {
-        snprintf(buffer, sizeof(buffer), "%d,%d,%d,%d,%d\n", seqNote.note, seqNote.holdTime, seqNote.offset, seqNote.velocity, seqNote.relativeOctave);
+        snprintf(buffer, sizeof(buffer), "GUITAR_B_START\n");
+        f.print(buffer);
+        for (auto& seqNote : SequencerPatternB)
+        {
+          snprintf(buffer, sizeof(buffer), "%d,%d,%d,%d,%d\n", seqNote.note, seqNote.holdTime, seqNote.offset, seqNote.velocity, seqNote.relativeOctave);
+          f.print(buffer);
+        }
+        snprintf(buffer, sizeof(buffer), "GUITAR_B_END\n");
         f.print(buffer);
       }
-      snprintf(buffer, sizeof(buffer), "GUITAR_B_END\n");
-      f.print(buffer);
-    }
-    if (SequencerPatternC.size() > 0)
-    {
-      snprintf(buffer, sizeof(buffer), "GUITAR_C_START\n");
-      f.print(buffer);
-      for (auto& seqNote : SequencerPatternC)
+      if (SequencerPatternC.size() > 0)
       {
-        snprintf(buffer, sizeof(buffer), "%d,%d,%d,%d,%d\n", seqNote.note, seqNote.holdTime, seqNote.offset, seqNote.velocity, seqNote.relativeOctave);
+        snprintf(buffer, sizeof(buffer), "GUITAR_C_START\n");
+        f.print(buffer);
+        for (auto& seqNote : SequencerPatternC)
+        {
+          snprintf(buffer, sizeof(buffer), "%d,%d,%d,%d,%d\n", seqNote.note, seqNote.holdTime, seqNote.offset, seqNote.velocity, seqNote.relativeOctave);
+          f.print(buffer);
+        }
+        snprintf(buffer, sizeof(buffer), "GUITAR_C_END\n");
         f.print(buffer);
       }
-      snprintf(buffer, sizeof(buffer), "GUITAR_C_END\n");
-      f.print(buffer);
     }
     //load bass pattern
     if (BassSequencerPattern.size() > 0)
@@ -2457,7 +1946,8 @@ bool savePatternFiles(bool saveToBackup = false) {
   } 
   else 
   {
-    Serial.println("Error saving pattern config!");
+    if (debug)
+      Serial.println("Error saving pattern config!");
     return false;
   }
   f.close();
@@ -2478,6 +1968,11 @@ bool decodeCmd(SerialType& serialPort, String cmd, std::vector<String>* params)
     serialPort.write("OK00\r\n");
     // Match found
   } 
+  else if (cmd == "ISKB")
+  {
+    snprintf(buffer, sizeof(buffer), "OK00,%d\r\n", isKeyboard?1:0);
+    serialPort.write(buffer);
+  }
   else if (cmd == "DEVI") {
 
     snprintf(buffer, sizeof(buffer), "OK00,%d\r\n", DEVICE_TYPE);
@@ -2500,6 +1995,11 @@ bool decodeCmd(SerialType& serialPort, String cmd, std::vector<String>* params)
     }
     // Match found
   } 
+  else if (cmd == "STOP")
+  {
+    noteAllOff(); 
+    serialPort.write("OK00\r\n");
+  }
   else if (cmd == "RSTP")  // RESET Please
   {
 
@@ -3012,7 +2512,12 @@ else if (cmd == "HBCW")  //handleOmnichordBackingChange
       serialPort.write("ER00\r\n");
       return true;
     }
+    int oldMode = omniChordModeGuitar[atoi(params->at(0).c_str())];
     omniChordModeGuitar[atoi(params->at(0).c_str())] = atoi(params->at(1).c_str());
+    if (oldMode != atoi(params->at(1).c_str()))
+    {
+      detector.transposeReset();
+    }
     serialPort.write("OK00\r\n");
   } 
   else if (cmd == "OMMR")  //omniChordModeGuitar Read
@@ -3228,6 +2733,28 @@ else if (cmd == "HBCW")  //handleOmnichordBackingChange
       return true;
     }
     omniKBTransposeOffset[atoi(params->at(0).c_str())] = atoi(params->at(1).c_str());
+    bool hadNotes = omniChordNewNotes.size() > 0;
+    omniChordNewNotes.clear();
+    if (hadNotes)
+    {
+      int lastB = -1;
+      if (neckButtonPressed != -1)
+      {
+        lastB = neckButtonPressed;
+      }
+      else if (lastValidNeckButtonPressed != -1)
+      {
+        lastB = lastValidNeckButtonPressed;
+      }
+      else
+      {
+
+      }
+      if (lastB != -1)
+      {
+        generateOmnichordNoteMap(lastB);
+      }
+    }
     serialPort.write("OK00\r\n");
   } 
   else if (cmd == "OTOR")  //omniKBTransposeOffset Read
@@ -3388,7 +2915,45 @@ else if (cmd == "HBCW")  //handleOmnichordBackingChange
     }
     properOmniChord5ths[atoi(params->at(0).c_str())] = atoi(params->at(1).c_str()) == 1;
     serialPort.write("OK00\r\n");
+    omniChordNewNotes.clear();
+    int note = lastValidNeckButtonPressed;
+    if (note == -1)
+    {
+      note = lastValidNeckButtonPressed;
+    }
+    if (note != -1)
+    {
+      MidiMessage msg = hexToNote(note);
+      int offset = 0;
+      
+      std::vector<uint8_t> chordNotes = getActualAssignedChord(msg.note).getChords().getCompleteChordNotes();  //get notes
+                      
+      if (properOmniChord5ths[preset])
+      {
+        for (uint8_t i = 0; i < chordNotes.size(); i++)
+        {
+          //if (chordNotes[i] == chordNotes[0] + 7 )
+          if (i == 2) // assumed to be always done for 3rd note/5ths
+          {
+            chordNotes[i] -= SEMITONESPEROCTAVE;
+          }
+          //chordNotes[i] += 12; //correct too low
+        }
+      }
+      while (omniChordNewNotes.size() < omniChordOrigNotes.size()) 
+      {
+        if (omniChordNewNotes.size() != 0) {
+          offset += SEMITONESPEROCTAVE;
+        }
+        for (uint8_t i = 0; i < chordNotes.size() && omniChordNewNotes.size() < omniChordOrigNotes.size(); i++) 
+        {
+          omniChordNewNotes.push_back(chordNotes[i] + offset + SEMITONESPEROCTAVE * omniKBTransposeOffset[preset]);
+        }
+      }
+    }
   } 
+
+  
   else if (cmd == "OM5R")  //properOmniChord5ths Read
   {
     if (params->size() < 1) {
@@ -3495,6 +3060,37 @@ else if (cmd == "AENW")  //accompanimentEnabled write
     serialPort.write(buffer);
   }
 
+else if (cmd == "ASDW")  //alternateDirection
+  {
+    if (params->size() < 2) {
+      serialPort.write("ER00\r\n");
+      return true;
+    }
+    if (atoi(params->at(0).c_str()) > MAX_PRESET || atoi(params->at(0).c_str()) < 0) {
+      serialPort.write("ER00\r\n");
+      return true;
+    }
+    if (atoi(params->at(1).c_str()) > 1 || atoi(params->at(1).c_str()) < 0) {
+      serialPort.write("ER00\r\n");
+      return true;
+    }
+    alternateDirection[atoi(params->at(0).c_str())] = atoi(params->at(1).c_str()) == 1;
+    serialPort.write("OK00\r\n");
+  } 
+  else if (cmd == "ASDR")  //alternateDirection Read
+  {
+    if (params->size() < 1) {
+      serialPort.write("ER00\r\n");
+      return true;
+    }
+    if (atoi(params->at(0).c_str()) > MAX_PRESET || atoi(params->at(0).c_str()) < 0) {
+      serialPort.write("ER00\r\n");
+      return true;
+    }
+    snprintf(buffer, sizeof(buffer), "OK00,%d\r\n", alternateDirection[atoi(params->at(0).c_str())]?1:0);
+    serialPort.write(buffer);
+  }
+
   else if (cmd == "DENW")  //drumsEnabled write
   {
     if (params->size() < 2) {
@@ -3510,12 +3106,6 @@ else if (cmd == "AENW")  //accompanimentEnabled write
       return true;
     }
     drumsEnabled[atoi(params->at(0).c_str())] = atoi(params->at(1).c_str()) == 1;
-    //if (!drumsEnabled[preset])
-    //{
-      //drumNextState = DrumEnding;
-      //drumState = DrumEnding;
-      //prepareDrumSequencer();
-    //}
     serialPort.write("OK00\r\n");
   } 
   else if (cmd == "DENR")  //drumsEnabled Read
@@ -3562,12 +3152,19 @@ else if (cmd == "AENW")  //accompanimentEnabled write
       serialPort.write("ER04\r\n");
       return true;
     }
-    if (atoi(params->at(4).c_str()) > (int)thirteenthChordType || atoi(params->at(4).c_str()) < (int)majorChordType) {
+    if (atoi(params->at(4).c_str()) > (int)clusterChordType || atoi(params->at(4).c_str()) < (int)majorChordType) {
       serialPort.write("ER05\r\n");
       return true;
     }
     neckAssignments[atoi(params->at(0).c_str())][atoi(params->at(1).c_str()) * NECK_COLUMNS + atoi(params->at(2).c_str())].key = (Note)atoi(params->at(3).c_str());
     neckAssignments[atoi(params->at(0).c_str())][atoi(params->at(1).c_str()) * NECK_COLUMNS + atoi(params->at(2).c_str())].chordType = (ChordType)atoi(params->at(4).c_str());
+    
+    //update pattern's root note 
+    //todo check
+    assignedFretPatternsByPreset[atoi(params->at(0).c_str())][atoi(params->at(1).c_str()) * NECK_COLUMNS + atoi(params->at(2).c_str())].assignedChord = getKeyboardChordNotesFromNeck(atoi(params->at(1).c_str()), atoi(params->at(2).c_str()), atoi(params->at(0).c_str()));
+    assignedFretPatternsByPreset[atoi(params->at(0).c_str())][atoi(params->at(1).c_str()) * NECK_COLUMNS + atoi(params->at(2).c_str())].assignedGuitarChord = getGuitarChordNotesFromNeck(atoi(params->at(1).c_str()), atoi(params->at(2).c_str()), atoi(params->at(0).c_str()));
+    assignedFretPatternsByPreset[atoi(params->at(0).c_str())][atoi(params->at(1).c_str()) * NECK_COLUMNS + atoi(params->at(2).c_str())].assignedChord.setRootNote((int)neckAssignments[atoi(params->at(0).c_str())][atoi(params->at(1).c_str()) * NECK_COLUMNS + atoi(params->at(2).c_str())].key + OMNICHORD_ROOT_START);
+   
     serialPort.write("OK00\r\n");
   } 
   else if (cmd == "NASR")  //NeckAssignment Read
@@ -3665,7 +3262,8 @@ else if (cmd == "AENW")  //accompanimentEnabled write
     {
       for (int j = 0; j < NECK_COLUMNS; j++) 
       {
-        Serial.printf("At %d: %d, %d = %d\n", atoi(params->at(0).c_str()), i, j, i * NECK_COLUMNS + j);
+        if (debug)
+          Serial.printf("At %d: %d, %d = %d\n", atoi(params->at(0).c_str()), i, j, i * NECK_COLUMNS + j);
         assignedFretPatternsByPreset[atoi(params->at(0).c_str())][i * NECK_COLUMNS + j].customPattern = atoi(params->at(1).c_str());
       }
     }
@@ -3789,16 +3387,23 @@ void checkSerialCmd(SerialType& serialPort, char* buffer, uint8_t& bufferLen) {
       // --- Parse Command ---
       char* cmd = strtok(buffer, ",");
       if (cmd && strlen(cmd) == 4) {
-        serialPort.printf("Received CMD: %s", cmd);
+        if (debug)
+        {
+          serialPort.printf("Received CMD: %s", cmd);
+        }
 
         //int paramIndex = 1;
         char* token;
         while ((token = strtok(NULL, ",")) != NULL) {
           //serialPort.printf("Param %d: %s\n", paramIndex++, token);
-          serialPort.printf(",%s", token);
+          if (debug)
+          {
+            serialPort.printf(",%s", token);
+          }
           params.push_back(String(token));
         }
-        serialPort.printf("\n");
+        if (debug)
+          serialPort.printf("\n");
         // Respond with OK
 
       } else {
@@ -3872,7 +3477,8 @@ std::vector<SequencerNote> getCurrentPattern(uint8_t button)
 {
   if (button < 0 || button >= NECK_COLUMNS * NECK_ROWS)
   {
-    Serial.printf("Error! Invalid button value %d\n", button);
+    if (debug)
+      Serial.printf("Error! Invalid button value %d\n", button);
     button = 0; 
   }
   switch (getActualAssignedChord(button).customPattern)
@@ -3908,7 +3514,7 @@ std::vector<SequencerNote> getPatternNotesFromChord(uint8_t channel, int buttonP
   std::vector<uint8_t> chordNotesA;  
   if (channel != BASS_CHANNEL)
   {
-    chordNotesA = getActualAssignedChord(buttonPressed).getChords().getCompleteChordNotesNo5();  //get notes
+    chordNotesA = getActualAssignedChord(buttonPressed).getChords().getCompleteChordNotes3();  //get notes
   }
   else
   {
@@ -3934,7 +3540,8 @@ void buildAutoManualNotes(bool reverse, int buttonPressed)
   bool isManual = false;
   if (buttonPressed < 0 || buttonPressed >= NECK_COLUMNS * NECK_ROWS)
   {
-    Serial.printf("Error! Invalid button value %d\n", buttonPressed);
+    if (debug)
+      Serial.printf("Error! Invalid button value %d\n", buttonPressed);
     return; // error!
   }
   //if staggered notes is empty
@@ -4038,7 +3645,7 @@ void buildAutoManualNotes(bool reverse, int buttonPressed)
   
   //basically adjust offset and holdtime for manual strum and get the notes typically just gets 3 notes at 
   //todo check if ths is better than 3 notes only
-  //std::vector<uint8_t> chordNotes = assignedFretPatternsByPreset[preset][buttonPressed].assignedChord.getCompleteChordNotesNo5(); 
+  //std::vector<uint8_t> chordNotes = assignedFretPatternsByPreset[preset][buttonPressed].assignedChord.getCompleteChordNotes3(); 
   std::vector<uint8_t> chordNotes;
   if (enableAllNotesOnChords[preset])
   {
@@ -4046,7 +3653,7 @@ void buildAutoManualNotes(bool reverse, int buttonPressed)
   }
   else
   {
-    chordNotes = getActualAssignedChord(buttonPressed).assignedChord.getCompleteChordNotesNo5(); 
+    chordNotes = getActualAssignedChord(buttonPressed).assignedChord.getCompleteChordNotes3(); 
   }
   for (uint8_t i = 0; i < SequencerNotes.size(); i++)
   {
@@ -4202,6 +3809,7 @@ void checkSerialKB(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen,
   }
 
   // --- Step 3: Check for idle ping pattern and enter ignore mode ---
+  //keyboard always sends a specific pattern when idle
   if (bufferLen >= 12 && strncmp(buffer, "f55500282000", 12) == 0) {
     ignoringIdlePing = true;
     //todo if we do built-in sound, send to the device
@@ -4211,9 +3819,9 @@ void checkSerialKB(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen,
     buffer[bufferLen] = '\0';
     return;
   }
-  //handling for guitar strum attachment
+  //handling for guitar strum attachment when strummed
   if (bufferLen >= 16 && strncmp(buffer, "f55500042017", 12) == 0) {
-    isKeyboard = false;
+    isKeyboard = false; 
     // Get the value of the last 2 bytes
     uint16_t value = 0;
     sscanf(buffer + 12, "%04hx", &value);
@@ -4260,8 +3868,8 @@ void checkSerialKB(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen,
             }
             else
             {
-              chordNotesA = getActualAssignedChord(getPreviousButtonPressed()).getChords().getCompleteChordNotesNo5();  //get notes
-              chordNotesB = getActualAssignedChord(getCurrentButtonPressed()).getChords().getCompleteChordNotesNo5();  //get notes
+              chordNotesA = getActualAssignedChord(getPreviousButtonPressed()).getChords().getCompleteChordNotes3();  //get notes
+              chordNotesB = getActualAssignedChord(getCurrentButtonPressed()).getChords().getCompleteChordNotes3();  //get notes
             }
             //Serial.printf("I was supposed to change notes sample\n");
             if (SequencerNotes.size() > 0)
@@ -4317,8 +3925,8 @@ void checkSerialKB(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen,
             }
             else
             {
-              chordNotesA = getActualAssignedChord(getPreviousButtonPressed()).getChords().getCompleteChordNotesNo5();  //get notes
-              chordNotesB = getActualAssignedChord(getCurrentButtonPressed()).getChords().getCompleteChordNotesNo5();  //get notes
+              chordNotesA = getActualAssignedChord(getPreviousButtonPressed()).getChords().getCompleteChordNotes3();  //get notes
+              chordNotesB = getActualAssignedChord(getCurrentButtonPressed()).getChords().getCompleteChordNotes3();  //get notes
             }
             if (SequencerNotes.size() > 0)
             {
@@ -4384,6 +3992,12 @@ void checkSerialKB(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen,
 
       if (omniChordModeGuitar[preset] != OmniChordOffType && (!isKeyboard || (isKeyboard && omniChordModeGuitar[preset] == OmniChordGuitarType))) {
         //Serial.printf("omniChordNewNotes.size() %d\n", omniChordNewNotes.size());
+
+        //clear omnichord pressed if chord hold
+        if (!chordHold[preset] && neckButtonPressed == -1 && omniChordNewNotes.size() > 0)
+        {
+          omniChordNewNotes.clear();
+        }
         if (omniChordNewNotes.size() == 0)  //no guitar button pressed
         {
           skipNote = true;
@@ -4396,9 +4010,21 @@ void checkSerialKB(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen,
           note = detector.getBestNote(note);
         }
       }
+      int omniTransposeOffset = 0;
+      if (!isKeyboard)
+      {
+        omniTransposeOffset = guitarTranspose[preset];
+      }
       if (!skipNote) {
         if ((status & 0xF0) == 0x90) {
-          sendNoteOn(channel, note + transpose, vel);
+          if (isKeyboard)
+          {
+            sendNoteOn(channel, note + transpose, vel);
+          }
+          else //guitar paddle has really low note velocity
+          {
+            sendNoteOn(channel, note + transpose + omniTransposeOffset);
+          }
           noteShift ns;
           ns.assignedNote = note + transpose;
           ns.paddleNote = oldNote;
@@ -4411,7 +4037,15 @@ void checkSerialKB(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen,
               break;
             }
           }
-          sendNoteOff(channel, note, vel);
+          if (isKeyboard)
+          {
+            sendNoteOff(channel, note + transpose, vel);
+          }
+          else //guitar paddle has really low note velocity
+          {
+            sendNoteOff(channel, note + transpose + omniTransposeOffset);
+          }
+          
         }
       }
       memmove(buffer, buffer + 6, bufferLen - 5);
@@ -4589,15 +4223,14 @@ void advanceBassSequencerStep() {
     std::vector<uint8_t> chordNotesB;
     //if(enableAllNotesOnChords[preset])
     {
-      
       chordNotesA = getActualAssignedChord(lastBassNeckButtonPressed).getChords().getCompleteChordNotes();  //get notes
       chordNotesB = getActualAssignedChord(lastReference).getChords().getCompleteChordNotes();  //get notes
     }
     
     //else
     //{
-//      chordNotesA = getActualAssignedChord(lastBassNeckButtonPressed).getChords().getCompleteChordNotesNo5();  //get notes
-      //chordNotesB = getActualAssignedChord(lastReference).getChords().getCompleteChordNotesNo5();  //get notes
+//      chordNotesA = getActualAssignedChord(lastBassNeckButtonPressed).getChords().getCompleteChordNotes3();  //get notes
+      //chordNotesB = getActualAssignedChord(lastReference).getChords().getCompleteChordNotes3();  //get notes
     //}
     updateNotes(chordNotesA, chordNotesB, BassSequencerNotes);
     lastBassNeckButtonPressed = lastReference;
@@ -4719,8 +4352,8 @@ void advanceAccompanimentSequencerStep() {
     }
     else
     {
-      chordNotesA = getActualAssignedChord(lastAccompanimentNeckButtonPressed).getChords().getCompleteChordNotesNo5();  //get notes
-      chordNotesB = getActualAssignedChord(lastReference).getChords().getCompleteChordNotesNo5();  //get notes
+      chordNotesA = getActualAssignedChord(lastAccompanimentNeckButtonPressed).getChords().getCompleteChordNotes3();  //get notes
+      chordNotesB = getActualAssignedChord(lastReference).getChords().getCompleteChordNotes3();  //get notes
     }
     updateNotes(chordNotesA, chordNotesB, AccompanimentSequencerNotes);
     lastAccompanimentNeckButtonPressed = lastReference;
@@ -4792,33 +4425,38 @@ void prepareDrumSequencer()
           {
             DrumSequencerNotes = DrumLoopHalfBarSequencer;
             drumState = DrumLoopHalfBar;
-            Serial.printf("DrumLoop->DrumLoopHalfBar\n");
+            if (debug)
+              Serial.printf("DrumLoop->DrumLoopHalfBar\n");
           }
           else
           {
             DrumSequencerNotes = DrumLoopSequencer;
-            Serial.printf("DrumLoop->DrumLoop\n");
+            if (debug)
+              Serial.printf("DrumLoop->DrumLoop\n");
           }
         }
         else
         {
           if (drumNextState == DrumLoopFill && DrumLoopHalfBarSequencer.size() > 0)
           {
-            Serial.printf("DrumLoop->DrumLoopFill\n");
+            if (debug)
+              Serial.printf("DrumLoop->DrumLoopFill\n");
             drumState = drumNextState;
             drumNextState = DrumNone; 
             nextIsNotLoop = true;
           }
           else if (DrumLoopHalfBarSequencer.size() > 0 && drumNextState != DrumEnding) //not a fill and there is a half bar, half should be played first
           {
-            Serial.printf("DrumLoop->DrumLoopHalfbar\n");
+            if (debug)
+              Serial.printf("DrumLoop->DrumLoopHalfbar\n");
             //play half file
             drumState = DrumLoopHalfBar;
             nextIsNotLoop = true;
           }
           else // no half bar
           {
-            Serial.printf("Drum Loop %d to Next is %d? End=5\n", drumState, drumNextState);
+            if (debug)
+              Serial.printf("Drum Loop %d to Next is %d? End=5\n", drumState, drumNextState);
             //if state change;
             //if half exists, you need to play half unless fill
             drumState = drumNextState;
@@ -4832,19 +4470,22 @@ void prepareDrumSequencer()
       case DrumLoopHalfBar:
         if (drumNextState == DrumNone) // continue loop
         {
-            Serial.printf("DrumLoopHalf->DrumLoop\n");
+            if (debug)
+              Serial.printf("DrumLoopHalf->DrumLoop\n");
             DrumSequencerNotes = DrumLoopSequencer;
             drumState = DrumLoop;
         }
         else if (drumNextState == DrumLoopFill) //fill has to play during half bar part, so it will loop again then gets played at half bar
         {
-          Serial.printf("DrumLoopHalf->DrumFill\n");
+          if (debug)
+            Serial.printf("DrumLoopHalf->DrumFill\n");
           drumState = DrumLoop;
           DrumSequencerNotes = DrumLoopSequencer;
         }
         else
         {
-          Serial.printf("DrumLoopHalf->Next %d\n", drumNextState);
+          if (debug)
+            Serial.printf("DrumLoopHalf->Next %d\n", drumNextState);
           //if state change;
           drumState = drumNextState;
           drumNextState = DrumNone;    
@@ -4854,7 +4495,8 @@ void prepareDrumSequencer()
       case DrumIntro:
         if (drumNextState == DrumNone) // start loop
         {
-          Serial.printf("DrumLoopIntro->DrumLoop\n");
+          if (debug)
+            Serial.printf("DrumLoopIntro->DrumLoop\n");
           DrumSequencerNotes = DrumIntroSequencer;
           //drumState = DrumLoop;
           //drumState = DrumIntro;
@@ -4862,7 +4504,8 @@ void prepareDrumSequencer()
         }
         else
         {
-          Serial.printf("DrumLoopIntro->? %d\n", drumNextState);
+          if (debug)
+            Serial.printf("DrumLoopIntro->? %d\n", drumNextState);
           //if state change;
           drumState = drumNextState;
           drumNextState = DrumNone;    
@@ -4880,13 +4523,15 @@ void prepareDrumSequencer()
       case DrumLoopFill:
         if (drumNextState == DrumNone) // continue loop
         {
-          Serial.printf("DrumLoopFill->DrumLoop\n");
-            DrumSequencerNotes = DrumLoopSequencer;
-            drumState = DrumLoop;
+          if (debug)
+            Serial.printf("DrumLoopFill->DrumLoop\n");
+          DrumSequencerNotes = DrumLoopSequencer;
+          drumState = DrumLoop;
         }
         else
         {
-          Serial.printf("DrumLoopFill->?\n");
+          if (debug)
+            Serial.printf("DrumLoopFill->?\n");
           //if state change;
           drumState = drumNextState;
           drumNextState = DrumNone;    
@@ -4896,13 +4541,15 @@ void prepareDrumSequencer()
       case DrumEnding:
         if (drumNextState == DrumIntro) // continue loop
         {
-          Serial.printf("DrumEnd->DrumIntro\n");
+          if (debug)
+            Serial.printf("DrumEnd->DrumIntro\n");
           DrumSequencerNotes = DrumIntroSequencer;
           drumState = DrumIntro;
         }
         else
         {
-          Serial.printf("DrumEnd->Stop\n");
+          if (debug)
+            Serial.printf("DrumEnd->Stop\n");
           drumState = DrumStopped; // should not loop or do anything else
         }
         break;
@@ -5004,13 +4651,13 @@ void noteChannelOff(uint8_t channel) {
 bool printFileContents(const char* filename, bool isSerialOut) {
   File f = SD.open(filename, FILE_READ);
   if (!f) {
-    if (!isSerialOut) {
+    if (!isSerialOut && debug) {
       Serial.printf("Failed to open %s for reading\n", filename);
     }
     return false;
   }
 
-  if (!isSerialOut) {
+  if (!isSerialOut && debug) {
     Serial.printf("Contents of %s:\n", filename);
   }
 
@@ -5019,14 +4666,15 @@ bool printFileContents(const char* filename, bool isSerialOut) {
     if (isSerialOut) {
       Serial.write(c);  // Print using printf
     } else {
-      Serial.printf("%c", c);  // Print using printf
+      if (debug)
+        Serial.printf("%c", c);  // Print using printf
     }
   }
 
   f.close();
-  if (isSerialOut) {
+  if (isSerialOut && debug) {
     Serial.write("\n");  // Print using printf
-  } else {
+  } else if (debug) {
     Serial.println();  // Optional: newline after file contents
   }
   return true;
@@ -5048,7 +4696,8 @@ bool savePatternRelatedConfig() {
   
     
   } else {
-    Serial.println("Error saving pattern related config!");
+    if (debug)
+      Serial.println("Error saving pattern related config!");
     return false;
   }
   f.close();
@@ -5069,8 +4718,8 @@ bool saveSimpleConfig() {
     f.print(buffer);
     snprintf(buffer, sizeof(buffer), "CUR_PRESET,%d\n", preset);
     f.print(buffer);
-    snprintf(buffer, sizeof(buffer), "debug,%d\n", debug);
-    f.print(buffer);
+    //snprintf(buffer, sizeof(buffer), "debug,%d\n", debug);
+    //f.print(buffer);
     //bool stopSoundsOnPresetChange = true;
     snprintf(buffer, sizeof(buffer), "stopSoundsOnPresetChange,%d\n", stopSoundsOnPresetChange ? 1 : 0);
     f.print(buffer);
@@ -5128,7 +4777,8 @@ bool saveSimpleConfig() {
       f.print(buffer);
     }
   } else {
-    Serial.println("Error saving simple config!");
+    if (debug)
+      Serial.println("Error saving simple config!");
     return false;
   }
   f.close();
@@ -5164,7 +4814,8 @@ bool saveComplexConfig() {
       }
     }
   } else {
-    Serial.println("Error saving complex config!");
+    if (debug)
+      Serial.println("Error saving complex config!");
     return false;
   }
   f.close();
@@ -5241,25 +4892,16 @@ void handleOmnichordBackingChange(uint8_t newBackingType)
     default:
       generateHiphop();    
   }
-  /*
-  for (int i = 0; i < BassSequencerPattern.size(); i++)
-  {
-    BassSequencerPattern[i].relativeOctave +=1;
-  }
-  for (int i = 0; i < AccompanimentSequencerPattern.size(); i++)
-  {
-    AccompanimentSequencerPattern[i].relativeOctave +=1;
-  }
-  */
 }
 bool saveSettings() {
   if (!saveSimpleConfig()) {
-    Serial.printf("Error loading Simple Config!\n");
+    if (debug)
+      Serial.printf("Error loading Simple Config!\n");
     return false;
   }
   if (!saveComplexConfig()) {
-
-    Serial.printf("Error loading Complex Config!\n");
+    if (debug)
+      Serial.printf("Error loading Complex Config!\n");
     return false;
   }
   return true;
@@ -5267,7 +4909,8 @@ bool saveSettings() {
 bool loadPatternRelatedConfig(){
 File f = SD.open("configP.ini", FILE_READ);
   if (!f) {
-    Serial.println("Error opening configP.ini for reading!");
+    if (debug)
+      Serial.println("Error opening configP.ini for reading!");
     return false;
   }
 
@@ -5296,10 +4939,10 @@ File f = SD.open("configP.ini", FILE_READ);
 bool loadSimpleConfig() {
   File f = SD.open("config.ini", FILE_READ);
   if (!f) {
-    Serial.println("Error opening config.ini for reading!");
+    if (debug)
+      Serial.println("Error opening config.ini for reading!");
     return false;
   }
-
   char line[64];
   while (f.available()) {
     size_t len = f.readBytesUntil('\n', line, sizeof(line) - 1);
@@ -5314,12 +4957,11 @@ bool loadSimpleConfig() {
     char* key = strtok(line, ",");
     char* arg1 = strtok(NULL, ",");
     char* arg2 = strtok(NULL, ",");
-
     if (!key || !arg1) continue;
     int readPreset = MAX_PRESET;
     if (strcmp(key, "MAX_PRESET") == 0) {
       readPreset = atoi(arg1);
-      if (readPreset > MAX_PRESET) {
+      if (readPreset > MAX_PRESET && debug) {
         Serial.printf("Error preset read is %d > MAX_PRESET\n", readPreset, MAX_PRESET);
         f.close();
         return false;
@@ -5336,8 +4978,8 @@ bool loadSimpleConfig() {
 
     } else if (strcmp(key, "stopSoundsOnPresetChange") == 0) {
       stopSoundsOnPresetChange = atoi(arg1);
-    } else if (strcmp(key, "debug") == 0) {
-      debug = atoi(arg1);
+    //} else if (strcmp(key, "debug") == 0) {
+//      debug = atoi(arg1);
     } else if (strcmp(key, "midiClockEnable") == 0) {
       midiClockEnable = atoi(arg1);
     } else if (arg2) {
@@ -5393,11 +5035,11 @@ bool loadSimpleConfig() {
   return true;
 }
 
-
 bool loadComplexConfig() {
   File f = SD.open("config2.ini", FILE_READ);
   if (!f) {
-    Serial.println("Error opening config2.ini for reading!");
+    if (debug)
+      Serial.println("Error opening config2.ini for reading!");
     return false;
   }
 
@@ -5445,8 +5087,23 @@ bool loadComplexConfig() {
       }
     }
   }
-
   f.close();
+  //update assignedFretPatternsByPreset's rootnotes
+  //todo check
+  for (int x = 0; x < MAX_PRESET; x++) 
+  {
+    for (int i = 0; i < NECK_ROWS; i++) 
+    {
+      for (int j = 0; j < NECK_COLUMNS; j++) 
+      { 
+        assignedFretPatternsByPreset[x][i * NECK_COLUMNS + j].assignedChord = getKeyboardChordNotesFromNeck(i, j, x);
+        assignedFretPatternsByPreset[x][i * NECK_COLUMNS + j].assignedGuitarChord = getGuitarChordNotesFromNeck(i, j, x);
+        assignedFretPatternsByPreset[x][i * NECK_COLUMNS + j].assignedChord.setRootNote((int)neckAssignments[x][i * NECK_COLUMNS + j].key + OMNICHORD_ROOT_START);  
+        //assignedFretPatterns.push_back(AssignedPattern(simpleChordSetting[x], getKeyboardChordNotesFromNeck(i, j, x), getGuitarChordNotesFromNeck(i, j, x), rootNotes[i], false, 0));
+        
+      }
+    }
+  }
   return true;
 }
 
@@ -5460,12 +5117,14 @@ bool loadSettings() {
     //file.print(buffer);
     if (!loadSimpleConfig()) {
       file.close();
-      Serial.printf("Error loading Simple Config!\n");
+      if (debug)
+        Serial.printf("Error loading Simple Config!\n");
       return false;
     }
     if (!loadComplexConfig()) {
       file.close();
-      Serial.printf("Error loading Complex Config!\n");
+      if (debug)
+        Serial.printf("Error loading Complex Config!\n");
       return false;
     }
     file.close();
@@ -5521,16 +5180,6 @@ void loop() {
     }
   }
   prevCCState = ccState;
-  /*
- // --- Button Handling ---
-  bool button1State = digitalRead(BUTTON_1_PIN);
-  if (button1State != prevButton1State && button1State == LOW) {
-    Serial.println("Button 1 Pressed");
-    preset = 0;
-
-  }
-  prevButton1State = button1State;
-*/
   prevButton2State = button2State;
   button2State = digitalRead(BUTTON_2_PIN);
 
@@ -5559,26 +5208,15 @@ void loop() {
       }
     }
   }
-
-  /*
-  bool button3State = digitalRead(BUTTON_3_PIN);
-  if (button3State != prevButton3State && button3State == LOW) {
-    Serial.println("Button 3 Pressed");
-    preset = 2;
-  }
-  prevButton3State = button3State;
-*/
-  // --- HM10 Bluetooth handling ---
-  // while (HM10_BLUETOOTH.available()) {
-  //   char c = HM10_BLUETOOTH.read();
-  //   Serial.print("[BT] ");
-  //   Serial.println(c); // You can customize this later (e.g., trigger MIDI)
-  // }
   usbMIDI.read();
   delayMicroseconds(5);
 }
 
 void printMemoryUsage() {
+  if (!debug)
+  {
+    return;
+  }
   char stack_dummy = 0;
 
   uintptr_t heap_end = (uintptr_t)sbrk(0);        // Heap grows upward
