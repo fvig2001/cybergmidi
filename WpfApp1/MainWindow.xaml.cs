@@ -20,6 +20,7 @@ namespace CyberG
     /// 
     public partial class MainWindow : Window
     {
+        private const int SAVEWINDOWID = 0;
         private const int MaxBackingState = 10;
         private const int MaxPatternID = 65535;
         private const int MaxStrumPatternVal = 2;
@@ -104,7 +105,7 @@ namespace CyberG
 
             if (dlg.ShowDialog() == true)
             {
-                ControlStateSerializer.SaveControlStates(this, dlg.FileName, 0);
+                ControlStateSerializer.SaveControlStates(this, dlg.FileName, SAVEWINDOWID);
                 Dictionary<string, string> toSave = new Dictionary<string, string>();
                 toSave["drumPatternID"] = drumPatternID.ToString();
                 toSave["backingPatternID"] = backingPatternID.ToString();
@@ -129,8 +130,7 @@ namespace CyberG
                 isSerialEnabled = false;
                 isLoadingFile = true;
                 ChangePicDisplayed();
-                bool ret = ControlStateSerializer.LoadControlStates(this, dlg.FileName, 0);
-                bool ret2 = ControlStateSerializer.LoadControlStates(this, dlg.FileName, 0);
+                bool ret = ControlStateSerializer.LoadControlStates(this, dlg.FileName, SAVEWINDOWID);
                 isLoadingFile = false;
                 isSerialEnabled = true;
                 ChangePicDisplayed();
