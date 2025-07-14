@@ -18,7 +18,7 @@ namespace CyberG
     class Config
     {
         //public const bool NODEVICEMODE = true;
-        public const bool NODEVICEMODE = false;
+        public const bool NODEVICEMODE = true;
         public const int PRESETMAX = 6;
         public const int MAINWINDOW_BPM_TAPS_MIN = 2;
         public const bool NEED_DEBUG_WINDOWS = true;

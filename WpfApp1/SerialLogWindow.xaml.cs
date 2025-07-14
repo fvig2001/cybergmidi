@@ -21,7 +21,7 @@ namespace CyberG
     /// </summary>
     public partial class SerialLogWindow : Window
     {
-        private ScrollViewer _scrollViewer;
+        private ScrollViewer _scrollViewer = new ScrollViewer();
         private bool _autoScroll = true;
         public SerialLogWindow()
         {

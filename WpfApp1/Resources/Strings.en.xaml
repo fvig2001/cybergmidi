@@ -4,12 +4,15 @@
     <sys:String x:Key="Enabled">Enabled</sys:String>
     <sys:String x:Key="Disabled">Disabled</sys:String>
     <sys:String x:Key="OmniMode1">Standard</sys:String>
-    <sys:String x:Key="OmniMode2">Omnichord Piano Chords</sys:String>
-    <sys:String x:Key="OmniMode3">Omnichord Piano Chords Auto Hold</sys:String>
+    <sys:String x:Key="OmniMode2">Standard Guitar Chords</sys:String>
+    <sys:String x:Key="OmniMode3">Omnichord Piano Chords</sys:String>
+
     <sys:String x:Key="OmniMode4">Omnichord Guitar Paddle</sys:String>
     <sys:String x:Key="StrumStyle1">Simple Chord Play</sys:String>
-    <sys:String x:Key="StrumStyle2">Manual Pattern Play</sys:String>
-    <sys:String x:Key="StrumStyle3">Auto Pattern Play</sys:String>
+    <sys:String x:Key="StrumStyle3">Manual Pattern Play</sys:String>
+    <sys:String x:Key="StrumStyle2">Auto Pattern Play</sys:String>
+    <sys:String x:Key="AlternatingStrum">Alternating Strum Direction</sys:String>
+
     <sys:String x:Key="Toggled">Toggled</sys:String>
     <sys:String x:Key="Pressed">Pressed</sys:String>
     <sys:String x:Key="ChordMode1">Complete Chords</sys:String>
@@ -73,11 +76,64 @@
     <sys:String x:Key="NotConnected">Not Connected</sys:String>
     <sys:String x:Key="Connected">Connected</sys:String>
     <sys:String x:Key="Send">Send</sys:String>
-
-
-
-
-
-
-
+    <sys:String x:Key="ErrLoadFile">Error loading file!</sys:String>
+    <sys:String x:Key="GotDisconnected">Serial device disconnected.</sys:String>
+    <sys:String x:Key="Command">Command</sys:String>
+    <sys:String x:Key="CommandNotOK">did not return OK</sys:String>
+    <sys:String x:Key="CommandReplyEmpty">returned empty?</sys:String>
+    <sys:String x:Key="Error">Error!</sys:String>
+    <sys:String x:Key="ErrorOnlyHas">only has</sys:String>
+    <sys:String x:Key="ErrorDataVs">data vs</sys:String>
+    <sys:String x:Key="ErrorDataReceivedAtPosition">data received at position</sys:String>
+    <sys:String x:Key="ErrorParsingCommand">Error! Parsing</sys:String>
+    <sys:String x:Key="ErrorParsingCommand2">encountered unexpected parsing issue.</sys:String>
+    <sys:String x:Key="SerialTimeout">Serial processing did not finish in time.</sys:String>
+    <sys:String x:Key="PresetEarlyReading">Error! Preset is Reading on Connection Window before actual planned reading.</sys:String>
+    <sys:String x:Key="FailedOpenConnectionWindow">Failed to open settings:</sys:String>
+    <sys:String x:Key="InvalidChordRootIndex">Error! Invalid index for Chord Root Setting</sys:String>
+    <sys:String x:Key="InvalidPatternSettingIndex">Error! Invalid index for Pattern Setting</sys:String>
+    <sys:String x:Key="NoDataReceived">Received Amount of Parsed Data on Serial is 0</sys:String>
+    <sys:String x:Key="WrongReply">Received wrong command's reply:</sys:String>
+    <sys:String x:Key="WrongDevice">is another device! Pick another COM port.</sys:String>
+    <sys:String x:Key="Preset">Preset</sys:String>
+    <sys:String x:Key="Mode">Mode</sys:String>
+    <sys:String x:Key="BPM">BPM</sys:String>
+    <sys:String x:Key="Tap">Tap</sys:String>
+    <sys:String x:Key="BassTrack">Bass Track</sys:String>
+    <sys:String x:Key="BackingTrack">Backing Track</sys:String>
+    <sys:String x:Key="DrumTrack">Drum Track</sys:String>
+    <sys:String x:Key="Capo">Capo</sys:String>
+    <sys:String x:Key="PaddleNoteTranspose">Paddle Note Transpose</sys:String>
+    <sys:String x:Key="StrumStyle">Strum Style</sys:String>
+    <sys:String x:Key="ChordHold">Chord Hold</sys:String>
+    <sys:String x:Key="SustainButtonMode">Sustain Button Mode</sys:String>
+    <sys:String x:Key="ChordButtonMode">Chord Button Mode</sys:String>
+    <sys:String x:Key="IgnoreSameChordButton">Ignore Same Chord Button</sys:String>
+    <sys:String x:Key="ProperOmnichord3rdNote">Proper Omnichord 3rd Note</sys:String>
+    <sys:String x:Key="StrumSeparation">Strum Separation</sys:String>
+    <sys:String x:Key="MuteSeparation">Mute Separation</sys:String>
+    <sys:String x:Key="Simple">Simple</sys:String>
+    <sys:String x:Key="Standard">Standard</sys:String>
+    <sys:String x:Key="A01">A01</sys:String>
+    <sys:String x:Key="A02">A02</sys:String>
+    <sys:String x:Key="A03">A03</sys:String>
+    <sys:String x:Key="B01">B01</sys:String>
+    <sys:String x:Key="B02">B02</sys:String>
+    <sys:String x:Key="B03">B03</sys:String>
+    <sys:String x:Key="C01">C01</sys:String>
+    <sys:String x:Key="C02">C02</sys:String>
+    <sys:String x:Key="C03">C03</sys:String>
+    <sys:String x:Key="D01">D01</sys:String>
+    <sys:String x:Key="D02">D02</sys:String>
+    <sys:String x:Key="D03">D03</sys:String>
+    <sys:String x:Key="E01">E01</sys:String>
+    <sys:String x:Key="E02">E02</sys:String>
+    <sys:String x:Key="E03">E03</sys:String>
+    <sys:String x:Key="F01">F01</sys:String>
+    <sys:String x:Key="F02">F02</sys:String>
+    <sys:String x:Key="F03">F03</sys:String>
+    <sys:String x:Key="G01">G01</sys:String>
+    <sys:String x:Key="G02">G02</sys:String>
+    <sys:String x:Key="G03">G03</sys:String>
+    <sys:String x:Key="InvalidGuitarPatternIndex">Error! Invalid guitar pattern index sent:</sys:String>
 </ResourceDictionary>

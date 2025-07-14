@@ -245,7 +245,7 @@
                                 <RowDefinition/>
                                 <RowDefinition Height="5"/>
                             </Grid.RowDefinitions>
-                            <Label Grid.Row="1" Content="Preset" HorizontalContentAlignment="Left" VerticalAlignment="Top"></Label>
+                            <Label Grid.Row="1" Content="{DynamicResource Preset}" HorizontalContentAlignment="Left" VerticalAlignment="Top"></Label>
                             <Grid Grid.Row="2">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="5"/>
@@ -265,7 +265,7 @@
                                 <RowDefinition/>
                                 <RowDefinition Height="5"/>
                             </Grid.RowDefinitions>
-                            <Label Grid.Row="1" Content="Mode" HorizontalContentAlignment="Left" VerticalAlignment="Top"></Label>
+                            <Label Grid.Row="1" Content="{DynamicResource Mode}" HorizontalContentAlignment="Left" VerticalAlignment="Top"></Label>
                             <Grid Grid.Row="2">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="5"/>
@@ -286,7 +286,7 @@
                                 <RowDefinition/>
                                 <RowDefinition Height="5"/>
                             </Grid.RowDefinitions>
-                            <Label Grid.Row="1" Content="BPM" HorizontalContentAlignment="Left" VerticalAlignment="Top"></Label>
+                            <Label Grid.Row="1" Content="{DynamicResource BPM}" HorizontalContentAlignment="Left" VerticalAlignment="Top"></Label>
                             <Grid Grid.Row="2">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="5"/>
@@ -296,7 +296,7 @@
                                     <ColumnDefinition Width="5"/>
                                 </Grid.ColumnDefinitions>
                                 <TextBox Grid.Column="1" Text="0" Name="bpmTextbox" VerticalAlignment="Top" Height="22" LostFocus="bpmTextbox_LostFocus" PreviewKeyDown="bpmTextbox_PreviewKeyDown"/>
-                                <Button Grid.Column="3" Content="Tap" Name="bpmButton" VerticalAlignment="Top" Height="22" Click="BpmButton_Click"/>
+                                <Button Grid.Column="3" Content="{DynamicResource Tap}" Name="bpmButton" VerticalAlignment="Top" Height="22" Click="BpmButton_Click"/>
                             </Grid>
 
 
@@ -308,7 +308,7 @@
                                 <RowDefinition/>
                                 <RowDefinition Height="5"/>
                             </Grid.RowDefinitions>
-                            <Label Grid.Row="1" Content="Bass Track" HorizontalContentAlignment="Left" VerticalAlignment="Top"></Label>
+                            <Label Grid.Row="1" Content="{DynamicResource BassTrack}" HorizontalContentAlignment="Left" VerticalAlignment="Top"></Label>
                             <Grid Grid.Row="2">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="5"/>
@@ -325,7 +325,7 @@
                                 <RowDefinition/>
                                 <RowDefinition Height="5"/>
                             </Grid.RowDefinitions>
-                            <Label Grid.Row="1" Content="Backing Track" HorizontalContentAlignment="Left" VerticalAlignment="Top"></Label>
+                            <Label Grid.Row="1" Content="{DynamicResource BackingTrack}" HorizontalContentAlignment="Left" VerticalAlignment="Top"></Label>
                             <Grid Grid.Row="2">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="5"/>
@@ -343,7 +343,7 @@
                                 <RowDefinition/>
                                 <RowDefinition Height="5"/>
                             </Grid.RowDefinitions>
-                            <Label Grid.Row="1" Content="Drum Track" HorizontalContentAlignment="Left" VerticalAlignment="Top"></Label>
+                            <Label Grid.Row="1" Content="{DynamicResource DrumTrack}" HorizontalContentAlignment="Left" VerticalAlignment="Top"></Label>
                             <Grid Grid.Row="2">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="5"/>
@@ -438,7 +438,7 @@
                             <RowDefinition Height="5"/>
 
                         </Grid.RowDefinitions>
-                        <Label Grid.Row="1" Padding="0" Content="Capo" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+                        <Label Grid.Row="1" Padding="0" Content="{DynamicResource Capo}" HorizontalAlignment="Left" VerticalAlignment="Top"/>
                         <TextBox Grid.Row="2" HorizontalAlignment="Left" VerticalAlignment="Top" Name="capoTextbox" Width="40" Text="0" LostFocus="capoTextbox_LostFocus" PreviewKeyDown="capoTextbox_PreviewKeyDown"/>
                         <Slider Grid.Row="3" Name="capoSlider" Width="40" HorizontalAlignment="Left" ValueChanged="capoSlider_ValueChanged"/>
                     </Grid>
@@ -451,7 +451,7 @@
                             <RowDefinition Height="5"/>
 
                         </Grid.RowDefinitions>
-                        <Label Grid.Row="1" Padding="0" Content="Paddle Note Transpose" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+                        <Label Grid.Row="1" Padding="0" Content="{DynamicResource PaddleNoteTranspose}" HorizontalAlignment="Left" VerticalAlignment="Top"/>
                         <TextBox Grid.Row="2" HorizontalAlignment="Left" VerticalAlignment="Top" Name="kbTransposeTextbox" Width="40" Text="0" LostFocus="kbTransposeTextbox_LostFocus" PreviewKeyDown="kbTransposeTextbox_PreviewKeyDown"/>
                         <Slider Grid.Row="3" Name="kbTransposeSlider" Width="40" HorizontalAlignment="Left" ValueChanged="kbTransposeSlider_ValueChanged"/>
                     </Grid>
@@ -463,7 +463,7 @@
                             <RowDefinition Height="5"/>
 
                         </Grid.RowDefinitions>
-                        <Label Grid.Row="1" Padding="0" Content="Strum Style" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+                        <Label Grid.Row="1" Padding="0" Content="{DynamicResource StrumStyle}" HorizontalAlignment="Left" VerticalAlignment="Top"/>
                         <ComboBox Grid.Row="2" HorizontalAlignment="Left" VerticalAlignment="Top" Name="strumStyleComboBox" Width="140"/>
 
                     </Grid>
@@ -475,7 +475,7 @@
                             <RowDefinition Height="5"/>
 
                         </Grid.RowDefinitions>
-                        <Label Grid.Row="1" Padding="0" Content="Chord Hold" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+                        <Label Grid.Row="1" Padding="0" Content="{DynamicResource ChordHold}" HorizontalAlignment="Left" VerticalAlignment="Top"/>
                         <ComboBox Grid.Row="2" HorizontalAlignment="Left" VerticalAlignment="Top" Name="chordHoldComboBox" Width="80"/>
 
                     </Grid>
@@ -503,7 +503,7 @@
                             <RowDefinition Height="5"/>
 
                         </Grid.RowDefinitions>
-                        <Label Grid.Row="1" Padding="0" Content="Sustain Button Mode" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+                        <Label Grid.Row="1" Padding="0" Content="{DynamicResource SustainButtonMode}" HorizontalAlignment="Left" VerticalAlignment="Top"/>
                         <ComboBox Grid.Row="2" HorizontalAlignment="Left" VerticalAlignment="Top" Name="sustainModeComboBox" Width="80"/>
 
                     </Grid>
@@ -515,7 +515,7 @@
                             <RowDefinition Height="5"/>
 
                         </Grid.RowDefinitions>
-                        <Label Grid.Row="1" Padding="0" Content="Chord Button Mode" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+                        <Label Grid.Row="1" Padding="0" Content="{DynamicResource ChordButtonMode}" HorizontalAlignment="Left" VerticalAlignment="Top"/>
                         <ComboBox Grid.Row="2" HorizontalAlignment="Left" VerticalAlignment="Top" Name="chordButtonModeComboBox" Width="140"/>
 
                     </Grid>
@@ -527,7 +527,7 @@
                             <RowDefinition Height="5"/>
 
                         </Grid.RowDefinitions>
-                        <Label Grid.Row="1" Padding="0" Content="Ignore Same Chord Button" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+                        <Label Grid.Row="1" Padding="0" Content="{DynamicResource IgnoreSameChordButton}" HorizontalAlignment="Left" VerticalAlignment="Top"/>
                         <ComboBox Grid.Row="2" HorizontalAlignment="Left" VerticalAlignment="Top" Name="ignoreSameButtonComboBox" Width="80"/>
 
                     </Grid>
@@ -539,7 +539,7 @@
                             <RowDefinition Height="5"/>
 
                         </Grid.RowDefinitions>
-                        <Label Grid.Row="1" Padding="0" Content="Proper Omnichord 3rd Note" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+                        <Label Grid.Row="1" Padding="0" Content="{DynamicResource ProperOmnichord3rdNote}" HorizontalAlignment="Left" VerticalAlignment="Top"/>
                         <ComboBox Grid.Row="2" HorizontalAlignment="Left" VerticalAlignment="Top" Name="lower5thComboBox" Width="80"/>
 
                     </Grid>
@@ -552,7 +552,7 @@
                             <RowDefinition Height="5"/>
 
                         </Grid.RowDefinitions>
-                        <Label Grid.Row="1" Padding="0" Content="Strum Separation" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+                        <Label Grid.Row="1" Padding="0" Content="{DynamicResource StrumSeparation}" HorizontalAlignment="Left" VerticalAlignment="Top"/>
                         <TextBox Grid.Row="2" HorizontalAlignment="Left" VerticalAlignment="Top" Name="strumSeparationTextbox" Width="40" Text="0" LostFocus="strumSeparationTextbox_LostFocus" PreviewKeyDown="strumSeparationTextbox_PreviewKeyDown"/>
                         <Slider Grid.Row="3" Name="strumSeparationSlider" Width="40" HorizontalAlignment="Left" ValueChanged="strumSeparationSlider_ValueChanged"/>
                     </Grid>
@@ -565,7 +565,7 @@
                             <RowDefinition Height="5"/>
 
                         </Grid.RowDefinitions>
-                        <Label Grid.Row="1" Padding="0" Content="Mute Separation" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+                        <Label Grid.Row="1" Padding="0" Content="{DynamicResource MuteSeparation}" HorizontalAlignment="Left" VerticalAlignment="Top"/>
                         <TextBox Grid.Row="2" HorizontalAlignment="Left" VerticalAlignment="Top" Name="muteSeparationTextbox" Width="40" Text="0" LostFocus="muteSeparationTextbox_LostFocus" PreviewKeyDown="muteSeparationTextbox_PreviewKeyDown"/>
                         <Slider Grid.Row="3" Name="muteSeparationSlider" Width="40" HorizontalAlignment="Left" ValueChanged="muteSeparationSlider_ValueChanged"/>
                     </Grid>
@@ -607,8 +607,8 @@
                         <ColumnDefinition Width="5"/>
 
                     </Grid.ColumnDefinitions>
-                    <RadioButton Grid.Column="1" Content="Simple" Name="simpleRadioButton" VerticalAlignment="Center" GroupName="FretMode" Checked="simpleRadioButton_Checked"/>
-                    <RadioButton Grid.Column="3" Content="Standard" Name="standardRadioButton" VerticalAlignment="Center" GroupName="FretMode" Checked="standardRadioButton_Checked"/>
+                    <RadioButton Grid.Column="1" Content="{DynamicResource Simple}" Name="simpleRadioButton" VerticalAlignment="Center" GroupName="FretMode" Checked="simpleRadioButton_Checked"/>
+                    <RadioButton Grid.Column="3" Content="{DynamicResource Standard}" Name="standardRadioButton" VerticalAlignment="Center" GroupName="FretMode" Checked="standardRadioButton_Checked"/>
                     <ComboBox Grid.Column="5" HorizontalAlignment="Center" VerticalAlignment="Center" Width="146" Name="setAllGuitarPatternComboBox"/>
                     <Button Grid.Column="7" Name="stopButton" VerticalAlignment="Center" Height="28" Width="28" Click="stopButton_Click"/>
                 </Grid>
@@ -649,7 +649,7 @@
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="2"/>
                             </Grid.ColumnDefinitions>
-                            <Label Grid.Column="1" Content="A01" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <Label Grid.Column="1" Content="{DynamicResource A01}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             <ComboBox Grid.Column="3" HorizontalAlignment="Center" VerticalAlignment="Center" Width="48" Name="A01ComboRoot"/>
                         </Grid>
                         <Grid Grid.Row="2">
@@ -686,7 +686,7 @@
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="2"/>
                             </Grid.ColumnDefinitions>
-                            <Label Grid.Column="1" Content="A02" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <Label Grid.Column="1" Content="{DynamicResource A02}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             <ComboBox Grid.Column="3" HorizontalAlignment="Center" VerticalAlignment="Center" Width="48" Name="A02ComboRoot"/>
                         </Grid>
                         <Grid Grid.Row="2">
@@ -725,7 +725,7 @@
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="2"/>
                             </Grid.ColumnDefinitions>
-                            <Label Grid.Column="1" Content="A03" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <Label Grid.Column="1" Content="{DynamicResource A03}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             <ComboBox Grid.Column="3" HorizontalAlignment="Center" VerticalAlignment="Center" Width="48" Name="A03ComboRoot"/>
                         </Grid>
                         <Grid Grid.Row="2">
@@ -775,7 +775,7 @@
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="2"/>
                             </Grid.ColumnDefinitions>
-                            <Label Grid.Column="1" Content="B01" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <Label Grid.Column="1" Content="{DynamicResource B01}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             <ComboBox Grid.Column="3" HorizontalAlignment="Center" VerticalAlignment="Center" Width="48" Name="B01ComboRoot"/>
                         </Grid>
                         <Grid Grid.Row="2">
@@ -812,7 +812,7 @@
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="2"/>
                             </Grid.ColumnDefinitions>
-                            <Label Grid.Column="1" Content="B02" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <Label Grid.Column="1" Content="{DynamicResource B02}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             <ComboBox Grid.Column="3" HorizontalAlignment="Center" VerticalAlignment="Center" Width="48" Name="B02ComboRoot"/>
                         </Grid>
                         <Grid Grid.Row="2">
@@ -851,7 +851,7 @@
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="2"/>
                             </Grid.ColumnDefinitions>
-                            <Label Grid.Column="1" Content="B03" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <Label Grid.Column="1" Content="{DynamicResource B03}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             <ComboBox Grid.Column="3" HorizontalAlignment="Center" VerticalAlignment="Center" Width="48" Name="B03ComboRoot"/>
                         </Grid>
                         <Grid Grid.Row="2">
@@ -901,7 +901,7 @@
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="2"/>
                             </Grid.ColumnDefinitions>
-                            <Label Grid.Column="1" Content="C01" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <Label Grid.Column="1" Content="{DynamicResource C01}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             <ComboBox Grid.Column="3" HorizontalAlignment="Center" VerticalAlignment="Center" Width="48" Name="C01ComboRoot"/>
                         </Grid>
                         <Grid Grid.Row="2">
@@ -938,7 +938,7 @@
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="2"/>
                             </Grid.ColumnDefinitions>
-                            <Label Grid.Column="1" Content="C02" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <Label Grid.Column="1" Content="{DynamicResource C02}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             <ComboBox Grid.Column="3" HorizontalAlignment="Center" VerticalAlignment="Center" Width="48" Name="C02ComboRoot"/>
                         </Grid>
                         <Grid Grid.Row="2">
@@ -977,7 +977,7 @@
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="2"/>
                             </Grid.ColumnDefinitions>
-                            <Label Grid.Column="1" Content="C03" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <Label Grid.Column="1" Content="{DynamicResource C03}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             <ComboBox Grid.Column="3" HorizontalAlignment="Center" VerticalAlignment="Center" Width="48" Name="C03ComboRoot"/>
                         </Grid>
                         <Grid Grid.Row="2">
@@ -1026,7 +1026,7 @@
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="2"/>
                             </Grid.ColumnDefinitions>
-                            <Label Grid.Column="1" Content="D01" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <Label Grid.Column="1" Content="{DynamicResource D01}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             <ComboBox Grid.Column="3" HorizontalAlignment="Center" VerticalAlignment="Center" Width="48" Name="D01ComboRoot"/>
                         </Grid>
                         <Grid Grid.Row="2">
@@ -1063,7 +1063,7 @@
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="2"/>
                             </Grid.ColumnDefinitions>
-                            <Label Grid.Column="1" Content="D02" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <Label Grid.Column="1" Content="{DynamicResource D02}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             <ComboBox Grid.Column="3" HorizontalAlignment="Center" VerticalAlignment="Center" Width="48" Name="D02ComboRoot"/>
                         </Grid>
                         <Grid Grid.Row="2">
@@ -1102,7 +1102,7 @@
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="2"/>
                             </Grid.ColumnDefinitions>
-                            <Label Grid.Column="1" Content="D03" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <Label Grid.Column="1" Content="{DynamicResource D03}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             <ComboBox Grid.Column="3" HorizontalAlignment="Center" VerticalAlignment="Center" Width="48" Name="D03ComboRoot"/>
                         </Grid>
                         <Grid Grid.Row="2">
@@ -1151,7 +1151,7 @@
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="2"/>
                             </Grid.ColumnDefinitions>
-                            <Label Grid.Column="1" Content="E01" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <Label Grid.Column="1" Content="{DynamicResource E01}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             <ComboBox Grid.Column="3" HorizontalAlignment="Center" VerticalAlignment="Center" Width="48" Name="E01ComboRoot"/>
                         </Grid>
                         <Grid Grid.Row="2">
@@ -1188,7 +1188,7 @@
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="2"/>
                             </Grid.ColumnDefinitions>
-                            <Label Grid.Column="1" Content="E02" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <Label Grid.Column="1" Content="{DynamicResource E02}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             <ComboBox Grid.Column="3" HorizontalAlignment="Center" VerticalAlignment="Center" Width="48" Name="E02ComboRoot"/>
                         </Grid>
                         <Grid Grid.Row="2">
@@ -1227,7 +1227,7 @@
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="2"/>
                             </Grid.ColumnDefinitions>
-                            <Label Grid.Column="1" Content="E03" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <Label Grid.Column="1" Content="{DynamicResource E03}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             <ComboBox Grid.Column="3" HorizontalAlignment="Center" VerticalAlignment="Center" Width="48" Name="E03ComboRoot"/>
                         </Grid>
                         <Grid Grid.Row="2">
@@ -1276,7 +1276,7 @@
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="2"/>
                             </Grid.ColumnDefinitions>
-                            <Label Grid.Column="1" Content="F01" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <Label Grid.Column="1" Content="{DynamicResource F01}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             <ComboBox Grid.Column="3" HorizontalAlignment="Center" VerticalAlignment="Center" Width="48" Name="F01ComboRoot"/>
                         </Grid>
                         <Grid Grid.Row="2">
@@ -1313,7 +1313,7 @@
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="2"/>
                             </Grid.ColumnDefinitions>
-                            <Label Grid.Column="1" Content="F02" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <Label Grid.Column="1" Content="{DynamicResource F02}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             <ComboBox Grid.Column="3" HorizontalAlignment="Center" VerticalAlignment="Center" Width="48" Name="F02ComboRoot"/>
                         </Grid>
                         <Grid Grid.Row="2">
@@ -1352,7 +1352,7 @@
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="2"/>
                             </Grid.ColumnDefinitions>
-                            <Label Grid.Column="1" Content="F03" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <Label Grid.Column="1" Content="{DynamicResource F03}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             <ComboBox Grid.Column="3" HorizontalAlignment="Center" VerticalAlignment="Center" Width="48" Name="F03ComboRoot"/>
                         </Grid>
                         <Grid Grid.Row="2">
@@ -1401,7 +1401,7 @@
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="2"/>
                             </Grid.ColumnDefinitions>
-                            <Label Grid.Column="1" Content="G01" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <Label Grid.Column="1" Content="{DynamicResource G01}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             <ComboBox Grid.Column="3" HorizontalAlignment="Center" VerticalAlignment="Center" Width="48" Name="G01ComboRoot"/>
                         </Grid>
                         <Grid Grid.Row="2">
@@ -1438,7 +1438,7 @@
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="2"/>
                             </Grid.ColumnDefinitions>
-                            <Label Grid.Column="1" Content="G02" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <Label Grid.Column="1" Content="{DynamicResource G02}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             <ComboBox Grid.Column="3" HorizontalAlignment="Center" VerticalAlignment="Center" Width="48" Name="G02ComboRoot"/>
                         </Grid>
                         <Grid Grid.Row="2">
@@ -1477,7 +1477,7 @@
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="2"/>
                             </Grid.ColumnDefinitions>
-                            <Label Grid.Column="1" Content="G03" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <Label Grid.Column="1" Content="{DynamicResource G03}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             <ComboBox Grid.Column="3" HorizontalAlignment="Center" VerticalAlignment="Center" Width="48" Name="G03ComboRoot"/>
                         </Grid>
                         <Grid Grid.Row="2">

@@ -58,6 +58,18 @@ public class SerialDevice
     public const string GET_NECK_PATTERN = "NAPR";
     public const string SET_NECK_PATTERN = "NAPW";
     public const string STOP_ALL_NOTES = "STOP";
+    public const string GET_BACKING_ID = "AIDR";
+    public const string SET_BACKING_ID = "AIDW";
+    public const string GET_DRUM_ID = "DIDR";
+    public const string SET_DRUM_ID = "DIDW";
+    public const string GET_BASS_ID = "BIDR";
+    public const string SET_BASS_ID = "BIDW";
+    public const string GET_GUITAR_ID = "GIDR";
+    public const string SET_GUITAR_ID = "GIDW";
+    public const string GET_BACKING_STATE = "HBCR";
+    public const string SET_BACKING_STATE = "HBCW";
+
+
     public const bool ignoreGetPreset = false;
     public const bool ignoreGetKB = false;
     private bool isWaiting = false;
@@ -333,13 +345,12 @@ public class SerialDevice
         catch (TimeoutException)
         {
             // No full line received yet
-            int i = 0;
         }
-        catch (IOException ex)
+        catch (IOException)
         {
             OnDeviceDisconnected();
         }
-        catch (InvalidOperationException ex)
+        catch (InvalidOperationException)
         {
             OnDeviceDisconnected();
         }
@@ -353,8 +364,8 @@ public class SerialDevice
 
     private class CommandItem
     {
-        public string Command;
-        public string Param;
+        public string Command = "";
+        public string Param = "";
     }
 }
 

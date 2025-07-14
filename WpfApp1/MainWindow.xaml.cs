@@ -1,4 +1,6 @@
-﻿using System.Text;
+﻿using Microsoft.Win32;
+using System.Collections.Generic;
+using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
@@ -18,6 +20,8 @@ namespace CyberG
     /// 
     public partial class MainWindow : Window
     {
+        private const int MaxBackingState = 10;
+        private const int MaxPatternID = 65535;
         private const int MaxStrumPatternVal = 2;
         private const int MaxNoteVal = 11;
         private const int MaxChordVal = 29;
@@ -28,6 +32,7 @@ namespace CyberG
         private bool isSerialEnabled = false; //disable pinging of keyboard and preset
         private bool isKeyboard = false;
         private bool isPresetReading = false;
+        private bool isLoadingFile = false;
         private DebugLogWindow _debugLogWindow;
         private SerialLogWindow _serialLogWindow;
         private DispatcherTimer _serialPingTimer;
@@ -55,6 +60,15 @@ namespace CyberG
         private const int MinTaps = Config.MAINWINDOW_BPM_TAPS_MIN;
         private volatile bool isExpectingSerialData = false;
         private bool initDone = false;
+        public int drumPatternID = -1;
+        public int bassPatternID = -1;
+        public int backingPatternID = -1;
+        public int[] guitarPatternID = { -1, -1, -1 };
+        public int lastdrumPatternID = -1;
+        public int lastbassPatternID = -1;
+        public int lastbackingPatternID = -1;
+        public int[] lastguitarPatternID = { -1, -1, -1 };
+        public int backingState = 0;
         public MainWindow()
         {
             SetLanguage("en"); //default english
@@ -78,6 +92,115 @@ namespace CyberG
             }
             initDone = true;
         }
+
+        private void saveButton_Click(object sender, RoutedEventArgs e)
+        {
+            var dlg = new SaveFileDialog
+            {
+                Filter = "JSON files (*.json)|*.json|All files (*.*)|*.*",
+                DefaultExt = ".json",
+                FileName = "controls.json"
+            };
+
+            if (dlg.ShowDialog() == true)
+            {
+                ControlStateSerializer.SaveControlStates(this, dlg.FileName, 0);
+                Dictionary<string, string> toSave = new Dictionary<string, string>();
+                toSave["drumPatternID"] = drumPatternID.ToString();
+                toSave["backingPatternID"] = backingPatternID.ToString();
+                toSave["bassPatternID"] = bassPatternID.ToString();
+                toSave["guitarPatternID0"] = guitarPatternID[0].ToString();
+                toSave["guitarPatternID1"] = guitarPatternID[1].ToString();
+                toSave["guitarPatternID2"] = guitarPatternID[2].ToString();
+                ControlStateSerializer.SaveManualSettings(dlg.FileName, toSave);
+            }
+
+        }
+
+        private void loadButton_Click(object sender, RoutedEventArgs e)
+        {
+            var dlg = new OpenFileDialog
+            {
+                Filter = "JSON files (*.json)|*.json|All files (*.*)|*.*"
+            };
+
+            if (dlg.ShowDialog() == true)
+            {
+                isSerialEnabled = false;
+                isLoadingFile = true;
+                ChangePicDisplayed();
+                bool ret = ControlStateSerializer.LoadControlStates(this, dlg.FileName, 0);
+                bool ret2 = ControlStateSerializer.LoadControlStates(this, dlg.FileName, 0);
+                isLoadingFile = false;
+                isSerialEnabled = true;
+                ChangePicDisplayed();
+                if (!ret)
+                {
+                    MessageBox.Show((string)Application.Current.Resources["ErrLoadFile"]);
+                    Dictionary<string, string> loadedSettings = ControlStateSerializer.LoadManualSettings(dlg.FileName);
+                    if (loadedSettings.TryGetValue("drumPatternID", out string drumVal))
+                    {
+                        lastdrumPatternID = drumPatternID;
+                        drumPatternID = int.Parse(drumVal);
+                    }
+
+                    if (loadedSettings.TryGetValue("backingPatternID", out string backingVal))
+                    {
+                        lastbackingPatternID = backingPatternID;
+                        backingPatternID = int.Parse(backingVal); 
+                    }
+
+                    if (loadedSettings.TryGetValue("bassPatternID", out string bassVal))
+                    {
+                        lastbassPatternID = backingPatternID;
+                        bassPatternID = int.Parse(bassVal);
+                    }
+
+                    if (loadedSettings.TryGetValue("guitarPatternID0", out string g0))
+                    {
+                        lastguitarPatternID[0] = backingPatternID;
+                        guitarPatternID[0] = int.Parse(g0);
+                    }
+                    if (loadedSettings.TryGetValue("guitarPatternID1", out string g1))
+                    {
+                        lastguitarPatternID[1] = backingPatternID;
+                        guitarPatternID[1] = int.Parse(g1);
+                    }
+
+                    if (loadedSettings.TryGetValue("guitarPatternID2", out string g2))
+                    {
+                        lastguitarPatternID[2] = backingPatternID;
+                        guitarPatternID[2] = int.Parse(g2);
+                    }
+                    //todo Add code to load the pattern from the library if it is not the same:
+                    if (lastdrumPatternID != drumPatternID && lastdrumPatternID > 0)
+                    { 
+                        //load drum pattern
+                    }
+                    if (lastbackingPatternID != backingPatternID && lastbackingPatternID > 0)
+                    {
+                        //load backing pattern
+                    }
+                    if (lastbassPatternID != bassPatternID && lastbassPatternID > 0)
+                    {
+                        //load bass pattern
+                    }
+                    if (lastguitarPatternID[0] != guitarPatternID[0] && lastguitarPatternID[0] > 0)
+                    {
+                        //load guitar pattern 0
+                    }
+                    if (lastguitarPatternID[1] != guitarPatternID[1] && lastguitarPatternID[1] > 0)
+                    {
+                        //load guitar pattern 1
+                    }
+                    if (lastguitarPatternID[2] != guitarPatternID[2] && lastguitarPatternID[2] > 0)
+                    {
+                        //load guitar pattern 2
+                    }
+                }
+            }
+        }
+        
         private void ChangePicDisplayed()
         {
             Dispatcher.Invoke(() =>
@@ -87,7 +210,11 @@ namespace CyberG
                 {
                     if (!isPresetReading)
                     {
-                         pic = new BitmapImage(new Uri("pack://application:,,,/Images/pianoReady.png"));
+                        pic = new BitmapImage(new Uri("pack://application:,,,/Images/pianoReady.png"));
+                    }
+                    else if (!isLoadingFile)
+                    {
+                        pic = new BitmapImage(new Uri("pack://application:,,,/Images/pianoLoad.png"));
                     }
                     else
                     {
@@ -99,6 +226,10 @@ namespace CyberG
                     if (!isPresetReading)
                     {
                         pic = new BitmapImage(new Uri("pack://application:,,,/Images/guitarReady.png"));
+                    }
+                    else if (!isLoadingFile)
+                    {
+                        pic = new BitmapImage(new Uri("pack://application:,,,/Images/guitarLoad.png"));
                     }
                     else
                     {
@@ -123,7 +254,6 @@ namespace CyberG
         {
             if (!SerialManager.isDeviceConnected())
             {
-                //DebugLog.addToLog(debugType.sendDebug, "Error! Tried to send " + cmd + " while device is disconected.");
                 if (SerialManager.Device != null)
                 {
                     SerialManager.Device.RaiseDeviceDisconnected();
@@ -134,9 +264,8 @@ namespace CyberG
             {
                 SerialManager.Device.Send(cmd, param); // Or your custom heartbeat command
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                //addToDebugLog(debugType.sendDebug, "Error sending " + cmd);
                 
                 if (SerialManager.isInitialized() && SerialManager.Device.HasDisconnectHandler(OnMainDeviceDisconnectedReceived))
                 {
@@ -178,7 +307,15 @@ namespace CyberG
             SendCmd(SerialDevice.GET_CHORD_MODE, curPreset.ToString());
             SendCmd(SerialDevice.GET_IGNORE_MODE, curPreset.ToString());
             SendCmd(SerialDevice.GET_PROPER_OMNICHORD, curPreset.ToString());
-            
+
+            SendCmd(SerialDevice.GET_BACKING_STATE, "");
+            SendCmd(SerialDevice.GET_DRUM_ID, "");
+            SendCmd(SerialDevice.GET_BASS_ID, "");
+            SendCmd(SerialDevice.GET_BACKING_ID, "");
+            SendCmd(SerialDevice.GET_GUITAR_ID, "0");
+            SendCmd(SerialDevice.GET_GUITAR_ID, "1");
+            SendCmd(SerialDevice.GET_GUITAR_ID, "2");
+
             for (int i = 0; i < NECK_ROWS; i++)
             {
                 for (int j = 0; j < NECK_COLS; j++)
@@ -266,7 +403,7 @@ namespace CyberG
             Dispatcher.Invoke(() =>
             {
                 //MessageBox.Show("Serial device disconnected.");
-                MessageBox.Show(this, "Serial device disconnected.");
+                MessageBox.Show(this, (string)Application.Current.Resources["GotDisconnected"]);
                 isSerialEnabled = false;
                 PauseSerial();
                 openConnectionWindow(true);
@@ -280,7 +417,7 @@ namespace CyberG
             {
                 if (parsedData[0] != "OK")
                 {
-                    DebugLog.addToLog(debugType.replyDebug, "Command " + SerialManager.Device.LastCommandSent + " did not return OK");
+                    DebugLog.addToLog(debugType.replyDebug, (string)Application.Current.Resources["Command"] + " " + SerialManager.Device.LastCommandSent + " " + (string)Application.Current.Resources["CommandNotOK"]);
                 }
                 else 
                 {
@@ -289,7 +426,7 @@ namespace CyberG
             }
             else
             {
-                DebugLog.addToLog(debugType.replyDebug, "Command " + SerialManager.Device.LastCommandSent + " returned empty?");
+                DebugLog.addToLog(debugType.replyDebug, (string)Application.Current.Resources["Command"] + " " + SerialManager.Device.LastCommandSent + " " + (string)Application.Current.Resources["CommandReplyEmpty"]);
             }
             return false;
         }
@@ -298,7 +435,7 @@ namespace CyberG
             string command = SerialManager.Device.LastCommandSent;
             if (parsedData.Count < expected)
             {
-                addToDebugLog(debugType.replyDebug, "Error! " + command.ToString() + " only has " + parsedData.Count() + " data vs " + expected.ToString());
+                addToDebugLog(debugType.replyDebug, (string)Application.Current.Resources["Error"] + " " + command.ToString() + " " + (string)Application.Current.Resources["ErrorOnlyHas"] + " " + parsedData.Count() + " " + (string)Application.Current.Resources["ErrorDataVs"] + " " + expected.ToString());
                 return false;
             }
             return true;
@@ -308,12 +445,12 @@ namespace CyberG
             string command = SerialManager.Device.LastCommandSent;
             if (val > max)
             {
-                addToDebugLog(debugType.replyDebug, "Error " + command + " data received at position " + pos.ToString() + " " + val.ToString()  + " > " + max.ToString());
+                addToDebugLog(debugType.replyDebug, (string)Application.Current.Resources["Error"] + " " + command + " " + (string)Application.Current.Resources["ErrorDataReceivedAtPosition"] + " " + pos.ToString() + " " + val.ToString()  + " > " + max.ToString());
                 return false;
             }
             if (val < min)
             {
-                addToDebugLog(debugType.replyDebug, "Error " + command + " data received at position " + pos.ToString() + " " + val.ToString() + " < " + min.ToString());
+                addToDebugLog(debugType.replyDebug, (string)Application.Current.Resources["Error"] + " " + command + (string)Application.Current.Resources["ErrorDataReceivedAtPosition"] + " " + pos.ToString() + " " + val.ToString() + " < " + min.ToString());
                 return false;
             }
 
@@ -476,6 +613,45 @@ namespace CyberG
 
 
             else if (command == SerialDevice.SET_BPM)
+            {
+                if (!checkCommandParamCount(parsedData, 2))
+                {
+                    return false;
+                }
+            }
+
+            else if (command == SerialDevice.SET_BACKING_STATE)
+            {
+                if (!checkCommandParamCount(parsedData, 2))
+                {
+                    return false;
+                }
+            }
+
+            else if (command == SerialDevice.SET_DRUM_ID)
+            {
+                if (!checkCommandParamCount(parsedData, 2))
+                {
+                    return false;
+                }
+            }
+
+            else if (command == SerialDevice.SET_BASS_ID)
+            {
+                if (!checkCommandParamCount(parsedData, 2))
+                {
+                    return false;
+                }
+            }
+
+            else if (command == SerialDevice.SET_BACKING_ID)
+            {
+                if (!checkCommandParamCount(parsedData, 2))
+                {
+                    return false;
+                }
+            }
+            else if (command == SerialDevice.SET_GUITAR_ID)
             {
                 if (!checkCommandParamCount(parsedData, 2))
                 {
@@ -784,6 +960,83 @@ namespace CyberG
                     }
                 }
             }
+
+            else if (command == SerialDevice.GET_BACKING_STATE)
+            {
+                if (!checkCommandParamCount(parsedData, 3))
+                {
+                    return false;
+                }
+                else
+                {
+                    nTemp = int.Parse(parsedData[2]);
+                    if (!checkCommandParameterRange(0, MaxBackingState, nTemp, 0))
+                    {
+                        return false;
+                    }
+                }
+            }
+            else if (command == SerialDevice.GET_DRUM_ID)
+            {
+                if (!checkCommandParamCount(parsedData, 3))
+                {
+                    return false;
+                }
+                else
+                {
+                    nTemp = int.Parse(parsedData[2]);
+                    if (!checkCommandParameterRange(0, MaxPatternID, nTemp, 0))
+                    {
+                        return false;
+                    }
+                }
+            }
+            else if (command == SerialDevice.GET_BACKING_ID)
+            {
+                if (!checkCommandParamCount(parsedData, 3))
+                {
+                    return false;
+                }
+                else
+                {
+                    nTemp = int.Parse(parsedData[2]);
+                    if (!checkCommandParameterRange(0, MaxPatternID, nTemp, 0))
+                    {
+                        return false;
+                    }
+                }
+            }
+            else if (command == SerialDevice.GET_BASS_ID)
+            {
+                if (!checkCommandParamCount(parsedData, 3))
+                {
+                    return false;
+                }
+                else
+                {
+                    nTemp = int.Parse(parsedData[2]);
+                    if (!checkCommandParameterRange(0, MaxPatternID, nTemp, 0))
+                    {
+                        return false;
+                    }
+                }
+            }
+            else if (command == SerialDevice.GET_GUITAR_ID)
+            {
+                if (!checkCommandParamCount(parsedData, 3))
+                {
+                    return false;
+                }
+                else
+                {
+                    nTemp = int.Parse(parsedData[2]);
+                    if (!checkCommandParameterRange(0, MaxPatternID, nTemp, 0))
+                    {
+                        return false;
+                    }
+                }
+            }
+
             return true;
         }
         private void OnMainSerialDataReceived(object sender, string data)
@@ -815,12 +1068,13 @@ namespace CyberG
                     else
                     {
                         string command = SerialManager.Device.LastCommandSent;
+                        string param = SerialManager.Device.LastParamSent;
                         if (command == SerialDevice.GET_PRESET)
                         {
                             if (checkReceivedValid(parsedData))
                             {
                                 nTemp = int.Parse(parsedData[2]);
-                                if (nTemp != curPreset)
+                                if (nTemp != curPreset && !isLoadingFile)
                                 {
                                     curPreset = nTemp;
                                     Dispatcher.BeginInvoke(new Action(() =>
@@ -965,8 +1219,42 @@ namespace CyberG
 
                             }
                         }
+                        else if (command == SerialDevice.SET_BACKING_STATE)
+                        {
+                            if (!checkReceivedValid(parsedData))
+                            {
 
+                            }
+                        }
                         else if (command == SerialDevice.SET_BPM)
+                        {
+                            if (!checkReceivedValid(parsedData))
+                            {
+
+                            }
+                        }
+                        else if (command == SerialDevice.SET_DRUM_ID)
+                        {
+                            if (!checkReceivedValid(parsedData))
+                            {
+
+                            }
+                        }
+                        else if (command == SerialDevice.SET_BACKING_ID)
+                        {
+                            if (!checkReceivedValid(parsedData))
+                            {
+
+                            }
+                        }
+                        else if (command == SerialDevice.SET_BASS_ID)
+                        {
+                            if (!checkReceivedValid(parsedData))
+                            {
+
+                            }
+                        }
+                        else if (command == SerialDevice.SET_GUITAR_ID)
                         {
                             if (!checkReceivedValid(parsedData))
                             {
@@ -1122,7 +1410,7 @@ namespace CyberG
                                 }
                                 else
                                 {
-                                    DebugLog.addToLog(debugType.replyDebug, "Error! Parsing " + command + " encountered unexpected parsing issue.");
+                                    DebugLog.addToLog(debugType.replyDebug, (string)Application.Current.Resources["ErrorParsingCommand"] + " " + command + " " + (string)Application.Current.Resources["ErrorParsingCommand2"]);
                                 }
 
                             }
@@ -1173,6 +1461,57 @@ namespace CyberG
                             {
                                 nTemp = int.Parse(parsedData[2]);
                                 modeComboBox.SelectedIndex = nTemp;
+                            }
+
+                        }
+                        else if (command == SerialDevice.GET_BACKING_STATE)
+                        {
+                            if (checkReceivedValid(parsedData))
+                            {
+                                nTemp = int.Parse(parsedData[2]);
+                                backingState = nTemp;
+                            }
+
+                        }
+                        else if (command == SerialDevice.GET_DRUM_ID)
+                        {
+                            if (checkReceivedValid(parsedData))
+                            {
+                                nTemp = int.Parse(parsedData[2]);
+                                drumPatternID = nTemp;
+                            }
+
+                        }
+                        else if (command == SerialDevice.GET_BASS_ID)
+                        {
+                            if (checkReceivedValid(parsedData))
+                            {
+                                nTemp = int.Parse(parsedData[2]);
+                                bassPatternID = nTemp;
+                            }
+                        }
+                        else if (command == SerialDevice.GET_BACKING_ID)
+                        {
+                            if (checkReceivedValid(parsedData))
+                            {
+                                nTemp = int.Parse(parsedData[2]);
+                                backingPatternID = nTemp;
+                            }
+                        }
+                        else if (command == SerialDevice.GET_GUITAR_ID)
+                        {
+                            if (checkReceivedValid(parsedData))
+                            {
+                                int nTemp2 = int.Parse(param);
+                                nTemp = int.Parse(parsedData[2]);
+                                if (nTemp2 >= guitarPatternID.Length || nTemp2 < 0)
+                                {
+                                    DebugLog.addToLog(debugType.replyDebug, (string)Application.Current.Resources["InvalidGuitarPatternIndex"] + " " + nTemp2.ToString());
+                                }
+                                else
+                                {
+                                    guitarPatternID[nTemp2] = nTemp;
+                                }
                             }
 
                         }
@@ -1238,7 +1577,7 @@ namespace CyberG
             // Optional: throw if timed out
             if (isExpectingSerialData)
             {
-                throw new TimeoutException("Serial processing did not finish in time.");
+                throw new TimeoutException((string)Application.Current.Resources["SerialTimeout"]);
             }
         }
         private void SetLanguage(string cultureCode)
@@ -1246,9 +1585,6 @@ namespace CyberG
             var dictionary = new ResourceDictionary();
             switch (cultureCode)
             {
-                case "fr":
-                    dictionary.Source = new Uri("Resources/Strings.fr.xaml", UriKind.Relative);
-                    break;
                 case "en":
                 default:
                     dictionary.Source = new Uri("Resources/Strings.en.xaml", UriKind.Relative);
@@ -1862,7 +2198,7 @@ namespace CyberG
             if (isPresetReading)
             {
                 //handle weird case
-                DebugLog.addToLog(debugType.miscDebug, "Error! Preset is Reading on Connection Window before actual planned reading.");
+                DebugLog.addToLog(debugType.miscDebug, (string)Application.Current.Resources["PresetEarlyReading"]);
                 isDisconnected = true;
                 isPresetReading = false;
             }
@@ -1889,7 +2225,7 @@ namespace CyberG
             }
             catch (TimeoutException ex)
             {
-                MessageBox.Show("Failed to open settings: " + ex.Message);
+                MessageBox.Show((string)Application.Current.Resources["FailedOpenConnectionWindow"] + " " + ex.Message);
             }
 
 
@@ -1909,17 +2245,7 @@ namespace CyberG
                 SerialLog.addToLog(message);
             });
         }
-        private void saveButton_Click(object sender, RoutedEventArgs e)
-        {
 
-            addToDebugLog(debugType.miscDebug, "Button Pressed!\n");
-            presetComboBox.SelectedIndex = 1;
-        }
-
-        private void loadButton_Click(object sender, RoutedEventArgs e)
-        {
-            addToSerialLog("Button Pressed!\n");
-        }
 
         private void patternFactoryButton_Click(object sender, RoutedEventArgs e)
         {
@@ -1991,7 +2317,7 @@ namespace CyberG
                 }
                 else 
                 {
-                    DebugLog.addToLog(debugType.sendDebug, "Error! Invalid index for Chord Root Setting");
+                    DebugLog.addToLog(debugType.sendDebug, (string)Application.Current.Resources["InvalidChordRootIndex"]);
                 }
             }
         }
@@ -2030,7 +2356,7 @@ namespace CyberG
                 }
                 else
                 {
-                    DebugLog.addToLog(debugType.sendDebug, "Error! Invalid index for Pattern Setting");
+                    DebugLog.addToLog(debugType.sendDebug, (string)Application.Current.Resources["InvalidPatternSettingIndex"]);
                 }
             }
         }

@@ -21,7 +21,7 @@ namespace CyberG
     /// </summary>
     public partial class ConnectionWindow : Window
     {
-        private bool connectOK = false;
+        //private bool connectOK = false;
         private const string DEVICEIDCMD = "DEVI";
         private const int USB_SERIAL_BAUD = 9600; //not really used
         private const int BT_SERIAL_BAUD = 9600;
@@ -106,12 +106,12 @@ namespace CyberG
                 bool isGood = false;
                 if (parsedData.Count == 0)
                 {
-                    DebugLog.addToLog(debugType.replyDebug, "Received Parsed Data on Serial is 0");
+                    DebugLog.addToLog(debugType.replyDebug, (string)Application.Current.Resources["NoDataReceived"]);
                 }
                 else
                 {
                     int nTemp = -1;
-                    bool bTemp = false;
+                    //bool bTemp = false;
                     //curPreset
                     if (command == DEVICEIDCMD)
                     {
@@ -121,7 +121,7 @@ namespace CyberG
                             nTemp = int.Parse(parsedData[2]);
                             if (nTemp == 0)
                             {
-                                connectOK = true;
+                                //connectOK = true;
                                 isGood = true;
                             }
                         }
@@ -129,7 +129,7 @@ namespace CyberG
                     }
                     else
                     {
-                        MessageBox.Show("Received wrong command's reply: " + command);
+                        MessageBox.Show((string)Application.Current.Resources["WrongReply"] + " " + command);
                     }
                 }
                 //if (isGood)
@@ -184,8 +184,8 @@ namespace CyberG
                     {
                         isDebug = true;
                     }
-                    int nTemp = -1;
-                    bool bTemp = false;
+                    //int nTemp = -1;
+                    //bool bTemp = false;
                     //curPreset
                     if (isDebug)
                     {
@@ -216,7 +216,7 @@ namespace CyberG
                         }
                         if (!isOK)
                         {
-                            MessageBox.Show("Error! " + SerialManager.Device.PortName + " is another device! Pick another COM port.");
+                            MessageBox.Show((string)Application.Current.Resources["Error"] + " " + SerialManager.Device.PortName + " " + (string)Application.Current.Resources["WrongDevice"]);
                         }
                         //if here 
                     }
@@ -242,7 +242,7 @@ namespace CyberG
             {
                 SerialManager.Device.Send(cmd, param); // Or your custom heartbeat command
             }
-            catch (Exception ex)
+            catch (Exception)
             {
 
             }
