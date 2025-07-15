@@ -40,7 +40,7 @@
                 <!--== <ComboBox Grid.Column="0" Name="allX"/>
                 <ComboBox Grid.Column="2" Name="allGuitarPatterns"/>-->
             </Grid>
-            
+
         </Grid>
 
         <Grid Grid.Row="1">
@@ -59,7 +59,7 @@
                 <!--Right Margin-->
                 <ColumnDefinition Width="5"/>
             </Grid.ColumnDefinitions>
-            <Rectangle Grid.Column="1" Fill="{DynamicResource Panel1Color}"></Rectangle>
+            <Rectangle Grid.Column="1" Fill="{DynamicResource Panel1Color}" Height="679" VerticalAlignment="Top"></Rectangle>
             <Rectangle Grid.Column="2" Fill="{DynamicResource Panel2Color}"></Rectangle>
             <Rectangle Grid.Column="3" Fill="{DynamicResource Panel3Color}"></Rectangle>
 
@@ -161,7 +161,7 @@
                                 <ColumnDefinition/>
                                 <ColumnDefinition Width="20"/>
                             </Grid.ColumnDefinitions>
-                            <Button Grid.Column="1" Content="Pattern Factory" Name="patternFactoryButton" Click="patternFactoryButton_Click"/>
+                            <Button Grid.Column="1" Content="Pattern Factory" Name="patternFactoryButton" Click="patternFactoryButton_Click" Grid.ColumnSpan="2" Margin="0,0,20,0" Height="90" VerticalAlignment="Top"/>
                         </Grid>
 
                     </Grid>
@@ -1575,5 +1575,5 @@
             </Grid>
         </Grid>
     </Grid>
-    
+
 </Window>

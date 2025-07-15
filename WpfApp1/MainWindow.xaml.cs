@@ -75,6 +75,9 @@ namespace CyberG
             SetLanguage("en"); //default english
             this.PreviewKeyDown += MainWindow_PreviewKeyDown;
             InitializeComponent();
+            NativeLoader.LoadNativeLibrary();
+
+
             SetupComponents();
             Loaded += MainWindow_Loaded;
             if (!SerialManager.isInitialized())
@@ -2249,17 +2252,17 @@ namespace CyberG
 
         private void patternFactoryButton_Click(object sender, RoutedEventArgs e)
         {
-
+            Native2WPF.convertMidiToMidiPattern("D:\\Code\\WpfApp1\\bin\\x64\\Debug\\net8.0-windows\\gp00.mid", 0);
         }
 
         private void patternSettingsButton_Click(object sender, RoutedEventArgs e)
         {
-
+            Native2WPF.convertMidiPatternToMidi("test.mid", 128);
         }
 
         private void otherSettingsButton_Click(object sender, RoutedEventArgs e)
         {
-
+            Native2WPF.convertOmnichordBackingToMidi("omni.mid", 2, 150);
         }
 
         private void presetComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)

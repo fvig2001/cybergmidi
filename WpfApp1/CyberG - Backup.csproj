@@ -48,7 +48,7 @@
   </ItemGroup>
 
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">
-    <Exec Command="xcopy /Y /D &quot;d:\Code\MidiToStruct\x64\$(Configuration)\MidiToStruct.dll&quot; &quot;d:\code\WpfApp1\bin\x64\$(Configuration)\net8.0-windows\.&quot; &amp;&amp; xcopy /Y /D &quot;d:\Code\MidiToStruct\x64\Debug\MidiToStruct.pdb&quot; &quot;d:\code\WpfApp1\bin\x64\$(Configuration)\net8.0-windows\.&quot;&#xD;&#xA;" />
+    <Exec Command="xcopy /Y /D &quot;d:\Code\WpfApp1\MidiToStruct\x64\Debug\MidiToStruct.dll&quot; &quot;d:\code\WpfApp1\bin\x64\Debug\net8.0-windows\.&quot; &amp;&amp; xcopy /Y /D &quot;d:\Code\WpfApp1\MidiToStruct\x64\Debug\MidiToStruct.pdb&quot; &quot;d:\code\WpfApp1\bin\x64\Debug\net8.0-windows\.&quot;&#xD;&#xA;" />
   </Target>
 
 </Project>
