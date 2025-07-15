@@ -1,0 +1,2 @@
+#define MIDITOSTRUCT_API __declspec(dllexport)
+#define MIDITOSTRUCT_API __declspec(dllimport)
