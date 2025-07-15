@@ -41,7 +41,7 @@ extern "C" {
 	//for encoding midi to struct for the guitar. Outputs in actual notes and place holder notes
 	MIDITOSTRUCT_API int ConvertMidiToStruct(char* fMidiFile, EncodedNote** standardNotes, EncodedNote** placeHolderNotes, int* cgdSize, int channel);
 
-	int GetOmniChordToStruct(int backingNo, EncodedNote** placeHolderNotesBass, EncodedNote** placeHolderNotesAccompaniment, EncodedNote** placeHolderNotesDrums, int* cgdSizeBass, int* cgdSizeAccompaniment, int* cgdSizeDrums);
+	MIDITOSTRUCT_API int GetOmniChordToStruct(int backingNo, EncodedNote** placeHolderNotesBass, EncodedNote** placeHolderNotesAccompaniment, EncodedNote** placeHolderNotesDrums, int* cgdSizeBass, int* cgdSizeAccompaniment, int* cgdSizeDrums);
 	//free up the data
 	MIDITOSTRUCT_API int FreeStruct(EncodedNote* data);
 

@@ -1,4 +1,4 @@
-
+﻿
 // MidiToStruct.cpp : Defines the exported functions for the DLL.
 //
 
@@ -7,6 +7,9 @@
 #include "MidiToStruct.h"
 #include "Omnichord.h"
 
+
+#include <set>
+#include <map>
 #include <iostream>
 #include <vector>
 #include <map>
@@ -212,91 +215,210 @@ vector<EncodedNote> changeNotesToSymbol(vector<EncodedNote> encoded)
     return adjusted;
 }
 
+/*
 
-MIDITOSTRUCT_API int writeMidiFromEncoded(EncodedNote *encodedNotes, int *noteSize, char * filename, int bpm = 128) 
+
+MIDITOSTRUCT_API int writeMidiFromEncoded(EncodedNote* encodedNotes, int* noteSize, char* filename, int bpm = 128)
 {
-    int tpq = 192;
-    if (encodedNotes == NULL || noteSize == NULL || filename == NULL)
-    {
+    if (!encodedNotes || !noteSize || filename == nullptr || *noteSize <= 0)
         return 0;
-    }
-    MidiFile midiFile;
-    midiFile.addTrack(1);  // One track
+
+    std::sort(encodedNotes, encodedNotes + *noteSize,
+        [](const EncodedNote& a, const EncodedNote& b) {
+            return a.noteOrder < b.noteOrder;
+        });
+    const int tpq = 192;
+
+    smf::MidiFile midiFile;
     midiFile.setTicksPerQuarterNote(tpq);
 
-    int currentTick = 0;
-    int ticksPerUnit = BASELEN;
+    // Track 0 reserved for tempo/meta
+    midiFile.addTrack();
 
-    // Insert tempo at tick 0
-    MidiEvent tempoEvent;
+    std::map<int, std::vector<EncodedNote>> notesByOrder;
+    std::set<int> uniqueChannels;
+
+    for (int i = 0; i < *noteSize; ++i) {
+        EncodedNote& note = encodedNotes[i];
+        notesByOrder[note.noteOrder].push_back(note);
+        uniqueChannels.insert(note.channel);
+    }
+
+    std::map<int, int> channelToTrack;
+    int trackIndex = 1; // 0 is tempo/meta
+
+    for (auto ch : uniqueChannels) {
+        midiFile.addTrack();
+        channelToTrack[ch] = trackIndex++;
+    }
+
+    // Insert tempo event at tick 0 on track 0
+    smf::MidiEvent tempoEvent;
     tempoEvent.tick = 0;
     tempoEvent.makeTempo(bpm);
     midiFile[0].push_back(tempoEvent);
-    int curOrder = -1;
-    int lastTime = -1;
-    for (int i = 0; i < *noteSize; i++) 
-    {
-        EncodedNote note = encodedNotes[i];
-        if (curOrder < note.noteOrder)
-        {
-            if (lastTime != -1)
-            {
-                curOrder = note.noteOrder;
-                currentTick += lastTime;  // Advance to the next note or rest
-            }
-        }
-        int durationTicks = note.length * ticksPerUnit;
 
-        if (note.midiNote == 255) {
-            // Rest: move forward in time without outputting anything
-            //currentTick += durationTicks;
-            lastTime = durationTicks;
-            continue;
-        }
-
-        // Create Note On event
-        MidiEvent noteOn;
-        noteOn.tick = currentTick;
-        
-        noteOn.setP0(0x90 | note.channel);              // Note On, channel 0
-        noteOn.setP1(note.midiNote);     // Note number
-        noteOn.setVelocity(note.velocity);
-        noteOn.setP2(100);               // Velocity
-        midiFile[0].push_back(noteOn);
-
-        // Create Note Off event
-        MidiEvent noteOff;
-        noteOff.tick = currentTick + durationTicks;
-        noteOff.setP0(0x80);             // Note Off, channel 0
-        noteOff.setP1(note.midiNote);
-        noteOff.setP2(0);
-        midiFile[0].push_back(noteOff);
-        lastTime = durationTicks;
+    // Per-channel current tick counters
+    std::map<int, int> channelCurrentTicks;
+    for (auto ch : uniqueChannels) {
+        channelCurrentTicks[ch] = 0;
     }
 
-    // Sort all events before writing to prevent negative delta errors
+    // Process notes order by order
+    for (auto& orderPair : notesByOrder) {
+        const std::vector<EncodedNote>& notes = orderPair.second;
+
+        // Store max duration per channel in this order
+        std::map<int, int> maxDurationPerChannel;
+
+        // Step 1: write note events, all notes in this order start at the current channel tick
+        for (const EncodedNote& note : notes) {
+            int ch = note.channel;
+            int duration = note.lengthTicks;
+
+            int startTick = channelCurrentTicks[ch];  // All notes of same order start at channel's current tick
+
+            if (note.midiNote == 255) {
+                // Rest - no events, but remember duration for advancing channel tick later
+                if (duration > maxDurationPerChannel[ch])
+                    maxDurationPerChannel[ch] = duration;
+                continue;
+            }
+
+            // Note On
+            smf::MidiEvent noteOn;
+            noteOn.tick = startTick;
+            noteOn.setP0(0x90 | ch);
+            noteOn.setP1(note.midiNote);
+            noteOn.setP2(note.velocity);
+            midiFile[channelToTrack[ch]].push_back(noteOn);
+
+            // Note Off
+            smf::MidiEvent noteOff;
+            noteOff.tick = startTick + duration;
+            noteOff.setP0(0x80 | ch);
+            noteOff.setP1(note.midiNote);
+            noteOff.setP2(0);
+            midiFile[channelToTrack[ch]].push_back(noteOff);
+
+            if (duration > maxDurationPerChannel[ch])
+                maxDurationPerChannel[ch] = duration;
+        }
+
+        // Step 2: advance each channel's current tick by the max duration of notes/rests in this order
+        for (auto& chDur : maxDurationPerChannel) {
+            int ch = chDur.first;
+            int dur = chDur.second;
+            channelCurrentTicks[ch] += dur;
+        }
+    }
+
     midiFile.sortTracks();
 
-    if (midiFile.write(filename)) {
-        return 1;
-    }
-    else {
-        return 0;
-    }
+    return midiFile.write(filename) ? 1 : 0;
 }
 
+*/
 
+MIDITOSTRUCT_API int writeMidiFromEncoded(EncodedNote* encodedNotes, int* noteSize, char* filename, int bpm = 128)
+{
+    if (!encodedNotes || !noteSize || filename == nullptr || *noteSize <= 0)
+        return 0;
 
+    const int tpq = 192;
+
+    smf::MidiFile midiFile;
+    midiFile.setTicksPerQuarterNote(tpq);
+
+    // Track 0 for tempo/meta
+    midiFile.addTrack();
+
+    std::map<int, std::map<int, std::vector<EncodedNote>>> notesByChannelAndOrder;
+    std::set<int> channels;
+
+    // Group notes by channel and then by noteOrder
+    for (int i = 0; i < *noteSize; ++i) {
+        const EncodedNote& note = encodedNotes[i];
+        notesByChannelAndOrder[note.channel][note.noteOrder].push_back(note);
+        channels.insert(note.channel);
+    }
+
+    // Allocate one track per channel
+    std::map<int, int> channelToTrack;
+    int trackIndex = 1;
+    for (int ch : channels) {
+        midiFile.addTrack();
+        channelToTrack[ch] = trackIndex++;
+    }
+
+    // Insert tempo into meta track (track 0)
+    smf::MidiEvent tempoEvent;
+    tempoEvent.tick = 0;
+    tempoEvent.makeTempo(bpm);
+    midiFile[0].push_back(tempoEvent);
+
+    // Encode each channel independently
+    for (const auto& channelPair : notesByChannelAndOrder) {
+        int ch = channelPair.first;
+        const auto& ordersMap = channelPair.second;
+
+        int currentTick = 0;
+        for (const auto& orderPair : ordersMap) {
+            const std::vector<EncodedNote>& notes = orderPair.second;
+
+            int maxDuration = 0;
+
+            // First pass: add all Note On / Off
+            for (const auto& note : notes) {
+                int duration = note.lengthTicks;
+                if (duration > maxDuration)
+                    maxDuration = duration;
+
+                if (note.midiNote == 255)
+                    continue;
+
+                // Note On
+                smf::MidiEvent noteOn;
+                noteOn.tick = currentTick;
+                noteOn.setP0(0x90 | ch);
+                noteOn.setP1(note.midiNote);
+                noteOn.setP2(note.velocity);
+                midiFile[channelToTrack[ch]].push_back(noteOn);
+
+                // Note Off
+                smf::MidiEvent noteOff;
+                noteOff.tick = currentTick + duration;
+                noteOff.setP0(0x80 | ch);
+                noteOff.setP1(note.midiNote);
+                noteOff.setP2(0);
+                midiFile[channelToTrack[ch]].push_back(noteOff);
+            }
+
+            // Advance time for the channel
+            currentTick += maxDuration;
+        }
+    }
+
+    midiFile.sortTracks();
+
+    return midiFile.write(filename) ? 1 : 0;
+}
 
 MIDITOSTRUCT_API int ConvertMidiToStruct(char* fMidi, EncodedNote** cgd, EncodedNote** cgdPlaceholder, int* cgdSize, int channel)
 {
+    //OutputDebugStringA("Hit native breakpoint point\n");
+
     if (cgdSize == NULL)
     {
         return -1;
     }
+    
     bool addRests = false;
     MidiFile midi;
-
+    if (!midi.read(fMidi)) {
+        MessageBoxA(NULL, "Error loading midi file", "Debug", MB_OK);
+        return -1;
+    }
     midi.doTimeAnalysis();
     midi.linkNotePairs();
     midi.joinTracks();
@@ -419,7 +541,7 @@ MIDITOSTRUCT_API int ConvertMidiToStruct(char* fMidi, EncodedNote** cgd, Encoded
         *cgd = (EncodedNote*)malloc(sizeof(EncodedNote) * (*cgdSize));
         for (int i = 0; i < encoded.size(); i++)
         {
-            *cgd[i] = encoded[i];
+            (*cgd)[i] = encoded[i];
         }
     }
     if (cgdPlaceholder != NULL)
@@ -429,11 +551,12 @@ MIDITOSTRUCT_API int ConvertMidiToStruct(char* fMidi, EncodedNote** cgd, Encoded
         *cgdPlaceholder = (EncodedNote*)malloc(sizeof(EncodedNote) * (*cgdSize));
         for (int i = 0; i < encoded.size(); i++)
         {
-            *cgdPlaceholder[i] = encoded[i];
+            (*cgdPlaceholder)[i] = encoded[i];
         }
     }
     return 1;
 }
+
 int GetOmniChordToStruct(int backingNo, EncodedNote** placeHolderNotesBass, EncodedNote** placeHolderNotesAccompaniment, EncodedNote** placeHolderNotesDrums, int* cgdSizeBass, int* cgdSizeAccompaniment, int* cgdSizeDrums)
 {
     std::vector<EncodedNote> drumOut;
@@ -442,29 +565,35 @@ int GetOmniChordToStruct(int backingNo, EncodedNote** placeHolderNotesBass, Enco
     getOmniChordBacking(backingNo, drumOut, bassOut, accompanimentOut);
     if (placeHolderNotesBass != NULL)
     {
-        *placeHolderNotesBass = (EncodedNote*)malloc(sizeof(bassOut) * (*cgdSizeBass));
+        *cgdSizeBass = bassOut.size();
+        *placeHolderNotesBass = (EncodedNote*)malloc(sizeof(EncodedNote) * (*cgdSizeBass));
 
         for (int i = 0; i < bassOut.size(); i++)
         {
-            *placeHolderNotesBass[i] = bassOut[i];
+            (*placeHolderNotesBass)[i] = bassOut[i];
         }
+
     }
     if (placeHolderNotesDrums != NULL)
     {
-        *placeHolderNotesDrums = (EncodedNote*)malloc(sizeof(drumOut) * (*cgdSizeDrums));
+        *cgdSizeDrums = drumOut.size();
+        (*placeHolderNotesDrums) = (EncodedNote*)malloc(sizeof(EncodedNote) * (*cgdSizeDrums));
 
         for (int i = 0; i < drumOut.size(); i++)
         {
-            *placeHolderNotesDrums[i] = drumOut[i];
+            (*placeHolderNotesDrums)[i] = drumOut[i];
         }
+
     }
     if (placeHolderNotesAccompaniment != NULL)
     {
-        *placeHolderNotesAccompaniment = (EncodedNote*)malloc(sizeof(accompanimentOut) * (*cgdSizeAccompaniment));
+        *cgdSizeAccompaniment = static_cast<int>(accompanimentOut.size());
+        *placeHolderNotesAccompaniment = (EncodedNote*)malloc(sizeof(EncodedNote) * (*cgdSizeAccompaniment));
         for (int i = 0; i < accompanimentOut.size(); i++)
         {
-            *placeHolderNotesAccompaniment[i] = accompanimentOut[i];
+            (*placeHolderNotesAccompaniment)[i] = accompanimentOut[i];
         }
+
     }
     return 1;
 }
