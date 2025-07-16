@@ -89,7 +89,8 @@
     <sys:String x:Key="ErrorParsingCommand2">encountered unexpected parsing issue.</sys:String>
     <sys:String x:Key="SerialTimeout">Serial processing did not finish in time.</sys:String>
     <sys:String x:Key="PresetEarlyReading">Error! Preset is Reading on Connection Window before actual planned reading.</sys:String>
-    <sys:String x:Key="FailedOpenConnectionWindow">Failed to open settings:</sys:String>
+    <sys:String x:Key="FailedOpenConnectionWindow">Failed to open Settings:</sys:String>
+    <sys:String x:Key="FailedOpenPatternWindow">Failed to open Pattern Window:</sys:String>
     <sys:String x:Key="InvalidChordRootIndex">Error! Invalid index for Chord Root Setting</sys:String>
     <sys:String x:Key="InvalidPatternSettingIndex">Error! Invalid index for Pattern Setting</sys:String>
     <sys:String x:Key="NoDataReceived">Received Amount of Parsed Data on Serial is 0</sys:String>
@@ -136,4 +137,18 @@
     <sys:String x:Key="G02">G02</sys:String>
     <sys:String x:Key="G03">G03</sys:String>
     <sys:String x:Key="InvalidGuitarPatternIndex">Error! Invalid guitar pattern index sent:</sys:String>
+    <sys:String x:Key="PatternWindowTitle">Pattern Window</sys:String>
+    <sys:String x:Key="GuitarPattern0">Guitar Pattern 1</sys:String>
+    <sys:String x:Key="GuitarPattern1">Guitar Pattern 2</sys:String>
+    <sys:String x:Key="GuitarPattern2">Guitar Pattern 3</sys:String>
+    <sys:String x:Key="BassPattern">Bass Pattern</sys:String>
+    <sys:String x:Key="BackingPattern">Backing Pattern</sys:String>
+    <sys:String x:Key="DrumPattern">Drum Pattern</sys:String>
+
+    <sys:String x:Key="Delete">Delete</sys:String>
+    <sys:String x:Key="ImportMidi">Import MIDI</sys:String>
+    <sys:String x:Key="ImportDevice">Import Pattern</sys:String>
+    <sys:String x:Key="Upload">Upload</sys:String>
+    <sys:String x:Key="Save">Save</sys:String>
+    <sys:String x:Key="Close">Close</sys:String>
 </ResourceDictionary>
