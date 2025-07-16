@@ -13,6 +13,9 @@
     <Compile Update="DebugLogWindow.xaml.cs">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Update="PatternWindow.xaml.cs">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Update="SerialLogWindow.xaml.cs">
       <SubType>Code</SubType>
     </Compile>
@@ -25,6 +28,9 @@
       <SubType>Designer</SubType>
     </Page>
     <Page Update="MainWindow.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="PatternWindow.xaml">
       <SubType>Designer</SubType>
     </Page>
     <Page Update="Resources\Strings.en.xaml">

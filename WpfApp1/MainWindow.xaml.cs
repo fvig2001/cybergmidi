@@ -20,6 +20,7 @@ namespace CyberG
     /// 
     public partial class MainWindow : Window
     {
+        //private List<Window> openWindows = new List<Window>();
         private const int SAVEWINDOWID = 0;
         private const int MaxBackingState = 10;
         private const int MaxPatternID = 65535;
@@ -2179,13 +2180,32 @@ namespace CyberG
                 SendCmd(SerialDevice.SET_CHORD_MODE, curPreset.ToString() + ',' + ((ComboBox)sender).SelectedIndex);
             }
         }
+        /*
+        public void RemoveOpenWindowFromList(Window newWindow)
+        {
+            // Check if a window of the same type already exists
+            var existingWindow = openWindows.FirstOrDefault(w => w.GetType() == newWindow.GetType());
 
+            if (existingWindow != null)
+            {
+                openWindows.Remove(existingWindow);
+            }
+        }
+        public void AddWindowToList(Window newWindow)
+        {
+            // Check if a window of the same type already exists
+            RemoveOpenWindowFromList(newWindow);
+            openWindows.Add(newWindow);
+        }
+        */
         public void openConnectionWindow(bool isDisconnected = false)
         {
             isSerialEnabled = false;
             PauseSerial();
             var connectionWindow = new ConnectionWindow();
+            //AddWindowToList(connectionWindow);
             connectionWindow.ShowDialog(); // This blocks until it's closed
+            //RemoveOpenWindowFromList(connectionWindow);
             ResumeSerial();
             isSerialEnabled = true;
             if (SerialManager.isDeviceConnected())
@@ -2211,6 +2231,23 @@ namespace CyberG
             }
             
             AddDisconnectHandler();
+        }
+
+        public async void openPatternWindow()
+        {
+            try
+            {
+                await WaitForSerialProcessingAsync();
+                var patternWindow = new PatternWindow();
+                //AddWindowToList(patternWindow);
+                patternWindow.ShowDialog();
+            }
+            catch (TimeoutException ex)
+            {
+                MessageBox.Show((string)Application.Current.Resources["FailedOpenPatternWindow"] + " " + ex.Message);
+            };
+            //RemoveOpenWindowFromList(patternWindow);
+
         }
         private async void connectionSettingsButton_Click(object sender, RoutedEventArgs e)
         {
@@ -2252,17 +2289,18 @@ namespace CyberG
 
         private void patternFactoryButton_Click(object sender, RoutedEventArgs e)
         {
-            Native2WPF.convertMidiToMidiPattern("D:\\Code\\WpfApp1\\bin\\x64\\Debug\\net8.0-windows\\gp00.mid", 0);
+            openPatternWindow();
+            //Native2WPF.convertMidiToMidiPattern("D:\\Code\\WpfApp1\\bin\\x64\\Debug\\net8.0-windows\\gp00.mid", 0);
         }
 
         private void patternSettingsButton_Click(object sender, RoutedEventArgs e)
         {
-            Native2WPF.convertMidiPatternToMidi("test.mid", 128);
+            //Native2WPF.convertMidiPatternToMidi("test.mid", 128);
         }
 
         private void otherSettingsButton_Click(object sender, RoutedEventArgs e)
         {
-            Native2WPF.convertOmnichordBackingToMidi("omni.mid", 2, 150);
+            //Native2WPF.convertOmnichordBackingToMidi("omni.mid", 1, 150);
         }
 
         private void presetComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)

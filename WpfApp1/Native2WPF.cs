@@ -1,4 +1,6 @@
-﻿using System;
+﻿
+using System;
+using System.IO;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -11,7 +13,7 @@ namespace CyberG
 {
     internal class Native2WPF
     {
-        public const bool ALLOW_LOOP = false;
+        public const bool ALLOW_LOOP = true;
         public const int BASS_CHANNEL = 1;
         public const int DRUMS_CHANNEL = 9;
         public const int BACKING_CHANNEL = 0;
@@ -64,7 +66,14 @@ namespace CyberG
                     EncodedNote single;
                     IntPtr ptr = IntPtr.Add(srcPtr, i * structSize);
                     single = Marshal.PtrToStructure<EncodedNote>(ptr);
-                    single.channel = channel; // tag channel info if needed
+                    if (channel != -1)
+                    {
+                        single.channel = channel; // tag channel info if needed
+                    }
+                    else
+                    {
+                        single.channel -= 1; 
+                    }
                     result.Add(single);
                 }
 
@@ -121,7 +130,7 @@ namespace CyberG
 
             if (drumPtr != IntPtr.Zero && drumSize > 0)
             {
-                encodedList = ConvertPtrToList(drumPtr, drumSize, DRUMS_CHANNEL); // Drums = channel 9
+                encodedList = ConvertPtrToList(drumPtr, drumSize, -1); // Drums = channel 9
             }
             encodedList = encodedList.OrderBy(note => note.noteOrder).ToList();
 
@@ -140,6 +149,7 @@ namespace CyberG
             {
                 mergedEncoded.Add(encodedList[i]);
             }
+
             // Free native memory
             if (bassPtr != IntPtr.Zero)
                 NativeLoader.FreeStruct(bassPtr);
@@ -151,12 +161,27 @@ namespace CyberG
 
             int combinedSize = mergedEncoded.Count;
             EncodedNote[] encoded = new EncodedNote[combinedSize];
+            string filePath = @"D:\temp\debug.txt";
+            string textToAppend = "";
+            
             for (int i = 0; i < mergedEncoded.Count; i++)
             {
+                textToAppend = mergedEncoded[i].channel.ToString() + ": " + mergedEncoded[i].midiNote.ToString() + " " + mergedEncoded[i].length.ToString() + " " + mergedEncoded[i].lengthTicks.ToString() + " " + mergedEncoded[i].noteOrder.ToString()+"\n";
+                
+
                 encoded[i] = mergedEncoded[i];
-                if (encoded[i].channel != DRUMS_CHANNEL && encoded[i].midiNote != 255 && encoded[i].midiNote < 3)
+                if (encoded[i].channel != DRUMS_CHANNEL && encoded[i].channel != (DRUMS_CHANNEL - 1) && encoded[i].midiNote != 255 && encoded[i].midiNote < 3)
                 {
                     encoded[i].midiNote = rootNotes[encoded[i].midiNote] + encoded[i].relativeOctave * 12;
+                }
+                try
+                {
+                    // Append text to the file, creating it if it doesn't exist
+                    File.AppendAllText(filePath, textToAppend);
+                }
+                catch (Exception ex)
+                {
+
                 }
                 DebugLog.addToLog(debugType.miscDebug, "Converted " + encoded[i].midiNote.ToString() + " " + encoded[i].noteOrder.ToString() + " " + encoded[i].lengthTicks.ToString() + " " + encoded[i].channel);
             }
@@ -303,7 +328,7 @@ namespace CyberG
                 midiPattern m = new midiPattern();
                 m.channel =  original[i].channel;
                 m.relativeOctave = original[i].relativeOctave;
-                m.length = original[i].length; 
+                m.length = original[i].length;
                 m.midiNote = original[i].midiNote;
                 m.lengthTicks = original[i].lengthTicks;
                 m.velocity = original[i].velocity; 
