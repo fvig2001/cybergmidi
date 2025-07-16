@@ -18,7 +18,7 @@
 #include <cmath>
 #include "MidiFile.h" //midifile library 3rd party, put in midifile-master folder
 #include <string>
-#define BASELEN 12
+
 using namespace std;
 using namespace smf;
 #define REST_NOTE  255
@@ -359,16 +359,20 @@ MIDITOSTRUCT_API int writeMidiFromEncoded(EncodedNote* encodedNotes, int* noteSi
 
     // Encode each channel independently
     for (const auto& channelPair : notesByChannelAndOrder) {
-        int ch = channelPair.first;
-        const auto& ordersMap = channelPair.second;
+        int originalChannel = channelPair.first;
 
+        const auto& ordersMap = channelPair.second;
         int currentTick = 0;
+
+        // Map channel 9 to MIDI channel 10 (index 9)
+        int midiChannel = (originalChannel == 8) ? 9 : originalChannel;
+        //int midiChannel = originalChannel;
+
         for (const auto& orderPair : ordersMap) {
             const std::vector<EncodedNote>& notes = orderPair.second;
 
             int maxDuration = 0;
 
-            // First pass: add all Note On / Off
             for (const auto& note : notes) {
                 int duration = note.lengthTicks;
                 if (duration > maxDuration)
@@ -380,29 +384,28 @@ MIDITOSTRUCT_API int writeMidiFromEncoded(EncodedNote* encodedNotes, int* noteSi
                 // Note On
                 smf::MidiEvent noteOn;
                 noteOn.tick = currentTick;
-                noteOn.setP0(0x90 | ch);
+                noteOn.setP0(0x90 | midiChannel);  // mapped channel
                 noteOn.setP1(note.midiNote);
                 noteOn.setP2(note.velocity);
-                midiFile[channelToTrack[ch]].push_back(noteOn);
+                midiFile[channelToTrack[originalChannel]].push_back(noteOn);
 
                 // Note Off
                 smf::MidiEvent noteOff;
                 noteOff.tick = currentTick + duration;
-                noteOff.setP0(0x80 | ch);
+                noteOff.setP0(0x80 | midiChannel);  // mapped channel
                 noteOff.setP1(note.midiNote);
                 noteOff.setP2(0);
-                midiFile[channelToTrack[ch]].push_back(noteOff);
+                midiFile[channelToTrack[originalChannel]].push_back(noteOff);
             }
 
-            // Advance time for the channel
             currentTick += maxDuration;
         }
     }
 
     midiFile.sortTracks();
-
     return midiFile.write(filename) ? 1 : 0;
 }
+
 
 MIDITOSTRUCT_API int ConvertMidiToStruct(char* fMidi, EncodedNote** cgd, EncodedNote** cgdPlaceholder, int* cgdSize, int channel)
 {
@@ -416,7 +419,6 @@ MIDITOSTRUCT_API int ConvertMidiToStruct(char* fMidi, EncodedNote** cgd, Encoded
     bool addRests = false;
     MidiFile midi;
     if (!midi.read(fMidi)) {
-        MessageBoxA(NULL, "Error loading midi file", "Debug", MB_OK);
         return -1;
     }
     midi.doTimeAnalysis();
@@ -485,7 +487,7 @@ MIDITOSTRUCT_API int ConvertMidiToStruct(char* fMidi, EncodedNote** cgd, Encoded
             snappedRestTicks = snappedRestTicks + offsetCorrect(lastGroupEndTick, groupStartTick, true);
 
             //uint32_t restLength = snappedRestTicks / ticksPerUnit;
-            int restLength = snappedRestTicks / BASELEN;
+            int restLength = snappedRestTicks / TICKLEN;
             if (restLength > 0) {
                 encoded.push_back({ REST_NOTE, noteOrder++, restLength, snappedRestTicks,127,0, channel });
             }
@@ -504,7 +506,7 @@ MIDITOSTRUCT_API int ConvertMidiToStruct(char* fMidi, EncodedNote** cgd, Encoded
             int snappedNoteTicks = noteTicks;
             int velocity = notes[k].velocity;
             //uint32_t lengthUnits = snappedNoteTicks / ticksPerUnit;
-            int lengthUnits = noteTicks / BASELEN;
+            int lengthUnits = noteTicks / TICKLEN;
             encoded.push_back({ notes[k].note, noteOrder, lengthUnits, noteTicks, velocity });
 
             if (notes[k].endTick > groupEndTick) {
