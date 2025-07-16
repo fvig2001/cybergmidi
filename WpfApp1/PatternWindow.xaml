@@ -21,7 +21,7 @@
             <Grid Grid.Column="1">
                 <Grid.ColumnDefinitions>
                     <!-- Controls-->
-                    <ColumnDefinition/>
+                    <ColumnDefinition Width="335"/>
                     <ColumnDefinition Width="15px"/>
                     <!--Pattern Editor-->
                     <ColumnDefinition/>
@@ -214,12 +214,15 @@
                                 <ColumnDefinition Width="5px"/>
                                 <ColumnDefinition Width="40"/>
                                 <ColumnDefinition/>
+                                <ColumnDefinition Width="80"/>
+                                <ColumnDefinition Width="5px"/>
                                 <ColumnDefinition Width="100"/>
                             </Grid.ColumnDefinitions>
                             <Button Grid.Column="0" Width="25" Name="playButton"/>
                             <Label Grid.Column="2" Content="BPM"/>
                             <TextBox Grid.Column="4" Name="bpmTextBox" VerticalContentAlignment="Center"/>
-                            <Button Grid.Column="6" Width="80" Name="closeButton" Content="{DynamicResource Close}"/>
+                            <Button Grid.Column="6" Width="80" Name="savePatternButton" Content="Save to ROM"/>
+                            <Button Grid.Column="8" Width="80" Name="closeButton" Content="{DynamicResource Close}"/>
 
                         </Grid>
                     </Grid>
