@@ -30,7 +30,7 @@ namespace CyberG
         private const int NECK_ROWS = 7;
         private const int NECK_COLS = 3;
         private const int MAX_MODE_VALUE = 3;
-        private const string LAST_PRESET_CMD = "BPMR";
+        //private const string LAST_PRESET_CMD = "BPMR";
         private bool isSerialEnabled = false; //disable pinging of keyboard and preset
         private bool isKeyboard = false;
         private bool isPresetReading = false;
@@ -310,8 +310,8 @@ namespace CyberG
             SendCmd(SerialDevice.GET_SUSTAIN_MODE, curPreset.ToString());
             SendCmd(SerialDevice.GET_CHORD_MODE, curPreset.ToString());
             SendCmd(SerialDevice.GET_IGNORE_MODE, curPreset.ToString());
-            SendCmd(SerialDevice.GET_PROPER_OMNICHORD, curPreset.ToString());
-
+            
+            SendCmd(SerialDevice.GET_BPM, curPreset.ToString());
             SendCmd(SerialDevice.GET_BACKING_STATE, "");
             SendCmd(SerialDevice.GET_DRUM_ID, "");
             SendCmd(SerialDevice.GET_BASS_ID, "");
@@ -329,7 +329,7 @@ namespace CyberG
                 }
             }
             // this is the last ok
-            SendCmd(SerialDevice.GET_BPM,curPreset.ToString());
+            SendCmd(SerialDevice.GET_PROPER_OMNICHORD, curPreset.ToString());
         }
         private void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
@@ -400,6 +400,7 @@ namespace CyberG
 
             SendCmd(SerialDevice.GET_PRESET);
             SendCmd(SerialDevice.GET_ISKB);
+            SendCmd(SerialDevice.GET_BPM);
         }
         private void OnMainDeviceDisconnectedReceived(object sender, EventArgs e)
         {
@@ -847,9 +848,10 @@ namespace CyberG
                         return false;
                     }
                 }
+
             }
 
-            
+
             else if (command == SerialDevice.GET_NECK_PATTERN)
             {
                 if (!checkCommandParamCount(parsedData, 3)) //OK, 00, pattern,
@@ -1374,6 +1376,12 @@ namespace CyberG
                                 nTemp = int.Parse(parsedData[2]);
                                 lower5thComboBox.SelectedIndex = nTemp;
                             }
+                            isPresetReading = false;
+                            ChangePicDisplayed();
+                            RootGrid.IsEnabled = true;
+                            _serialLogWindow.sendButton.IsEnabled = true;
+                            _serialLogWindow.cmdTextbox.IsEnabled = true;
+                            //todo revert picture back
                         }
 
                         else if (command == SerialDevice.GET_NECK_PATTERN)
@@ -1529,12 +1537,6 @@ namespace CyberG
                                 else
                                 {
                                     changeBPM(int.Parse(parsedData[2]));
-                                    isPresetReading = false;
-                                    ChangePicDisplayed();
-                                    RootGrid.IsEnabled = true;
-                                    _serialLogWindow.sendButton.IsEnabled = true;
-                                    _serialLogWindow.cmdTextbox.IsEnabled = true;
-                                    //todo revert picture back
                                 }
                             }
                             isSerialEnabled = true;//restart ping

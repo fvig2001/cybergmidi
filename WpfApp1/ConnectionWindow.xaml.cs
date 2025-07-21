@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
 using System.IO.Ports;
 using System.Linq;
 using System.Text;
@@ -21,6 +23,7 @@ namespace CyberG
     /// </summary>
     public partial class ConnectionWindow : Window
     {
+        private const string iniPath = "lastCOM.ini";
         //private bool connectOK = false;
         private const string DEVICEIDCMD = "DEVI";
         private const int USB_SERIAL_BAUD = 9600; //not really used
@@ -46,7 +49,6 @@ namespace CyberG
             var sortedPorts = ports
                 .OrderBy(port =>
                 {
-                    // Extract numeric part for correct sorting (e.g. COM1, COM2, COM10)
                     var match = Regex.Match(port, @"COM(\d+)");
                     return match.Success ? int.Parse(match.Groups[1].Value) : int.MaxValue;
                 })
@@ -54,36 +56,46 @@ namespace CyberG
 
             comPortComboBox.ItemsSource = sortedPorts;
 
-            if (sortedPorts.Count > 0 && forceConnect)
-            {
-                comPortComboBox.SelectedIndex = -1;
-            }
-            else if (!forceConnect && sortedPorts.Count > 0)
-            {
-                string currentPort = SerialManager.Device.PortName;
-
-                if (!string.IsNullOrWhiteSpace(currentPort))
-                {
-                    myPort = sortedPorts.IndexOf(currentPort);
-
-                    if (myPort >= 0)
-                    {
-                        // current port found in the list — do something with myPort
-                        comPortComboBox.SelectedIndex = myPort;
-                    }
-                    else
-                    {
-                        // Port not found — optionally select nothing or handle it
-                        comPortComboBox.SelectedIndex = -1;
-                    }
-                }
-            }
-            else
+            if (sortedPorts.Count == 0)
             {
                 comPortComboBox.ItemsSource = new string[] { "" }; // Empty item
                 comPortComboBox.SelectedIndex = 0;
+                return;
             }
+            /*
+            if (forceConnect)
+            {
+                comPortComboBox.SelectedIndex = -1;
+                return;
+            }
+            */
+
+            // Try to get current port from SerialManager
+            string currentPort = SerialManager.Device?.PortName;
+            
+            // If current port is valid and exists in list, select it
+            if (!string.IsNullOrWhiteSpace(currentPort) && sortedPorts.Contains(currentPort))
+            {
+                comPortComboBox.SelectedItem = currentPort;
+                return;
+            }
+
+            // Check if lastCOM.ini exists
+            
+            else if (File.Exists(iniPath))
+            {
+                string savedPort = File.ReadAllText(iniPath).Trim();
+                if (!string.IsNullOrWhiteSpace(savedPort) && sortedPorts.Contains(savedPort))
+                {
+                    comPortComboBox.SelectedItem = savedPort;
+                    return;
+                }
+            }
+
+            // Default to first port
+            comPortComboBox.SelectedIndex = 0;
         }
+
         private void InitializeState()
         {
             if (SerialManager.isDeviceConnected())
@@ -208,6 +220,38 @@ namespace CyberG
                                 {
                                     isOK = true;
                                     PauseSerial();
+                                    // === Save current COM port to iniPath if needed ===
+                                    if (!string.IsNullOrWhiteSpace(iniPath)) // iniPath should be declared elsewhere as a member
+                                    {
+                                        try
+                                        {
+                                            string currentPort = SerialManager.Device?.PortName;
+
+                                            if (!string.IsNullOrWhiteSpace(currentPort))
+                                            {
+                                                bool shouldWrite = true;
+
+                                                if (File.Exists(iniPath))
+                                                {
+                                                    string existingPort = File.ReadAllText(iniPath).Trim();
+                                                    if (string.Equals(existingPort, currentPort, StringComparison.OrdinalIgnoreCase))
+                                                    {
+                                                        shouldWrite = false; // No need to update
+                                                    }
+                                                }
+
+                                                if (shouldWrite)
+                                                {
+                                                    File.WriteAllText(iniPath, currentPort);
+                                                }
+                                            }
+                                        }
+                                        catch (Exception ex)
+                                        {
+                                            // Optional: handle/log exception
+                                            Debug.WriteLine("Error writing to iniPath: " + ex.Message);
+                                        }
+                                    }
                                     Close();
                                 }
                                
