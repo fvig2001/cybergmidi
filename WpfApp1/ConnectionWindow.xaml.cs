@@ -44,7 +44,7 @@ namespace CyberG
         }
         private void ResetComPortComboBox()
         {
-            int myPort = -1;
+            //int myPort = -1;
             var ports = SerialPort.GetPortNames().Distinct();
             var sortedPorts = ports
                 .OrderBy(port =>

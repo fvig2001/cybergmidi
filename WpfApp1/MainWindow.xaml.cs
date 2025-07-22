@@ -400,7 +400,7 @@ namespace CyberG
 
             SendCmd(SerialDevice.GET_PRESET);
             SendCmd(SerialDevice.GET_ISKB);
-            SendCmd(SerialDevice.GET_BPM);
+            SendCmd(SerialDevice.GET_BPM,curPreset.ToString());
         }
         private void OnMainDeviceDisconnectedReceived(object sender, EventArgs e)
         {
