@@ -378,24 +378,53 @@ std::vector<uint8_t> getCompleteChordNotes3(bool useTranspose = false) const {
     if (color != -1 && color != third) {
         complete.push_back((rootNote + color + offset) % 128);
     }
-    /*
-    // If we still don't have 3 notes, fill with first valid remaining note (fallback)
-    for (uint8_t interval : notes) {
-        uint8_t absNote = (rootNote + interval) % 128;
-        if (complete.size() >= 3) break;
-        if (std::find(complete.begin(), complete.end(), absNote) == complete.end()) {
-            complete.push_back(absNote);
-        }
-    }
-    */
-    //if notes is exactly 3, use the original
-    if (complete.size() < 3 && notes.size() == 2)
+    
+    bool fixed = false;
+
+    //fix for power chord
+    if (complete.size() == 1 && notes.size() == 2)
     {
+      fixed = true;
+      complete.push_back(rootNote + notes[1] + offset);
+    }
+    //if notes is exactly 3, use the original
+    else if (complete.size() < 3 && notes.size() == 2)
+    {
+      fixed = true;
       complete.push_back(rootNote + notes[1] + offset);
       complete[1] = rootNote + notes[0] + offset;
     }
+    if (!fixed && complete.size() < 3)
+    {
+      // First, try to add any remaining *non-5th* intervals
+      for (uint8_t interval : notes) {
+          if (interval == 7) continue;  // Skip perfect 5th for now
+
+          uint8_t absNote = (rootNote + interval + offset) % 128;
+          if (std::find(complete.begin(), complete.end(), absNote) == complete.end()) {
+              complete.push_back(absNote);
+              if (complete.size() >= 3) break;
+          }
+      }
+
+      // If still not enough, then and only then add the 5th
+      if (complete.size() < 3) 
+      {
+        for (uint8_t interval : notes) 
+        {
+          if (interval == 7) 
+          {
+            uint8_t absNote = (rootNote + interval + offset) % 128;
+            if (std::find(complete.begin(), complete.end(), absNote) == complete.end()) {
+              complete.push_back(absNote);
+              break;
+            }
+          }
+        }
+      }
+    }
     return complete;
-}
+  }
   
   uint8_t getRootNote() const {
     return rootNote;

@@ -91,11 +91,13 @@ void sendPatternData(std::vector<SequencerNote> *pattern, bool isSerialOut = tru
   }
   SequencerNote sn;
   
-  char buffer[32];
+  char buffer[48];
+  snprintf(buffer, sizeof(buffer), "OK00,%d\r\n", pattern->size());
+  Serial.write(buffer); 
   for (uint8_t i = 0; i < pattern->size(); i++)
   {
     sn = pattern->at(i);
-    snprintf(buffer, sizeof(buffer), "%d,%d,%d,%d,%d,%d\n", sn.note, sn.offset, sn.holdTime, sn.velocity, sn.channel, sn.relativeOctave);
+    snprintf(buffer, sizeof(buffer), "OK00,%d,%d,%d,%d,%d,%d\r\n", sn.note, sn.offset, sn.holdTime, sn.velocity, sn.channel, sn.relativeOctave);
     if (!isSerialOut && debug)
     {
       Serial.printf("%s", buffer);  
@@ -1309,13 +1311,7 @@ void generateOmnichordNoteMap(uint8_t note)
       //chordNotes[i] += 12; //correct too low
     }
   }
-  //Serial.printf("chordNotes = ");
-  //for (uint8_t i = 0; i < chordNotes.size(); i++)
-  //{
-  //Serial.printf("%d ", chordNotes[i]);
-  //}
-  //Serial.printf("\n");
-  //create list of notes that repeat and shift every time all notes have been added for omnichord mode
+
   while (omniChordNewNotes.size() < omniChordOrigNotes.size()) {
     if (omniChordNewNotes.size() != 0) {
       offset += SEMITONESPEROCTAVE;
@@ -1325,12 +1321,6 @@ void generateOmnichordNoteMap(uint8_t note)
       omniChordNewNotes.push_back(chordNotes[i] + offset + SEMITONESPEROCTAVE * omniKBTransposeOffset[preset]);
     }
   }
-  //Serial.printf("OmnichordnewNotes = ");
-  //for (uint8_t i = 0; i < omniChordNewNotes.size(); i++)
-  //{
-  //  Serial.printf("%d ", omniChordNewNotes[i]);
-  //}
-  //Serial.printf("\n");
 
 }
 void checkSerialGuitar(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen, uint8_t channel) {
@@ -3291,6 +3281,7 @@ else if (cmd == "ASDW")  //alternateDirection
     assignedFretPatternsByPreset[atoi(params->at(0).c_str())][atoi(params->at(1).c_str()) * NECK_COLUMNS + atoi(params->at(2).c_str())].assignedChord.setRootNote((int)neckAssignments[atoi(params->at(0).c_str())][atoi(params->at(1).c_str()) * NECK_COLUMNS + atoi(params->at(2).c_str())].key + OMNICHORD_ROOT_START);
    
     serialPort.write("OK00\r\n");
+    omniChordNewNotes.clear();
   } 
   else if (cmd == "NASR")  //NeckAssignment Read
   {
