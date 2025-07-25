@@ -68,8 +68,11 @@ public class SerialDevice
     public const string SET_GUITAR_ID = "GIDW";
     public const string GET_BACKING_STATE = "HBCR";
     public const string SET_BACKING_STATE = "HBCW";
-
-
+    public const string GET_DRUM_DATA = "DPRN";
+    public const string GET_GUITAR_DATA = "GPRN";
+    public const string GET_BASS_DATA = "BPRN";
+    public const string GET_BACKING_DATA = "APRN";
+    
     public const bool ignoreGetPreset = false;
     public const bool ignoreGetKB = false;
     private bool isWaiting = false;

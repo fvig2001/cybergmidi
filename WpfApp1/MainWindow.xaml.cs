@@ -22,7 +22,7 @@ namespace CyberG
     {
         //private List<Window> openWindows = new List<Window>();
         private const int SAVEWINDOWID = 0;
-        private const int MaxBackingState = 10;
+        
         private const int MaxPatternID = 65535;
         private const int MaxStrumPatternVal = 2;
         private const int MaxNoteVal = 11;
@@ -70,7 +70,6 @@ namespace CyberG
         public int lastbassPatternID = -1;
         public int lastbackingPatternID = -1;
         public int[] lastguitarPatternID = { -1, -1, -1 };
-        public int backingState = 0;
         public MainWindow()
         {
             SetLanguage("en"); //default english
@@ -445,17 +444,17 @@ namespace CyberG
             }
             return true;
         }
-        private bool checkCommandParameterRange(int min, int max, int val, int pos)
+        private bool checkCommandParameterRange(int min, int max, int val)
         {
             string command = SerialManager.Device.LastCommandSent;
             if (val > max)
             {
-                addToDebugLog(debugType.replyDebug, (string)Application.Current.Resources["Error"] + " " + command + " " + (string)Application.Current.Resources["ErrorDataReceivedAtPosition"] + " " + pos.ToString() + " " + val.ToString()  + " > " + max.ToString());
+                addToDebugLog(debugType.replyDebug, (string)Application.Current.Resources["Error"] + " " + command + " " + (string)Application.Current.Resources["ErrorDataReceivedAtPosition"] + " " + val.ToString()  + " > " + max.ToString());
                 return false;
             }
             if (val < min)
             {
-                addToDebugLog(debugType.replyDebug, (string)Application.Current.Resources["Error"] + " " + command + (string)Application.Current.Resources["ErrorDataReceivedAtPosition"] + " " + pos.ToString() + " " + val.ToString() + " < " + min.ToString());
+                addToDebugLog(debugType.replyDebug, (string)Application.Current.Resources["Error"] + " " + command + (string)Application.Current.Resources["ErrorDataReceivedAtPosition"] + " " + val.ToString() + " < " + min.ToString());
                 return false;
             }
 
@@ -477,7 +476,7 @@ namespace CyberG
                     //check ranges here
                     nTemp = int.Parse(parsedData[2]);
 
-                    if (!checkCommandParameterRange(0, MaxPresetCount, nTemp, 0))
+                    if (!checkCommandParameterRange(0, MaxPresetCount, nTemp))
                     {
                         return false;
                     }
@@ -514,7 +513,7 @@ namespace CyberG
                 {
                     //check ranges here
                     nTemp = int.Parse(parsedData[2]);
-                    if (!checkCommandParameterRange(0, 1, nTemp, 0))
+                    if (!checkCommandParameterRange(0, 1, nTemp))
                     {
                         return false;
                     }
@@ -688,7 +687,7 @@ namespace CyberG
                 else
                 {
                     nTemp = int.Parse(parsedData[2]);
-                    if (!checkCommandParameterRange(MinCapoTranspose, MaxCapoTranspose, nTemp, 0))
+                    if (!checkCommandParameterRange(MinCapoTranspose, MaxCapoTranspose, nTemp))
                     {
                         return false;
                     }
@@ -703,7 +702,7 @@ namespace CyberG
                 else
                 {
                     nTemp = int.Parse(parsedData[2]);
-                    if (!checkCommandParameterRange(MinMuteSeparation, MaxMuteSeparation, nTemp, 0))
+                    if (!checkCommandParameterRange(MinMuteSeparation, MaxMuteSeparation, nTemp))
                     {
                         return false;
                     }
@@ -718,7 +717,7 @@ namespace CyberG
                 else
                 {
                     nTemp = int.Parse(parsedData[2]);
-                    if (!checkCommandParameterRange(MinStrumSeparation, MaxStrumSeparation, nTemp, 0))
+                    if (!checkCommandParameterRange(MinStrumSeparation, MaxStrumSeparation, nTemp))
                     {
                         return false;
                     }
@@ -734,7 +733,7 @@ namespace CyberG
                 else
                 {
                     nTemp = int.Parse(parsedData[2]);
-                    if (!checkCommandParameterRange(MinKBTranspose, MaxKBTranspose, nTemp, 0))
+                    if (!checkCommandParameterRange(MinKBTranspose, MaxKBTranspose, nTemp))
                     {
                         return false;
                     }
@@ -749,7 +748,7 @@ namespace CyberG
                 else
                 {
                     nTemp = int.Parse(parsedData[2]);
-                    if (!checkCommandParameterRange(0, 1, nTemp, 0))
+                    if (!checkCommandParameterRange(0, 1, nTemp))
                     {
                         return false;
                     }
@@ -767,7 +766,7 @@ namespace CyberG
                 else
                 {
                     nTemp = int.Parse(parsedData[2]);
-                    if (!checkCommandParameterRange(0, 1, nTemp, 0))
+                    if (!checkCommandParameterRange(0, 1, nTemp))
                     {
                         return false;
                     }
@@ -782,7 +781,7 @@ namespace CyberG
                 else
                 {
                     nTemp = int.Parse(parsedData[2]);
-                    if (!checkCommandParameterRange(0, 1, nTemp, 0))
+                    if (!checkCommandParameterRange(0, 1, nTemp))
                     {
                         return false;
                     }
@@ -797,7 +796,7 @@ namespace CyberG
                 else
                 {
                     nTemp = int.Parse(parsedData[2]);
-                    if (!checkCommandParameterRange(0, 1, nTemp, 0))
+                    if (!checkCommandParameterRange(0, 1, nTemp))
                     {
                         return false;
                     }
@@ -812,7 +811,7 @@ namespace CyberG
                 else
                 {
                     nTemp = int.Parse(parsedData[2]);
-                    if (!checkCommandParameterRange(0, 1, nTemp, 0))
+                    if (!checkCommandParameterRange(0, 1, nTemp))
                     {
                         return false;
                     }
@@ -827,7 +826,7 @@ namespace CyberG
                 else
                 {
                     nTemp = int.Parse(parsedData[2]);
-                    if (!checkCommandParameterRange(0, 1, nTemp, 0))
+                    if (!checkCommandParameterRange(0, 1, nTemp))
                     {
                         return false;
                     }
@@ -843,7 +842,7 @@ namespace CyberG
                 else
                 {
                     nTemp = int.Parse(parsedData[2]);
-                    if (!checkCommandParameterRange(0, 1, nTemp, 0))
+                    if (!checkCommandParameterRange(0, 1, nTemp))
                     {
                         return false;
                     }
@@ -861,7 +860,7 @@ namespace CyberG
                 else
                 {
                     nTemp = int.Parse(parsedData[2]);
-                    if (!checkCommandParameterRange(0, MaxStrumPatternVal, nTemp, 0))
+                    if (!checkCommandParameterRange(0, MaxStrumPatternVal, nTemp))
                     {
                         return false;
                     }
@@ -876,11 +875,11 @@ namespace CyberG
                 else
                 {
                     nTemp = int.Parse(parsedData[2]);
-                    if (!checkCommandParameterRange(0, MaxNoteVal, nTemp, 0))
+                    if (!checkCommandParameterRange(0, MaxNoteVal, nTemp))
                     {
                         return false;
                     }
-                    if (!checkCommandParameterRange(0, MaxChordVal, nTemp, 1))
+                    if (!checkCommandParameterRange(0, MaxChordVal, nTemp))
                     {
                         return false;
                     }
@@ -900,7 +899,7 @@ namespace CyberG
                 else
                 {
                     nTemp = int.Parse(parsedData[2]);
-                    if (!checkCommandParameterRange(0, 1, nTemp, 0))
+                    if (!checkCommandParameterRange(0, 1, nTemp))
                     {
                         return false;
                     }
@@ -915,7 +914,7 @@ namespace CyberG
                 else
                 {
                     nTemp = int.Parse(parsedData[2]);
-                    if (!checkCommandParameterRange(0, 1, nTemp, 0))
+                    if (!checkCommandParameterRange(0, 1, nTemp))
                     {
                         return false;
                     }
@@ -930,7 +929,7 @@ namespace CyberG
                 else
                 {
                     nTemp = int.Parse(parsedData[2]);
-                    if (!checkCommandParameterRange(0, 1, nTemp, 0))
+                    if (!checkCommandParameterRange(0, 1, nTemp))
                     {
                         return false;
                     }
@@ -945,7 +944,7 @@ namespace CyberG
                 else
                 {
                     nTemp = int.Parse(parsedData[2]);
-                    if (!checkCommandParameterRange(0, MaxStrumStyle, nTemp, 0))
+                    if (!checkCommandParameterRange(0, MaxStrumStyle, nTemp))
                     {
                         return false;
                     }
@@ -960,28 +959,14 @@ namespace CyberG
                 else
                 {
                     nTemp = int.Parse(parsedData[2]);
-                    if (!checkCommandParameterRange(0, MAX_MODE_VALUE, nTemp, 0))
+                    if (!checkCommandParameterRange(0, MAX_MODE_VALUE, nTemp))
                     {
                         return false;
                     }
                 }
             }
 
-            else if (command == SerialDevice.GET_BACKING_STATE)
-            {
-                if (!checkCommandParamCount(parsedData, 3))
-                {
-                    return false;
-                }
-                else
-                {
-                    nTemp = int.Parse(parsedData[2]);
-                    if (!checkCommandParameterRange(0, MaxBackingState, nTemp, 0))
-                    {
-                        return false;
-                    }
-                }
-            }
+            
             else if (command == SerialDevice.GET_DRUM_ID)
             {
                 if (!checkCommandParamCount(parsedData, 3))
@@ -991,7 +976,7 @@ namespace CyberG
                 else
                 {
                     nTemp = int.Parse(parsedData[2]);
-                    if (!checkCommandParameterRange(0, MaxPatternID, nTemp, 0))
+                    if (!checkCommandParameterRange(0, MaxPatternID, nTemp))
                     {
                         return false;
                     }
@@ -1006,7 +991,7 @@ namespace CyberG
                 else
                 {
                     nTemp = int.Parse(parsedData[2]);
-                    if (!checkCommandParameterRange(0, MaxPatternID, nTemp, 0))
+                    if (!checkCommandParameterRange(0, MaxPatternID, nTemp))
                     {
                         return false;
                     }
@@ -1021,7 +1006,7 @@ namespace CyberG
                 else
                 {
                     nTemp = int.Parse(parsedData[2]);
-                    if (!checkCommandParameterRange(0, MaxPatternID, nTemp, 0))
+                    if (!checkCommandParameterRange(0, MaxPatternID, nTemp))
                     {
                         return false;
                     }
@@ -1036,7 +1021,7 @@ namespace CyberG
                 else
                 {
                     nTemp = int.Parse(parsedData[2]);
-                    if (!checkCommandParameterRange(0, MaxPatternID, nTemp, 0))
+                    if (!checkCommandParameterRange(0, MaxPatternID, nTemp))
                     {
                         return false;
                     }
@@ -1476,15 +1461,7 @@ namespace CyberG
                             }
 
                         }
-                        else if (command == SerialDevice.GET_BACKING_STATE)
-                        {
-                            if (checkReceivedValid(parsedData))
-                            {
-                                nTemp = int.Parse(parsedData[2]);
-                                backingState = nTemp;
-                            }
-
-                        }
+                        
                         else if (command == SerialDevice.GET_DRUM_ID)
                         {
                             if (checkReceivedValid(parsedData))
