@@ -11,6 +11,16 @@ using static CyberG.NativeLoader;
 
 namespace CyberG
 {
+    public struct midiPattern
+    {
+        public int midiNote;         // MIDI note number, 255 for rest
+        public int offset;           // when it should be played
+        public int length;           // Length in 1/64th or 1/256th notes (units)
+        public int lengthTicks;      // Length in ticks (for debug)
+        public int velocity;         // velocity
+        public int relativeOctave;   // octave relative to root note
+        public int channel;          // midi channel
+    }
     internal class Native2WPF
     {
         public const bool ALLOW_LOOP = true;
@@ -19,17 +29,36 @@ namespace CyberG
         public const int BACKING_CHANNEL = 0;
         public static List<midiPattern> converted = new List<midiPattern>();
         public static List<midiPattern> omniConverted = new List<midiPattern>();
-        public struct midiPattern
-        {
-            public int midiNote;         // MIDI note number, 255 for rest
-            public int offset;           // when it should be played
-            public int length;           // Length in 1/64th or 1/256th notes (units)
-            public int lengthTicks;      // Length in ticks (for debug)
-            public int velocity;         // velocity
-            public int relativeOctave;   // octave relative to root note
-            public int channel;          // midi channel
-        }
         
+        //convert from Cyber G to midi-ish format
+        public static void convertStandardToEncoded(List<midiPattern> input, ref List<EncodedNote> output)
+        {
+            int[] rootNotes = { 60, 64, 67 };
+            output.Clear();
+            int lastOffset = 1;
+            int curOrder = 0;
+            for (int i = 0; i < input.Count; i++)
+            {
+                EncodedNote n = new EncodedNote();
+                n.velocity = input[i].velocity;
+                n.midiNote = input[i].midiNote;
+                if (n.midiNote < rootNotes.Length)
+                {
+                    n.midiNote = rootNotes[n.midiNote];
+                }
+                n.relativeOctave = input[i].relativeOctave;
+                n.channel = input[i].channel;
+                n.length = input[i].length;
+                n.lengthTicks = input[i].lengthTicks;
+                if (lastOffset != input[i].offset)
+                {
+                    curOrder++;
+                }
+                n.noteOrder = curOrder;
+                lastOffset = input[i].offset;
+                output.Add(n);
+            }
+        }
         public static bool convertOmnichordBackingToMidi(string midiFilepath, int backingNo, int bpm)
         {
             int[] rootNotes =  { 60, 64, 67};
@@ -183,7 +212,7 @@ namespace CyberG
                 {
 
                 }
-                DebugLog.addToLog(debugType.miscDebug, "Converted " + encoded[i].midiNote.ToString() + " " + encoded[i].noteOrder.ToString() + " " + encoded[i].lengthTicks.ToString() + " " + encoded[i].channel);
+                //DebugLog.addToLog(debugType.miscDebug, "Converted " + encoded[i].midiNote.ToString() + " " + encoded[i].noteOrder.ToString() + " " + encoded[i].lengthTicks.ToString() + " " + encoded[i].channel);
             }
 
             // Marshal back to native memory
@@ -232,10 +261,10 @@ namespace CyberG
                 }
                 converted.Clear();
                 convertNative2MidiPattern(notes, cgdSize, ref converted);
-                for (int i = 0; i < converted.Count; i++)
-                {
-                    DebugLog.addToLog(debugType.miscDebug, "Converted " + converted[i].midiNote.ToString() + " " + converted[i].offset.ToString() + " " +converted[i].lengthTicks.ToString());
-                }
+                //for (int i = 0; i < converted.Count; i++)
+                //{
+                    //DebugLog.addToLog(debugType.miscDebug, "Converted " + converted[i].midiNote.ToString() + " " + converted[i].offset.ToString() + " " +converted[i].lengthTicks.ToString());
+                //}
                 // 5. IMPORTANT: Free the native memory when done
                 NativeLoader.FreeStruct(standardNotesPtr);
                 NativeLoader.FreeStruct(placeHolderNotesPtr);
@@ -287,11 +316,11 @@ namespace CyberG
             
             //add missing steps
             int size = converted.Count();
-            for (int i = 0; i < size; i++)
-            {
+            //for (int i = 0; i < size; i++)
+            //{
                 //Console.WriteLine($"Note {i}: midiNote={enc[i].midiNote}, length={enc[i].length}, velocity={enc[i].velocity}");
-                DebugLog.addToLog(debugType.miscDebug, i.ToString()+ ": " + enc[i].midiNote.ToString() + " " + enc[i].noteOrder.ToString());
-            }
+                //DebugLog.addToLog(debugType.miscDebug, i.ToString()+ ": " + enc[i].midiNote.ToString() + " " + enc[i].noteOrder.ToString());
+            //}
             int structSize = Marshal.SizeOf<EncodedNote>();
             IntPtr encPtr = Marshal.AllocHGlobal(structSize * size);
             

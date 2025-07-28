@@ -22,7 +22,7 @@ namespace CyberG
     {
         //private List<Window> openWindows = new List<Window>();
         private const int SAVEWINDOWID = 0;
-        
+        private bool isPinging = false;
         private const int MaxPatternID = 65535;
         private const int MaxStrumPatternVal = 2;
         private const int MaxNoteVal = 11;
@@ -43,6 +43,7 @@ namespace CyberG
         private List<ComboBox> allComboRoots;
         private List<ComboBox> allComboChords;
         private List<ComboBox> allComboPatterns;
+        private List<ComboBox> allColChords;
         private const int MaxBPM = 300;
         private const int MinBPM = 50;
         private const int MaxStrumStyle = 2;
@@ -312,12 +313,12 @@ namespace CyberG
             
             SendCmd(SerialDevice.GET_BPM, curPreset.ToString());
             SendCmd(SerialDevice.GET_BACKING_STATE, "");
-            SendCmd(SerialDevice.GET_DRUM_ID, "");
-            SendCmd(SerialDevice.GET_BASS_ID, "");
-            SendCmd(SerialDevice.GET_BACKING_ID, "");
-            SendCmd(SerialDevice.GET_GUITAR_ID, "0");
-            SendCmd(SerialDevice.GET_GUITAR_ID, "1");
-            SendCmd(SerialDevice.GET_GUITAR_ID, "2");
+            //SendCmd(SerialDevice.GET_DRUM_ID, "");
+            //SendCmd(SerialDevice.GET_BASS_ID, "");
+            //SendCmd(SerialDevice.GET_BACKING_ID, "");
+            //SendCmd(SerialDevice.GET_GUITAR_ID, "0");
+            //SendCmd(SerialDevice.GET_GUITAR_ID, "1");
+            //SendCmd(SerialDevice.GET_GUITAR_ID, "2");
 
             for (int i = 0; i < NECK_ROWS; i++)
             {
@@ -391,10 +392,11 @@ namespace CyberG
 
         private void OnSerialPingTimerTick(object sender, EventArgs e)
         {
-            if (!isSerialEnabled)
+            if (!isSerialEnabled && isPinging)
             {
                 return;
             }
+            isPinging = true;
             var device = SerialManager.Device;
 
             SendCmd(SerialDevice.GET_PRESET);
@@ -965,7 +967,7 @@ namespace CyberG
                     }
                 }
             }
-
+            /*
             
             else if (command == SerialDevice.GET_DRUM_ID)
             {
@@ -1027,7 +1029,7 @@ namespace CyberG
                     }
                 }
             }
-
+            */
             return true;
         }
         private void OnMainSerialDataReceived(object sender, string data)
@@ -1516,6 +1518,7 @@ namespace CyberG
                                     changeBPM(int.Parse(parsedData[2]));
                                 }
                             }
+                            isPinging = false;
                             isSerialEnabled = true;//restart ping
 
                         }
@@ -1551,7 +1554,7 @@ namespace CyberG
             int waited = 0;
             int interval = 100; // Check every 100ms
 
-            while (isExpectingSerialData && waited < timeoutMs)
+            while (isPinging && waited < timeoutMs)
             {
                 await Task.Delay(interval);
                 waited += interval;
@@ -2061,6 +2064,19 @@ namespace CyberG
                 allComboChords[i].ItemsSource = optionsChordNoteStyle;
                 allComboChords[i].SelectedIndex = 0;
             }
+            allColChords = new List<ComboBox>
+            {
+                col0ChordComboBox, 
+                col1ChordComboBox, 
+                col2ChordComboBox
+            };
+
+            for (int i = 0; i < allColChords.Count; i++)
+            {
+                allColChords[i].ItemsSource = optionsChordNoteStyle;
+                allColChords[i].SelectedIndex = -1;
+                allColChords[i].SelectionChanged += ColChordComboBox_SelectionChanged;
+            }
 
             foreach (var cb in allComboChords)
             {
@@ -2216,10 +2232,18 @@ namespace CyberG
         {
             try
             {
+                PauseSerial();
+                isSerialEnabled = false;
                 await WaitForSerialProcessingAsync();
-                var patternWindow = new PatternWindow();
+                var patternWindow = new PatternWindow(int.Parse(bpmTextbox.Text));
                 //AddWindowToList(patternWindow);
                 patternWindow.ShowDialog();
+                isPinging = false;
+                ResumeSerial();
+
+                isSerialEnabled = true;
+
+
             }
             catch (TimeoutException ex)
             {
@@ -2311,6 +2335,54 @@ namespace CyberG
                 return;
             }
         }
+
+        private void ColChordComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (isPresetReading)
+            {
+                return;
+            }
+            int col = -1;
+            for (int i = 0; i < allColChords.Count; i++)
+            {
+                if (sender == allColChords[i])
+                {
+                    col = i;
+                    break;
+                }
+            }
+            /*
+            if (sender is ComboBox col0ChordComboBox)
+            {
+                col = 0;
+            }
+            else if (sender is ComboBox col1ChordComboBox)
+            {
+                col = 1;
+            }
+            else //if (sender is ComboBox col2ChordComboBox)
+            {
+                col = 2;
+            }
+            */
+            if (allColChords[col].SelectedIndex == -1)
+            {
+                return; //do nothing 
+            }
+            for (int i = 0; i < NECK_ROWS; i++)
+            {
+                for (int j = 0; j < NECK_COLS; j++)
+                {
+                    if (j == col)
+                    {
+                        allComboChords[i * NECK_COLS + j].SelectedIndex = allColChords[col].SelectedIndex;
+                    }
+                }
+            }
+            allColChords[col].SelectedIndex = -1;
+        }
+
+
         private void RootChordComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (isPresetReading)

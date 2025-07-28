@@ -84,8 +84,10 @@ public class SerialDevice
 
     //private string _lastCommandSent;
     //private string _lastParamSent;
-    private readonly Queue<string> _lastCommandSent = new Queue<string>();
-    private readonly Queue<string> _lastParamSent = new Queue<string>();
+    //private readonly Queue<string> _lastCommandSent = new Queue<string>();
+    //private readonly Queue<string> _lastParamSent = new Queue<string>();
+    private static Queue<string> _lastCommandSent = new Queue<string>();
+    private static Queue<string> _lastParamSent = new Queue<string>();
     private readonly object _lock = new object();
 
     public string PortName { get; set; }
@@ -289,16 +291,33 @@ public class SerialDevice
             }
         }
     }
+    private string serialBuffer = "";
+
 
     private void OnSerialDataReceived(object sender, SerialDataReceivedEventArgs e)
     {
-        bool isDebug = false;
         try
         {
-            while (true)
+            string incoming = _serialPort.ReadExisting();
+            if (string.IsNullOrEmpty(incoming))
+                return;
+
+            serialBuffer += incoming;
+
+            // Split on full lines
+            string[] lines = serialBuffer.Split(new[] { "\r\n" }, StringSplitOptions.None);
+
+            // Keep incomplete part (last item if not ending in \r\n)
+            serialBuffer = lines[^1]; // ^1 means "last item"
+
+            for (int i = 0; i < lines.Length - 1; i++) // skip last (incomplete)
             {
-                string data = _serialPort.ReadLine(); // waits until \n or timeout
+                string data = lines[i].Trim();
                 if (string.IsNullOrWhiteSpace(data)) continue;
+
+                bool isDebug = false;
+                string cmd = "";
+                string param = "";
 
                 lock (_lock)
                 {
@@ -308,46 +327,32 @@ public class SerialDevice
                     }
                     else if (data.StartsWith("NG"))
                     {
-                        //if (_lastCommandSent.Count > 0 && _lastParamSent.Count > 0)
+                        if (_lastCommandSent.Count > 0 && _lastParamSent.Count > 0)
                         {
                             DebugLog.addToLog(debugType.sendDebug, _lastCommandSent.First() + "," + _lastParamSent.First());
                         }
                         DebugLog.addToLog(debugType.replyDebug, data);
                     }
 
-                    //if (_lastCommandSent.Count > 0 && _lastParamSent.Count > 0)
+                    if (!isDebug && _lastCommandSent.Count > 0 && _lastParamSent.Count > 0)
                     {
-                        string cmd = "";
-                        string param = "";
-                        if (isDebug)
-                        {
-                        }
-                        else
-                        {
-                            cmd = _lastCommandSent.First();
-                            param = _lastParamSent.First();
-                        }
-                        
-                        if (!(cmd == GET_PRESET && ignoreGetPreset) &&
-                            !(cmd == GET_ISKB && ignoreGetKB))
-                        {
-                            SerialLog.addToLog(data);
-                        }
+                        cmd = _lastCommandSent.First();
+                        param = _lastParamSent.First();
+                    }
 
-                        //isWaiting = false;
+                    if (!(cmd == GET_PRESET && ignoreGetPreset) &&
+                        !(cmd == GET_ISKB && ignoreGetKB))
+                    {
+                        SerialLog.addToLog(data);
                     }
                 }
-                if (DataReceived != null)
-                {
-                    DataReceived?.Invoke(this, data);
-                    break;
-                }
 
+                DataReceived?.Invoke(this, data);
             }
         }
         catch (TimeoutException)
         {
-            // No full line received yet
+            // Ignore and wait for more data
         }
         catch (IOException)
         {

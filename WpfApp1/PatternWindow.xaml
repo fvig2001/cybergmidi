@@ -75,10 +75,18 @@
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="25"/>
                                     <ColumnDefinition/>
+                                    <ColumnDefinition Width="20"/>
+                                    <ColumnDefinition/>
                                     <ColumnDefinition Width="25"/>
                                 </Grid.ColumnDefinitions>
                                 <Button Grid.Column="0" Width="25" Name="previousButton"/>
-                                <Button Grid.Column="2" Width="25" Name="nextButton"/>
+                                <Button Grid.Column="2" Width="20" Name="playSampleButton" Height="20">
+                                    <Image Source="Images/play.png"
+                                    Stretch="Uniform"
+                                    VerticalAlignment="Center"
+                                    HorizontalAlignment="Center"/>
+                                </Button>
+                                <Button Grid.Column="4" Width="25" Name="nextButton"/>
                             </Grid>
                             <Grid Grid.Row="4">
                                 <Grid.ColumnDefinitions>
@@ -123,15 +131,39 @@
                         <!-- Backing mode-->
                         <Grid Grid.Row="0">
                             <Grid.RowDefinitions>
-                                <RowDefinition Height="25"/>
+                                <RowDefinition Height="27"/>
                                 <RowDefinition Height="5px"/>
                                 <RowDefinition/>
                             </Grid.RowDefinitions>
                             <Label Grid.Row="0" Content="{DynamicResource BackingTrack}" HorizontalAlignment="Center" VerticalAlignment="Top"/>
-                            <ComboBox Name="BackingModeComboBox" Grid.Row="2" HorizontalAlignment="Center" VerticalAlignment="Top" Width="150" />
+                            
+                            <Grid Grid.Row="2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition/>
+                                    <ColumnDefinition Width="155"/>
+                                    <ColumnDefinition Width="5"/>
+                                    <ColumnDefinition Width="40"/>
+                                    <ColumnDefinition/>
+                                </Grid.ColumnDefinitions>
+                                <ComboBox Name="BackingModeComboBox" Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center" Width="150" />
+                                <Button Name="playBackingButton" Grid.Column="3" Width="20" Height="20" VerticalAlignment ="Center" Click="playBackingButton_Click">
+                                    <Image Source="Images/play.png"
+                                   Stretch="Uniform"
+                                   VerticalAlignment="Center"
+                                   HorizontalAlignment="Center"/>
+                                </Button>
+                            </Grid>
                         </Grid>
                         <Grid Grid.Row="2">
                             <Grid.RowDefinitions>
+                                <RowDefinition Height="20px"/>
+                                <RowDefinition Height="5px"/>
+                                <RowDefinition Height="20px"/>
+                                <RowDefinition Height="5px"/>
+                                <RowDefinition Height="20px"/>
+                                <RowDefinition Height="5px"/>
+                                <RowDefinition Height="20px"/>
+                                <RowDefinition Height="5px"/>
                                 <RowDefinition Height="20px"/>
                                 <RowDefinition Height="5px"/>
                                 <RowDefinition Height="20px"/>
@@ -150,66 +182,185 @@
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition/>
                                     <ColumnDefinition Width="5px"/>
-                                    <ColumnDefinition/>
+                                    <ColumnDefinition Width="20"/>
+                                    <ColumnDefinition Width="5px"/>
+                                    <ColumnDefinition Width="60"/>
                                 </Grid.ColumnDefinitions>
                                 <RadioButton Grid.Column="0" Name="guitar0PatternRadioButton" Content="{DynamicResource GuitarPattern0}" GroupName="Instruments"/>
-                                <TextBox Grid.Column="2" Name="guitar0PatternTextBox" IsReadOnly="True" VerticalContentAlignment="Center"/>
+                                <Button Grid.Column="2" Name="playButton0">
+                                   <Image Source="Images/play.png"
+                                   Stretch="Uniform"
+                                   VerticalAlignment="Center"
+                                   HorizontalAlignment="Center"/>
+                                </Button>
+                                <TextBox Grid.Column="4" Name="guitar0PatternTextBox" IsReadOnly="True" VerticalContentAlignment="Center"/>
                             </Grid>
                             <!--Instrument 2-->
                             <Grid Grid.Row="2">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition/>
                                     <ColumnDefinition Width="5px"/>
-                                    <ColumnDefinition/>
+                                    <ColumnDefinition Width="20"/>
+                                    <ColumnDefinition Width="5px"/>
+                                    <ColumnDefinition Width="60"/>
                                 </Grid.ColumnDefinitions>
                                 <RadioButton Grid.Column="0" Name="guitar1PatternRadioButton" Content="{DynamicResource GuitarPattern1}" GroupName="Instruments"/>
-                                <TextBox Grid.Column="2" Name="guitar1PatternTextBox" IsReadOnly="True"  VerticalContentAlignment="Center"/>
+                                <Button Grid.Column="2" Name="playButton1">
+                                    <Image Source="Images/play.png"
+                                       Stretch="Uniform"
+                                       VerticalAlignment="Center"
+                                       HorizontalAlignment="Center"/>
+                                    </Button>
+                                <TextBox Grid.Column="4" Name="guitar1PatternTextBox" IsReadOnly="True"  VerticalContentAlignment="Center"/>
                             </Grid>
                             <!--Instrument 3-->
                             <Grid Grid.Row="4">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition/>
                                     <ColumnDefinition Width="5px"/>
-                                    <ColumnDefinition/>
+                                    <ColumnDefinition Width="20"/>
+                                    <ColumnDefinition Width="5px"/>
+                                    <ColumnDefinition Width="60"/>
                                 </Grid.ColumnDefinitions>
                                 <RadioButton Grid.Column="0" Name="guitar2PatternRadioButton" Content="{DynamicResource GuitarPattern2}" GroupName="Instruments"/>
-                                <TextBox Grid.Column="2" Name="guitar2PatternTextBox" IsReadOnly="True" VerticalContentAlignment="Center"/>
+                                <Button Grid.Column="2" Name="playButton2">
+                                    <Image Source="Images/play.png"
+                                   Stretch="Uniform"
+                                   VerticalAlignment="Center"
+                                   HorizontalAlignment="Center"/>
+                                </Button>
+                                <TextBox Grid.Column="4" Name="guitar2PatternTextBox" IsReadOnly="True" VerticalContentAlignment="Center"/>
                             </Grid>
                             <!--Instrument 4-->
                             <Grid Grid.Row="6">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition/>
                                     <ColumnDefinition Width="5px"/>
-                                    <ColumnDefinition/>
+                                    <ColumnDefinition Width="20"/>
+                                    <ColumnDefinition Width="5px"/>
+                                    <ColumnDefinition Width="60"/>
                                 </Grid.ColumnDefinitions>
                                 <RadioButton Grid.Column="0" Name="bassPatternRadioButton" Content="{DynamicResource BassPattern}" GroupName="Instruments"/>
-                                <TextBox Grid.Column="2" Name="bassPatternTextBox" IsReadOnly="True" VerticalContentAlignment="Center"/>
+                                <Button Grid.Column="2" Name="playButton3">
+                                    <Image Source="Images/play.png"
+                                    Stretch="Uniform"
+                                    VerticalAlignment="Center"
+                                    HorizontalAlignment="Center"/>
+                                </Button>
+                                <TextBox Grid.Column="4" Name="bassPatternTextBox" IsReadOnly="True" VerticalContentAlignment="Center"/>
                             </Grid>
                             <!--Instrument 5-->
                             <Grid Grid.Row="8">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition/>
                                     <ColumnDefinition Width="5px"/>
-                                    <ColumnDefinition/>
+                                    <ColumnDefinition Width="20"/>
+                                    <ColumnDefinition Width="5px"/>
+                                    <ColumnDefinition Width="60"/>
                                 </Grid.ColumnDefinitions>
                                 <RadioButton Grid.Column="0" Name="backingPatternRadioButton" Content="{DynamicResource BackingPattern}" GroupName="Instruments"/>
-                                <TextBox Grid.Column="2" Name="backingPatternTextBox" IsReadOnly="True" VerticalContentAlignment="Center"/>
+                                <Button Grid.Column="2" Name="playButton4">
+                                    <Image Source="Images/play.png"
+                                   Stretch="Uniform"
+                                   VerticalAlignment="Center"
+                                   HorizontalAlignment="Center"/>
+                                </Button>
+                                <TextBox Grid.Column="4" Name="backingPatternTextBox" IsReadOnly="True" VerticalContentAlignment="Center"/>
                             </Grid>
                             <!--Instrument 6-->
                             <Grid Grid.Row="10">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition/>
                                     <ColumnDefinition Width="5px"/>
-                                    <ColumnDefinition/>
+                                    <ColumnDefinition Width="20"/>
+                                    <ColumnDefinition Width="5px"/>
+                                    <ColumnDefinition Width="60"/>
                                 </Grid.ColumnDefinitions>
-                                <RadioButton Grid.Column="0" Name="drumPatternRadioButton" Content="{DynamicResource DrumPattern}" GroupName="Instruments"/>
-                                <TextBox Grid.Column="2" Name="drumPatternTextBox" IsReadOnly="True" VerticalContentAlignment="Center"/>
+                                <RadioButton Grid.Column="0" Name="drumPatternRadioButton0" Content="{DynamicResource DrumPattern0}" GroupName="Instruments"/>
+                                <Button Grid.Column="2" Name="playButton5">
+                                    <Image Source="Images/play.png"
+                                   Stretch="Uniform"
+                                   VerticalAlignment="Center"
+                                   HorizontalAlignment="Center"/>
+                                </Button>
+                                <TextBox Grid.Column="4" Name="drumPatternTextBox0" IsReadOnly="True" VerticalContentAlignment="Center"/>
                             </Grid>
+                            <!--Instrument 7-->
+                            <Grid Grid.Row="12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition/>
+                                    <ColumnDefinition Width="5px"/>
+                                    <ColumnDefinition Width="20"/>
+                                    <ColumnDefinition Width="5px"/>
+                                    <ColumnDefinition Width="60"/>
+                                </Grid.ColumnDefinitions>
+                                <RadioButton Grid.Column="0" Name="drumPatternRadioButton1" Content="{DynamicResource DrumPattern1}" GroupName="Instruments"/>
+                                <Button Grid.Column="2" Name="playButton6">
+                                    <Image Source="Images/play.png"
+                                   Stretch="Uniform"
+                                   VerticalAlignment="Center"
+                                   HorizontalAlignment="Center"/>
+                                </Button>
+                                <TextBox Grid.Column="4" Name="drumPatternTextBox1" IsReadOnly="True" VerticalContentAlignment="Center"/>
+                            </Grid>
+                            <!--Instrument 8-->
+                            <Grid Grid.Row="14">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition/>
+                                    <ColumnDefinition Width="5px"/>
+                                    <ColumnDefinition Width="20"/>
+                                    <ColumnDefinition Width="5px"/>
+                                    <ColumnDefinition Width="60"/>
+                                </Grid.ColumnDefinitions>
+                                <RadioButton Grid.Column="0" Name="drumPatternRadioButton2" Content="{DynamicResource DrumPattern2}" GroupName="Instruments"/>
+                                <Button Grid.Column="2" Name="playButton7">
+                                    <Image Source="Images/play.png"
+                                   Stretch="Uniform"
+                                   VerticalAlignment="Center"
+                                   HorizontalAlignment="Center"/>
+                                </Button>
+                                <TextBox Grid.Column="4" Name="drumPatternTextBox2" IsReadOnly="True" VerticalContentAlignment="Center"/>
+                            </Grid>
+                            <!--Instrument 9-->
+                            <Grid Grid.Row="16">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition/>
+                                    <ColumnDefinition Width="5px"/>
+                                    <ColumnDefinition Width="20"/>
+                                    <ColumnDefinition Width="5px"/>
+                                    <ColumnDefinition Width="60"/>
+                                </Grid.ColumnDefinitions>
+                                <RadioButton Grid.Column="0" Name="drumPatternRadioButton3" Content="{DynamicResource DrumPattern3}" GroupName="Instruments"/>
+                                <Button Grid.Column="2" Name="playButton8">
+                                    <Image Source="Images/play.png"
+                                   Stretch="Uniform"
+                                   VerticalAlignment="Center"
+                                   HorizontalAlignment="Center"/>
+                                </Button>
+                                <TextBox Grid.Column="4" Name="drumPatternTextBox3" IsReadOnly="True" VerticalContentAlignment="Center"/>
+                            </Grid>
+                            <!--Instrument 10-->
+                            <Grid Grid.Row="18">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition/>
+                                    <ColumnDefinition Width="5px"/>
+                                    <ColumnDefinition Width="20"/>
+                                    <ColumnDefinition Width="5px"/>
+                                    <ColumnDefinition Width="60"/>
+                                </Grid.ColumnDefinitions>
+                                <RadioButton Grid.Column="0" Name="drumPatternRadioButton4" Content="{DynamicResource DrumPattern4}" GroupName="Instruments"/>
+                                <Button Grid.Column="2" Name="playButton9">
+                                    <Image Source="Images/play.png"
+                               Stretch="Uniform"
+                               VerticalAlignment="Center"
+                               HorizontalAlignment="Center"/>
+                                </Button>
+                                <TextBox Grid.Column="4" Name="drumPatternTextBox4" IsReadOnly="True" VerticalContentAlignment="Center"/>
+                            </Grid>
+                            
                         </Grid>
                         <Grid Grid.Row="4">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="30px"/>
-                                <ColumnDefinition Width="5px"/>
                                 <ColumnDefinition Width="35px"/>
                                 <ColumnDefinition Width="5px"/>
                                 <ColumnDefinition Width="40"/>
@@ -218,11 +369,11 @@
                                 <ColumnDefinition Width="5px"/>
                                 <ColumnDefinition Width="100"/>
                             </Grid.ColumnDefinitions>
-                            <Button Grid.Column="0" Width="25" Name="playButton"/>
-                            <Label Grid.Column="2" Content="BPM"/>
-                            <TextBox Grid.Column="4" Name="bpmTextBox" VerticalContentAlignment="Center"/>
-                            <Button Grid.Column="6" Width="80" Name="savePatternButton" Content="Save to ROM"/>
-                            <Button Grid.Column="8" Width="80" Name="closeButton" Content="{DynamicResource Close}"/>
+                            
+                            <Label Grid.Column="0" Content="BPM"/>
+                            <TextBox Grid.Column="2" Name="bpmTextBox" VerticalContentAlignment="Center"/>
+                            <Button Grid.Column="4" Width="80" Name="savePatternButton" Content="Save to ROM"/>
+                            <Button Grid.Column="6" Width="80" Name="closeButton" Content="{DynamicResource Close}" Height="25" Margin="10,0,10,0" VerticalAlignment="Top" Click="closeButton_Click"/>
 
                         </Grid>
                     </Grid>

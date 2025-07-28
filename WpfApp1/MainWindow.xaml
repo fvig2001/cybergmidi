@@ -25,7 +25,7 @@
                 <ColumnDefinition Width="*"/>
                 <!--Set all -->
                 <ColumnDefinition Width="455"/>
-                <ColumnDefinition Width="8"/>
+                <ColumnDefinition Width="7"/>
             </Grid.ColumnDefinitions>
             <Ellipse Grid.Column="1" Width="14" Height="14" Fill="{DynamicResource STATUSNG}" Stroke="Black" StrokeThickness="1" Name="statusEllipse"/>
             <Label Grid.Column="2" FontSize="8" Content="{DynamicResource NotConnected}" Name="statusLabel" VerticalAlignment="Top" VerticalContentAlignment="Top"/>
@@ -37,8 +37,9 @@
                     <ColumnDefinition Width="1"/>
                     <ColumnDefinition/>
                 </Grid.ColumnDefinitions>
-                <!--== <ComboBox Grid.Column="0" Name="allX"/>
-                <ComboBox Grid.Column="2" Name="allGuitarPatterns"/>-->
+                <ComboBox Grid.Column="0" Name="col0ChordComboBox"/>
+                <ComboBox Grid.Column="2" Name="col1ChordComboBox"/>
+                <ComboBox Grid.Column="4" Name="col2ChordComboBox"/>
             </Grid>
 
         </Grid>

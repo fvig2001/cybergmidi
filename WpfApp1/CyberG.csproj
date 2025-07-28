@@ -14,10 +14,12 @@
   <ItemGroup>
     <None Remove="Images\GuitarRead.png" />
     <None Remove="Images\GuitarReady.png" />
+    <None Remove="Images\pause.png" />
     <None Remove="Images\PianoRead.png" />
     <None Remove="Images\PianoReady.png" />
 	<None Remove="Images\PianoLoad.png" />
 	<None Remove="Images\GuitarLoad.png" />
+	<None Remove="Images\play.png" />
   </ItemGroup>
 
   <ItemGroup>
@@ -35,6 +37,9 @@
     </Resource>	
     <Resource Include="Images\GuitarReady.png">
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Resource>	
+    <Resource Include="Images\pause.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </Resource>
     <Resource Include="Images\PianoRead.png">
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
@@ -43,6 +48,9 @@
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </Resource>	
     <Resource Include="Images\PianoReady.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Resource>	
+    <Resource Include="Images\play.png">
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </Resource>
   </ItemGroup>
