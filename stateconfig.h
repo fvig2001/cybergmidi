@@ -21,7 +21,7 @@
 #define PROGRAM_ACOUSTIC_GUITAR 24
 #define PROGRAM_ACOUSTIC_BASS 32
 #define PROGRAM_HARPSICORD 6
-#define PROGRAM_DRUMS 114
+#define PROGRAM_DRUMS 0
 
 #define MAX_CUSTOM_PATTERNS 3
 #define MAX_BASS_PATTERNS 1
@@ -70,6 +70,7 @@
 
 
 //state
+uint8_t lastKBPressed = 255;
 bool buttonPressedChanged = false; //flag for kb know that fret button pressed was changed
 bool isSustain = false; //actual sustain state
 bool isSustainPressed = false; //sustain button is still pressed
@@ -134,8 +135,8 @@ std::vector<bool> properOmniChord5ths;
 //std::vector<noteOffset> bassNoteOffsets;
 //std::vector<noteOffset> accompanimentNoteOffsets;
 //std::vector<std::vector<noteOffset>> guitarNoteOffsets;
-
-uint16_t DrumPatternID;
+uint16_t AccompanimentPatternID;
+uint16_t DrumPatternID[5];
 uint16_t BassPatternID;
 uint16_t GuitarPatternID0;
 uint16_t GuitarPatternID1;

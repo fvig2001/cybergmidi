@@ -3,6 +3,7 @@
 #include <usb_midi.h>
 #include <vector>
 #include <SD.h>
+#include <Encoder.h>
 //#include "helperClasses.h"
 #include "stateconfig.h"
 #include "omniChordBacking.h"
@@ -18,6 +19,31 @@ std::vector<SequencerNote> StaggeredSequencerNotes; //queue of staggered guitar 
 std::vector<SequencerNote> SequencerPatternA;
 std::vector<SequencerNote> SequencerPatternB;
 std::vector<SequencerNote> SequencerPatternC;
+volatile int encoderPosition = 0;
+volatile uint32_t lastMoveTime = 0;
+volatile int lastDirection = 0;
+
+void onEncoderA() {
+  uint32_t now = millis();
+
+  bool a = digitalRead(21);  // CLK
+  bool b = digitalRead(20);  // DT
+
+  if (a) { // Only react on A rising
+    int dir = (b == 0) ? +1 : -1;
+
+    // Ignore direction reversals that happen too soon (phantom step)
+    if ((dir != lastDirection) && (now - lastMoveTime < 250)) {
+      return;
+    }
+
+    lastDirection = dir;
+    lastMoveTime = now;
+    encoderPosition += dir;
+  }
+}
+
+
 
 std::vector<SequencerNote> * getGuitarPattern(uint8_t pattern)
 {
@@ -124,10 +150,12 @@ std::vector<uint8_t> lastGuitarNotesButtons;
 std::vector<noteShift> lastOmniNotes;
 #define MAX_BUFFER_SIZE 150
 uint8_t bufferLen2 = 0;
+uint8_t bufferLen5 = 0;
 char dataBuffer1[MAX_BUFFER_SIZE + 1];  // +1 for null terminator
 char dataBuffer2[MAX_BUFFER_SIZE + 1];  // +1 for null terminator
 char dataBuffer3[MAX_BUFFER_SIZE + 1];  // +1 for null terminator
 char dataBuffer4[MAX_BUFFER_SIZE + 1];  // +1 for null terminator
+char dataBuffer5[MAX_BUFFER_SIZE + 1];  // +1 for null terminator
 uint8_t bufferLen1 = 0;
 uint8_t bufferLen3 = 0;
 uint8_t bufferLen4 = 0;
@@ -638,7 +666,10 @@ void prepareConfig() {
     accompanimentEnabled.push_back(true);
     properOmniChord5ths.push_back(true);
     AccompanimentPatternID = 0;
-    DrumPatternID = 0;
+    for (int i = 0; i < DRUM_END_ID+1; i++)
+    {
+      DrumPatternID[i] = 0;
+    }
     BassPatternID = 0;
     GuitarPatternID0 = 0;
     GuitarPatternID1 = 0;
@@ -895,6 +926,9 @@ bool loadPatternFiles(bool loadFromBackup = false) {
 
 void setup() {
   //strum = 0;
+ pinMode(21, INPUT_PULLUP);  // CLK
+  pinMode(20, INPUT_PULLUP);  // DT
+  attachInterrupt(digitalPinToInterrupt(21), onEncoderA, RISING);  // Only track rising edge
   pinMode(NOTE_OFF_PIN, INPUT_PULLUP);
   pinMode(START_TRIGGER_PIN, INPUT_PULLUP);
   pinMode(BUTTON_1_PIN, INPUT_PULLUP);
@@ -908,6 +942,7 @@ void setup() {
   Serial1.begin(250000);  // Guitar
   Serial2.begin(250000);  // Keyboard
   Serial3.begin(9600);    // BT
+  //Serial5.begin(250000);  // Knob
   //Serial4.begin(250000); // Cyber G to Piano
 
   //HM10_BLUETOOTH.begin(HM10_BAUD); //BT
@@ -915,11 +950,10 @@ void setup() {
 
   usbMIDI.begin();
   isKeyboard = false;
-  while (!Serial && millis() < 3000)
-    ;  // Wait for Serial Monitor
-  if (debug) {
+  while (!Serial && millis() < 3000);  // Wait for Serial Monitor
+  //if (debug) {
     Serial.println("Teensy MIDI Debug Start");
-  }
+  //}
   Serial3.println("AT\r\n");  // Send AT command
 
   if (!SD.begin(BUILTIN_SDCARD)) {
@@ -1054,55 +1088,6 @@ void trimBuffer(String& buffer) {
   }
 }
 
-#define MAX_SERIAL_FIELDS 49  // Max number of comma-separated fields, worst case is 16*3+1
-#define MAX_SERIAL_FIELD_LENGTH 3
-void handleSerialCommand(HardwareSerial& port, const char* label = "") {
-  static String inputBuffer[2];  // One buffer per port (0: Serial, 1: Serial1)
-  uint8_t index = (&port == &Serial3) ? 1 : 0;
-
-  while (port.available()) {
-    char c = port.read();
-    inputBuffer[index] += c;
-
-    if (inputBuffer[index].endsWith("\n\r")) {
-      inputBuffer[index].trim();
-
-      String fields[MAX_SERIAL_FIELDS];
-      uint8_t fieldCount = 0;
-      uint8_t start = 0;
-      for (uint8_t i = 0; i <= inputBuffer[index].length(); i++) {
-        if (inputBuffer[index][i] == ',' || i == inputBuffer[index].length()) {
-          if (fieldCount < MAX_SERIAL_FIELDS) {
-            fields[fieldCount] = inputBuffer[index].substring(start, i);
-            if (fields[fieldCount].length() > MAX_SERIAL_FIELD_LENGTH)
-              fields[fieldCount] = fields[fieldCount].substring(0, MAX_SERIAL_FIELD_LENGTH);
-            fieldCount++;
-          }
-          start = i + 1;
-        }
-      }
-
-      // Print with port label
-      for (uint8_t i = 0; i < fieldCount; i++) {
-        port.print(label);
-        port.print("Field ");
-        port.print(i);
-        port.print(": ");
-        port.println(fields[i]);
-      }
-
-      // Send ACK
-      port.println("OK00");
-
-      // Reset buffer
-      inputBuffer[index] = "";
-    }
-
-    if (inputBuffer[index].length() > 512) {
-      inputBuffer[index] = "";
-    }
-  }
-}
 unsigned long firstPressTime = 0;
 unsigned long lastPressTime = 0;
 uint8_t pressCount = 0;
@@ -1898,12 +1883,34 @@ void checkSerialBT(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen)
     }
     prevButtonBTState = buttonBTState;
   }
-  while (serialPort.available()) {
-    char c = serialPort.read();
-    Serial.print(c);
-  }
+  //while (serialPort.available()) {
+    //char c = serialPort.read();
+    //Serial.print(c);
+  //}
 }
 
+void checkSerialKnob(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen) {
+while (serialPort.available() && bufferLen < MAX_BUFFER_SIZE - 1) {
+    char c = serialPort.read();
+    sprintf(&buffer[bufferLen], "%02x", (unsigned char)c);
+    bufferLen += 2;
+  }
+  buffer[bufferLen] = '\0';
+  if (bufferLen > 0)
+  {
+     Serial.printf("Raw buffer (KB): %s\n", buffer);
+     bufferLen = 0;
+     buffer[0] = '\0';
+  }
+  
+  
+
+  // --- Clear buffer after processing ---
+
+  
+
+
+}
 bool savePatternFiles(bool saveToBackup = false) {
   if (!savePatternRelatedConfig())
   {
@@ -2413,7 +2420,7 @@ bool decodeCmd(SerialType& serialPort, String cmd, std::vector<String>* params)
       return true;
     }
     sendPatternData(getGuitarPattern(atoi(params->at(0).c_str())), true);
-    serialPort.write("OK00\r\n");
+    //serialPort.write("OK00\r\n");
   } 
   else if (cmd == "BPRN")  //Bass data Print
   {
@@ -2427,7 +2434,7 @@ bool decodeCmd(SerialType& serialPort, String cmd, std::vector<String>* params)
       return true;
     }
     sendPatternData(getBassPattern(atoi(params->at(0).c_str())), true);
-    serialPort.write("OK00\r\n");
+    //serialPort.write("OK00\r\n");
   } 
   else if (cmd == "DPRN")  //Drum data Print
   {
@@ -2441,7 +2448,7 @@ bool decodeCmd(SerialType& serialPort, String cmd, std::vector<String>* params)
       return true;
     }
     sendPatternData(getDrumPattern(atoi(params->at(0).c_str())), true);
-    serialPort.write("OK00\r\n");
+    //serialPort.write("OK00\r\n");
   } 
   else if (cmd == "APRN")  //Accompaniment data Print
   {
@@ -2455,7 +2462,7 @@ bool decodeCmd(SerialType& serialPort, String cmd, std::vector<String>* params)
       return true;
     }
     sendPatternData(getAccompanimentPattern(atoi(params->at(0).c_str())), true);
-    serialPort.write("OK00\r\n");
+    //serialPort.write("OK00\r\n");
   } 
   //pattern handling end
   else if (cmd == "PRSW")  //Set Current Preset
@@ -3307,6 +3314,48 @@ else if (cmd == "ASDW")  //alternateDirection
     serialPort.write(buffer);
   }
 
+else if (cmd == "NACW")  //neckAssignments set to 1 chord
+  {
+    if (params->size() < 3) {
+      serialPort.write("ER00\r\n");
+      return true;
+    }
+    if (atoi(params->at(0).c_str()) > MAX_PRESET || atoi(params->at(0).c_str()) < 0) {
+      serialPort.write("ER01\r\n");
+      return true;
+    }
+
+    //column
+    if (atoi(params->at(1).c_str()) > NECK_COLUMNS || atoi(params->at(1).c_str()) < 0) {
+      serialPort.write("ER00\r\n");
+      return true;
+    }
+    if (atoi(params->at(2).c_str()) > (((int)quartalChordType) + 1) || atoi(params->at(2).c_str()) < 0) {
+      serialPort.write("ER02\r\n");
+      return true;
+    }
+    ChordType c = (ChordType) atoi(params->at(2).c_str());
+    int j = atoi(params->at(1).c_str());
+    for (int i = 0; i < NECK_ROWS; i++) 
+    {
+      //for (int j = 0; j < NECK_COLUMNS; j++) 
+      {
+        neckAssignments[atoi(params->at(0).c_str())][i * NECK_COLUMNS + j].chordType = (ChordType)atoi(params->at(2).c_str());
+        assignedFretPatternsByPreset[atoi(params->at(0).c_str())][i * NECK_COLUMNS + j].assignedChord = getKeyboardChordNotesFromNeck(i, j, atoi(params->at(0).c_str()));
+        assignedFretPatternsByPreset[atoi(params->at(0).c_str())][i * NECK_COLUMNS + j].assignedGuitarChord = getGuitarChordNotesFromNeck(i, j, atoi(params->at(0).c_str()));
+        assignedFretPatternsByPreset[atoi(params->at(0).c_str())][i * NECK_COLUMNS + j].assignedChord.setRootNote((int)neckAssignments[atoi(params->at(0).c_str())][i * NECK_COLUMNS + j].key + OMNICHORD_ROOT_START);
+      }
+    }
+    if (debug)
+    {
+      Serial.printf("Preset %d Chord changed to %s\n", atoi(params->at(0).c_str()), chordTypeToString(c));      
+    }
+    omniChordNewNotes.clear();
+    noteAllOff();
+    serialPort.write("OK00\r\n");
+    
+  } 
+
   else if (cmd == "NAPW")  //neckAssignments.customPattern write
   {
     if (params->size() < 4) {
@@ -3388,20 +3437,33 @@ else if (cmd == "ASDW")  //alternateDirection
 
   else if (cmd == "DIDW")  //DrumPatternID write
   {
-    if (params->size() < 1) {
+    if (params->size() < 2) {
       serialPort.write("ER00\r\n");
       return true;
     }
-    if (atoi(params->at(0).c_str()) > 65535 || atoi(params->at(0).c_str()) < 0) {
+    if (atoi(params->at(0).c_str()) > DRUM_END_ID || atoi(params->at(0).c_str()) < 0) 
+    {
+      serialPort.write("ER01\r\n");
+      return true;
+    }
+    if (atoi(params->at(1).c_str()) > 65535 || atoi(params->at(0).c_str()) < 0) {
       serialPort.write("ER00\r\n");
       return true;
     }
-    DrumPatternID = atoi(params->at(0).c_str());
+    DrumPatternID[atoi(params->at(0).c_str())] = atoi(params->at(1).c_str());
     serialPort.write("OK00\r\n");
   } 
   else if (cmd == "DIDR")  //DrumPatternID Read
   {
-    snprintf(buffer, sizeof(buffer), "OK00,%d\r\n", DrumPatternID);
+    if (params->size() < 1) {
+      serialPort.write("ER00\r\n");
+      return true;
+    }
+    if (atoi(params->at(0).c_str()) > DRUM_END_ID || atoi(params->at(0).c_str()) < 0) {
+      serialPort.write("ER00\r\n");
+      return true;
+    }
+    snprintf(buffer, sizeof(buffer), "OK00,%d\r\n", DrumPatternID[atoi(params->at(0).c_str())]);
     serialPort.write(buffer);
   } 
   else if (cmd == "BIDW")  //BassPatternID write
@@ -4854,7 +4916,26 @@ bool savePatternRelatedConfig() {
     
     snprintf(buffer, sizeof(buffer), "backingState,%d\n", backingState ? 1 : 0);
     f.print(buffer);
-  
+    snprintf(buffer, sizeof(buffer), "AccompanimentPatternID,%d\n", AccompanimentPatternID);
+    f.print(buffer);
+    snprintf(buffer, sizeof(buffer), "BassPatternID,%d\n", BassPatternID);
+    f.print(buffer);
+    snprintf(buffer, sizeof(buffer), "GuitarPatternID0,%d\n", GuitarPatternID0);
+    f.print(buffer);
+    snprintf(buffer, sizeof(buffer), "GuitarPatternID1,%d\n", GuitarPatternID1);
+    f.print(buffer);
+    snprintf(buffer, sizeof(buffer), "GuitarPatternID2,%d\n", GuitarPatternID2);
+    f.print(buffer);
+    snprintf(buffer, sizeof(buffer), "DrumPatternID0,%d\n", DrumPatternID[0]);
+    f.print(buffer);
+    snprintf(buffer, sizeof(buffer), "DrumPatternID1,%d\n", DrumPatternID[1]);
+    f.print(buffer);
+    snprintf(buffer, sizeof(buffer), "DrumPatternID2,%d\n", DrumPatternID[2]);
+    f.print(buffer);
+    snprintf(buffer, sizeof(buffer), "DrumPatternID3,%d\n", DrumPatternID[3]);
+    f.print(buffer);
+    snprintf(buffer, sizeof(buffer), "DrumPatternID4,%d\n", DrumPatternID[4]);
+    f.print(buffer);
     
   } else {
     if (debug)
@@ -5090,9 +5171,58 @@ File f = SD.open("configP.ini", FILE_READ);
     char* arg1 = strtok(NULL, ",");
 
     if (!key || !arg1) continue;
-    if (strcmp(key, "backingState") == 0) {
+    if (strcmp(key, "backingState") == 0) 
+    {
       backingState = atoi(arg1);
     } 
+        /*
+        uint16_t DrumPatternID[5];
+        uint16_t BassPatternID;
+        uint16_t GuitarPatternID0;
+        uint16_t GuitarPatternID1;
+        uint16_t GuitarPatternID2;
+    */
+    else if (strcmp(key, "BassPatternID") == 0) 
+    {
+      BassPatternID = atoi(arg1);
+    } 
+    else if (strcmp(key, "AccompanimentPatternID") == 0) 
+    {
+      AccompanimentPatternID = atoi(arg1);
+    } 
+    else if (strcmp(key, "GuitarPatternID0") == 0) 
+    {
+      GuitarPatternID0 = atoi(arg1);
+    } 
+    else if (strcmp(key, "GuitarPatternID1") == 0) 
+    {
+      GuitarPatternID1 = atoi(arg1);
+    } 
+    else if (strcmp(key, "GuitarPatternID2") == 0) 
+    {
+      GuitarPatternID2 = atoi(arg1);
+    } 
+    else if (strcmp(key, "DrumPatternID0") == 0) 
+    {
+      DrumPatternID[0] = atoi(arg1);
+    } 
+    else if (strcmp(key, "DrumPatternID1") == 0) 
+    {
+      DrumPatternID[1] = atoi(arg1);
+    } 
+    else if (strcmp(key, "DrumPatternID2") == 0) 
+    {
+      DrumPatternID[2] = atoi(arg1);
+    } 
+    else if (strcmp(key, "DrumPatternID3") == 0) 
+    {
+      DrumPatternID[3] = atoi(arg1);
+    } 
+    else if (strcmp(key, "DrumPatternID4") == 0) 
+    {
+      DrumPatternID[4] = atoi(arg1);
+    } 
+    
   }
   f.close();
   return true;
@@ -5304,9 +5434,27 @@ void loop() {
     onTick64();
   }
 
+  static int lastPos = 0;
+  static uint8_t midiValue = 5;
+
+  noInterrupts();
+  int pos = encoderPosition;
+  interrupts();
+
+  if (pos != lastPos) {
+    int direction = (pos > lastPos) ? 1 : -1;
+    lastPos = pos;
+
+    midiValue = constrain(midiValue + direction, 0, 9);
+    Serial.printf("MIDI Volume %s → %d\n", direction > 0 ? "UP" : "DOWN", midiValue);
+  }
+
+
   checkSerialGuitar(Serial1, dataBuffer1, bufferLen1, GUITAR_CHANNEL);
   checkSerialKB(Serial2, dataBuffer2, bufferLen2, KEYBOARD_CHANNEL);
   checkSerialBT(Serial3, dataBuffer3, bufferLen3);
+  //checkSerialKnob(Serial5, dataBuffer5, bufferLen5);
+  
   //checkSerialG2Piano(Serial4, dataBuffer4, bufferLen4, 3);
   checkSerialCmd(Serial, dataBuffer4, bufferLen4);
   bool noteOffState = digitalRead(NOTE_OFF_PIN);
