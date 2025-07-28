@@ -143,7 +143,11 @@
     <sys:String x:Key="GuitarPattern2">Guitar Pattern 3</sys:String>
     <sys:String x:Key="BassPattern">Bass Pattern</sys:String>
     <sys:String x:Key="BackingPattern">Backing Pattern</sys:String>
-    <sys:String x:Key="DrumPattern">Drum Pattern</sys:String>
+    <sys:String x:Key="DrumPattern0">Drum Pattern Intro</sys:String>
+    <sys:String x:Key="DrumPattern1">Drum Pattern Loop</sys:String>
+    <sys:String x:Key="DrumPattern2">Drum Pattern Loop Half</sys:String>
+    <sys:String x:Key="DrumPattern3">Drum Pattern Loop Half Fill</sys:String>
+    <sys:String x:Key="DrumPattern4">Drum Pattern End</sys:String>
 
     <sys:String x:Key="Delete">Delete</sys:String>
     <sys:String x:Key="ImportMidi">Import MIDI</sys:String>
@@ -151,4 +155,17 @@
     <sys:String x:Key="Upload">Upload</sys:String>
     <sys:String x:Key="Save">Save</sys:String>
     <sys:String x:Key="Close">Close</sys:String>
+
+    <sys:String x:Key="CustomBacking">Custom Backing</sys:String>
+    <sys:String x:Key="Rock01">Rock 1</sys:String>
+    <sys:String x:Key="Rock02">Rock 2</sys:String>
+    <sys:String x:Key="Bossanova">Bossanova</sys:String>
+    <sys:String x:Key="Funk">Funk</sys:String>
+    <sys:String x:Key="Country">Country</sys:String>
+    <sys:String x:Key="Disco">Disco</sys:String>
+    <sys:String x:Key="SlowRock">Slow Rock</sys:String>
+    <sys:String x:Key="Swing">Swing</sys:String>
+    <sys:String x:Key="Waltz">Waltz</sys:String>
+    <sys:String x:Key="Hiphop">Hiphop</sys:String>
+
 </ResourceDictionary>
