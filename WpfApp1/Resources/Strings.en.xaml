@@ -155,7 +155,8 @@
     <sys:String x:Key="Upload">Upload</sys:String>
     <sys:String x:Key="Save">Save</sys:String>
     <sys:String x:Key="Close">Close</sys:String>
-
+    <sys:String x:Key="MidiDLG">MIDI files (*.mid)|*.mid|All files (*.*)|*.*</sys:String>
+    <sys:String x:Key="JSONDLG">JSON files (*.json)|*.json|All files (*.*)|*.*</sys:String>
     <sys:String x:Key="CustomBacking">Custom Backing</sys:String>
     <sys:String x:Key="Rock01">Rock 1</sys:String>
     <sys:String x:Key="Rock02">Rock 2</sys:String>

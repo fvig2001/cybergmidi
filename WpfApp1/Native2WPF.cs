@@ -23,17 +23,19 @@ namespace CyberG
     }
     internal class Native2WPF
     {
+        public const int TPM = 12;
         public const bool ALLOW_LOOP = true;
         public const int BASS_CHANNEL = 1;
         public const int DRUMS_CHANNEL = 9;
         public const int BACKING_CHANNEL = 0;
         public static List<midiPattern> converted = new List<midiPattern>();
+        public static List<midiPattern> convertedPlaceholder = new List<midiPattern>();
         public static List<midiPattern> omniConverted = new List<midiPattern>();
         
         //convert from Cyber G to midi-ish format
-        public static void convertStandardToEncoded(List<midiPattern> input, ref List<EncodedNote> output)
+        public static void convertStandardToEncoded(List<midiPattern> input, ref List<EncodedNote> output, bool decodePlaceholder = true)
         {
-            int[] rootNotes = { 60, 64, 67 };
+            int[] rootNotes = { 48, 52, 55, 59, 62, 65, 69 };
             output.Clear();
             int lastOffset = 1;
             int curOrder = 0;
@@ -42,9 +44,12 @@ namespace CyberG
                 EncodedNote n = new EncodedNote();
                 n.velocity = input[i].velocity;
                 n.midiNote = input[i].midiNote;
-                if (n.midiNote < rootNotes.Length)
+                if (decodePlaceholder)
                 {
-                    n.midiNote = rootNotes[n.midiNote];
+                    if (n.midiNote < rootNotes.Length)
+                    {
+                        n.midiNote = rootNotes[n.midiNote];
+                    }
                 }
                 n.relativeOctave = input[i].relativeOctave;
                 n.channel = input[i].channel;
@@ -59,9 +64,53 @@ namespace CyberG
                 output.Add(n);
             }
         }
+
+        public static void convertEncodedToStandard(List<EncodedNote> input, ref List<midiPattern> output, bool usePlaceholder)
+        {
+            int[] rootNotes = { 48, 52, 55, 59, 62, 65, 69 };
+            output.Clear();
+            int curOffset = 1;
+            int curOrder = 0;
+            
+            int lastLength = 0;
+            for (int i = 0; i < input.Count; i++)
+            {
+                midiPattern n = new midiPattern();
+                n.velocity = input[i].velocity;
+                n.midiNote = input[i].midiNote;
+                if (!usePlaceholder)
+                {
+                    n.midiNote = input[i].midiNote;
+                }
+                else 
+                {
+                    for (int j = 0; j < rootNotes.Length; j++)
+                    {
+                        if (input[i].midiNote == rootNotes[j])
+                        {
+                            n.midiNote = i;
+                            break;
+                        }
+                    }
+                }
+                n.relativeOctave = input[i].relativeOctave;
+
+                n.channel = input[i].channel;
+                n.length = input[i].length;
+                n.lengthTicks = input[i].lengthTicks;
+                if (curOrder != input[i].noteOrder)
+                {
+                    curOffset += lastLength;
+                    curOrder = input[i].noteOrder;
+                }
+                lastLength = input[i].length;
+                n.offset = curOffset;
+                output.Add(n);
+            }
+        }
         public static bool convertOmnichordBackingToMidi(string midiFilepath, int backingNo, int bpm)
         {
-            int[] rootNotes =  { 60, 64, 67};
+            int[] rootNotes = { 48, 52, 55, 59, 62, 65, 69 };
             IntPtr bassPtr, accPtr, drumPtr;
             int bassSize = 0, accSize = 0, drumSize = 0;
 
@@ -201,7 +250,7 @@ namespace CyberG
                 encoded[i] = mergedEncoded[i];
                 if (encoded[i].channel != DRUMS_CHANNEL && encoded[i].channel != (DRUMS_CHANNEL - 1) && encoded[i].midiNote != 255 && encoded[i].midiNote < 3)
                 {
-                    encoded[i].midiNote = rootNotes[encoded[i].midiNote] + encoded[i].relativeOctave * 12;
+                    encoded[i].midiNote = rootNotes[encoded[i].midiNote];
                 }
                 try
                 {
@@ -252,18 +301,24 @@ namespace CyberG
                 // 3. Marshal the returned native array into managed array
                 EncodedNote[] notes = new EncodedNote[cgdSize];
                 IntPtr currentPtr = standardNotesPtr;
+                EncodedNote[] notes2 = new EncodedNote[cgdSize];
+                IntPtr currentPtr2 = placeHolderNotesPtr;
                 int structSize = Marshal.SizeOf<EncodedNote>();
 
                 for (int i = 0; i < cgdSize; i++)
                 {
                     notes[i] = Marshal.PtrToStructure<EncodedNote>(currentPtr);
                     currentPtr = IntPtr.Add(currentPtr, structSize);
+                    notes2[i] = Marshal.PtrToStructure<EncodedNote>(currentPtr2);
+                    currentPtr2 = IntPtr.Add(currentPtr2, structSize);
                 }
                 converted.Clear();
+                convertedPlaceholder.Clear();
                 convertNative2MidiPattern(notes, cgdSize, ref converted);
+                convertNative2MidiPattern(notes2, cgdSize, ref convertedPlaceholder);
                 //for (int i = 0; i < converted.Count; i++)
                 //{
-                    //DebugLog.addToLog(debugType.miscDebug, "Converted " + converted[i].midiNote.ToString() + " " + converted[i].offset.ToString() + " " +converted[i].lengthTicks.ToString());
+                //DebugLog.addToLog(debugType.miscDebug, "Converted " + converted[i].midiNote.ToString() + " " + converted[i].offset.ToString() + " " +converted[i].lengthTicks.ToString());
                 //}
                 // 5. IMPORTANT: Free the native memory when done
                 NativeLoader.FreeStruct(standardNotesPtr);
@@ -276,46 +331,122 @@ namespace CyberG
 
             return true;
         }
-        static bool convertMidiPattern2Encoded(ref EncodedNote[] arr, int count)
+        static bool convertMidiPattern2EncodedList(ref List<EncodedNote> arr, bool addSpace = false)
         {
-            if (count <= 0) //assumes converted.count is used for count
-            {
-                return false;
-            }
-            int curOrder = -1;
+
+            int curOrder = 0;
             int curOffset = 1; //offset starts at 1
-            for (int i = 0; i < count; i++)
+            int expectedNextOffset = -1;
+            int lastLength = 0;
+            for (int i = 0; i < converted.Count; i++)
             {
-                arr[i].midiNote = converted[i].midiNote;
-                arr[i].lengthTicks = converted[i].lengthTicks;
-                arr[i].length = converted[i].length;
-                arr[i].relativeOctave = converted[i].relativeOctave;
-                arr[i].channel = converted[i].channel;
-                arr[i].velocity = converted[i].velocity;
+                EncodedNote n = new EncodedNote();
+                n.midiNote = converted[i].midiNote;
+                n.lengthTicks = converted[i].lengthTicks;
+                n.length = converted[i].length;
+                n.relativeOctave = converted[i].relativeOctave;
+                n.channel = converted[i].channel;
+                n.velocity = converted[i].velocity;
+                //insert rest if there is a gap between offset + length
                 if (converted[i].offset != curOffset)
                 {
+                    expectedNextOffset = curOffset + lastLength;
+                    if (expectedNextOffset != converted[i].offset)
+                    {
+                        EncodedNote rest = new EncodedNote();
+                        rest.midiNote = 255;
+                        rest.length = converted[i].offset - expectedNextOffset;
+                        rest.lengthTicks = rest.length * TPM;
+                        rest.velocity = converted[i].velocity;
+                        rest.relativeOctave = 0;
+                        rest.channel = converted[i].channel;
+                        rest.noteOrder = curOrder;
+                        curOrder++;
+                        arr.Add(rest);
+                    }
                     curOrder++;
                     curOffset = converted[i].offset;
+                    if (addSpace)
+                    {
+                        EncodedNote rest2 = new EncodedNote();
+                        rest2.midiNote = 255;
+                        rest2.length = 1;
+                        rest2.lengthTicks = rest2.length * TPM;
+                        rest2.velocity = converted[i].velocity;
+                        rest2.relativeOctave = 0;
+                        rest2.channel = converted[i].channel;
+                        rest2.noteOrder = curOrder;
+                        curOrder++;
+                        arr.Add(rest2);
+                    }
                 }
-                arr[i].noteOrder = curOrder;
+                n.noteOrder = curOrder;
+                lastLength = n.length;
+                arr.Add(n);
 
             }
             return true;
         }
-        public static bool convertMidiPatternToMidi(string filename, int bpm)
+        static bool convertMidiPattern2Encoded(ref EncodedNote[] arr, ref int count, bool addSpace = false)
+        {
+            List<EncodedNote> l = new List<EncodedNote>();
+            count = 0;
+
+            if (!convertMidiPattern2EncodedList(ref l, addSpace))
+            {
+                return false;
+            }
+
+            count = l.Count;
+            arr = new EncodedNote[count];
+
+            // Copy the list into the array
+            for (int i = 0; i < count; i++)
+            {
+                arr[i] = l[i];
+            }
+            
+            return true;
+        }
+        public static void ConvertPlaceholderToC(ref List<EncodedNote> arr)
+        {
+            int[] rootNotes = { 48, 52, 55, 59, 62, 65, 69 };
+            for (int i = 0; i < arr.Count; i++)
+            {
+                var note = arr[i]; // Make a copy (value type)
+                if (note.midiNote < rootNotes.Length)
+                {
+                    note.midiNote = rootNotes[note.midiNote];
+                    arr[i] = note; // Assign back to the list
+                }
+            }
+        }
+        public static bool convertMidiPatternToMidi(string filename, int bpm, bool addSpace = false, bool addFinalRest = false)
         {
             if (converted.Count() == 0)
             {
                 return false;
             }
+            if (addFinalRest) //add quiet note at the end since the player gets notified while the last note is starting
+            {
+                midiPattern mp = new midiPattern();
+                mp.midiNote = 60;
+                mp.offset = converted[converted.Count() - 1].offset + converted[converted.Count() - 1].length + 1;
+                mp.velocity = 1;
+                mp.length = 6;
+                mp.lengthTicks = mp.length * TPM;
+                mp.channel = converted[converted.Count() - 1].channel;
+                converted.Add(mp);
+            }
             EncodedNote[] enc = new EncodedNote[converted.Count()];
-            if (!convertMidiPattern2Encoded(ref enc, converted.Count()))
+            int size = -1;
+            if (!convertMidiPattern2Encoded(ref enc, ref size, addSpace))
             {
                 return false;
             }
             
             //add missing steps
-            int size = converted.Count();
+            
             //for (int i = 0; i < size; i++)
             //{
                 //Console.WriteLine($"Note {i}: midiNote={enc[i].midiNote}, length={enc[i].length}, velocity={enc[i].velocity}");
