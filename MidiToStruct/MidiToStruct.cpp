@@ -21,6 +21,7 @@
 
 using namespace std;
 using namespace smf;
+#define TPM 12
 #define REST_NOTE  255
 // This is an example of an exported variable
 MIDITOSTRUCT_API int nMidiToStruct=0;
@@ -171,12 +172,8 @@ vector<EncodedNote> changeNotesToSymbol(vector<EncodedNote> encoded)
     // Notes in C Major 9 chord (C3, E3, G3, B3, D4)
     // Symbol order: C=0, E=1, G=2, B=3, D=4
     //vector<int> chordNotes = { 60, 64, 67, 71, 74, 77, 81 }; // C3, E3, G3, B3, D4, F4, A4
-    vector<int> chordNotes = { 60, 64, 67, 71, 74, 77, 81 }; // C3, E3, G3, B3, D4, F4, A4
-    for (int i = 0; i < chordNotes.size(); i++)
-    {
-        chordNotes[i] -= 12;
-    }
-    int transpose = 1; //force to be higher
+    vector <int> chordNotes = { 48, 52, 55, 59, 62, 65, 69 };
+    
     for (const EncodedNote& n : encoded)
     {
         EncodedNote newNote = n;
@@ -195,7 +192,7 @@ vector<EncodedNote> changeNotesToSymbol(vector<EncodedNote> encoded)
                 int noteDiff = n.midiNote - chordNotes[i];
                 if (noteDiff % 12 == 0)
                 {
-                    newNote.midiNote = i; // 0 to 4
+                    newNote.midiNote = i; // 0 to 6
                     newNote.relativeOctave = noteDiff / 12;
                     found = true;
                     break;
@@ -319,7 +316,7 @@ MIDITOSTRUCT_API int writeMidiFromEncoded(EncodedNote* encodedNotes, int* noteSi
 }
 
 */
-
+/*
 MIDITOSTRUCT_API int writeMidiFromEncoded(EncodedNote* encodedNotes, int* noteSize, char* filename, int bpm = 128)
 {
     if (!encodedNotes || !noteSize || filename == nullptr || *noteSize <= 0)
@@ -405,7 +402,95 @@ MIDITOSTRUCT_API int writeMidiFromEncoded(EncodedNote* encodedNotes, int* noteSi
     midiFile.sortTracks();
     return midiFile.write(filename) ? 1 : 0;
 }
+*/
 
+MIDITOSTRUCT_API int writeMidiFromEncoded(EncodedNote* encodedNotes, int* noteSize, char* filename, int bpm = 128)
+{
+    if (!encodedNotes || !noteSize || filename == nullptr || *noteSize <= 0)
+        return 0;
+
+    const int tpq = 192;
+
+    smf::MidiFile midiFile;
+    midiFile.setTicksPerQuarterNote(tpq);
+
+    // Track 0 for tempo/meta
+    midiFile.addTrack();
+
+    std::map<int, std::map<int, std::vector<EncodedNote>>> notesByChannelAndOrder;
+    std::set<int> channels;
+
+    // Group notes by channel and then by noteOrder
+    for (int i = 0; i < *noteSize; ++i) {
+        const EncodedNote& note = encodedNotes[i];
+        notesByChannelAndOrder[note.channel][note.noteOrder].push_back(note);
+        channels.insert(note.channel);
+    }
+
+    // Allocate one track per channel
+    std::map<int, int> channelToTrack;
+    int trackIndex = 1;
+    for (int ch : channels) {
+        midiFile.addTrack();
+        channelToTrack[ch] = trackIndex++;
+    }
+
+    // Insert tempo into meta track (track 0)
+    smf::MidiEvent tempoEvent;
+    tempoEvent.tick = 0;
+    tempoEvent.makeTempo(bpm);
+    midiFile[0].push_back(tempoEvent);
+
+    // Encode each channel independently
+    for (const auto& channelPair : notesByChannelAndOrder) {
+        int originalChannel = channelPair.first;
+
+        const auto& ordersMap = channelPair.second;
+        int currentTick = 0;
+
+        // Map channel 9 to MIDI channel 10 (index 9)
+        int midiChannel = (originalChannel == 8) ? 9 : originalChannel;
+        //int midiChannel = originalChannel;
+
+        for (const auto& orderPair : ordersMap) {
+            const std::vector<EncodedNote>& notes = orderPair.second;
+
+            int maxDuration = 0;
+
+            for (const auto& note : notes) {
+                int duration = note.lengthTicks;
+                if (duration > maxDuration)
+                    maxDuration = duration;
+
+                if (note.midiNote == 255)
+                    continue;
+
+                // Note On
+                smf::MidiEvent noteOn;
+                noteOn.tick = currentTick;
+                noteOn.setP0(0x90 | midiChannel);  // mapped channel
+                noteOn.setP1(note.midiNote + note.relativeOctave * TPM);
+                noteOn.setP2(note.velocity);
+                midiFile[channelToTrack[originalChannel]].push_back(noteOn);
+                midiFile[channelToTrack[originalChannel]].push_back(noteOn);
+
+                // Note Off
+                smf::MidiEvent noteOff;
+                noteOff.tick = currentTick + duration;
+                noteOff.setP0(0x80 | midiChannel);  // mapped channel
+                noteOff.setP1(note.midiNote + note.relativeOctave * TPM);
+                noteOff.setP2(0);
+                midiFile[channelToTrack[originalChannel]].push_back(noteOff);
+                midiFile[channelToTrack[originalChannel]].push_back(noteOff);
+            }
+
+            currentTick += maxDuration;
+        }
+    }
+
+    midiFile.sortTracks();
+    return midiFile.write(filename) ? 1 : 0;
+}
 
 MIDITOSTRUCT_API int ConvertMidiToStruct(char* fMidi, EncodedNote** cgd, EncodedNote** cgdPlaceholder, int* cgdSize, int channel)
 {
@@ -567,7 +652,7 @@ int GetOmniChordToStruct(int backingNo, EncodedNote** placeHolderNotesBass, Enco
     getOmniChordBacking(backingNo, drumOut, bassOut, accompanimentOut);
     if (placeHolderNotesBass != NULL)
     {
-        *cgdSizeBass = bassOut.size();
+        *cgdSizeBass = (int) bassOut.size();
         *placeHolderNotesBass = (EncodedNote*)malloc(sizeof(EncodedNote) * (*cgdSizeBass));
 
         for (int i = 0; i < bassOut.size(); i++)
@@ -578,7 +663,7 @@ int GetOmniChordToStruct(int backingNo, EncodedNote** placeHolderNotesBass, Enco
     }
     if (placeHolderNotesDrums != NULL)
     {
-        *cgdSizeDrums = drumOut.size();
+        *cgdSizeDrums = (int) drumOut.size();
         (*placeHolderNotesDrums) = (EncodedNote*)malloc(sizeof(EncodedNote) * (*cgdSizeDrums));
 
         for (int i = 0; i < drumOut.size(); i++)
