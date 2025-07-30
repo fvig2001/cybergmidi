@@ -1,7 +1,7 @@
 ﻿
 // MidiToStruct.cpp : Defines the exported functions for the DLL.
 //
-
+#define NOMINMAX
 #include "pch.h"
 #include "framework.h"
 #include "MidiToStruct.h"
@@ -404,12 +404,19 @@ MIDITOSTRUCT_API int writeMidiFromEncoded(EncodedNote* encodedNotes, int* noteSi
 }
 */
 
-MIDITOSTRUCT_API int writeMidiFromEncoded(EncodedNote* encodedNotes, int* noteSize, char* filename, int bpm = 128)
+MIDITOSTRUCT_API int writeMidiFromEncoded(EncodedNote* encodedNotes, int* noteSize, char* filename, int bpm = 128, bool midiPlayerFix = false)
 {
     if (!encodedNotes || !noteSize || filename == nullptr || *noteSize <= 0)
         return 0;
-
-    const int tpq = 192;
+    int multiplier = 1;
+    int tpq = 192;
+    int offset = 0;
+    if (midiPlayerFix)
+    {
+        offset = 1;
+        multiplier = 100;
+        tpq *= multiplier;
+    }
 
     smf::MidiFile midiFile;
     midiFile.setTicksPerQuarterNote(tpq);
@@ -444,21 +451,18 @@ MIDITOSTRUCT_API int writeMidiFromEncoded(EncodedNote* encodedNotes, int* noteSi
     // Encode each channel independently
     for (const auto& channelPair : notesByChannelAndOrder) {
         int originalChannel = channelPair.first;
-
         const auto& ordersMap = channelPair.second;
         int currentTick = 0;
 
         // Map channel 9 to MIDI channel 10 (index 9)
         int midiChannel = (originalChannel == 8) ? 9 : originalChannel;
-        //int midiChannel = originalChannel;
 
         for (const auto& orderPair : ordersMap) {
             const std::vector<EncodedNote>& notes = orderPair.second;
-
             int maxDuration = 0;
 
             for (const auto& note : notes) {
-                int duration = note.lengthTicks;
+                int duration = note.lengthTicks * multiplier - offset;
                 if (duration > maxDuration)
                     maxDuration = duration;
 
@@ -468,19 +472,23 @@ MIDITOSTRUCT_API int writeMidiFromEncoded(EncodedNote* encodedNotes, int* noteSi
                 // Note On
                 smf::MidiEvent noteOn;
                 noteOn.tick = currentTick;
-                noteOn.setP0(0x90 | midiChannel);  // mapped channel
+                noteOn.setP0(0x90 | midiChannel);
                 noteOn.setP1(note.midiNote + note.relativeOctave * TPM);
                 noteOn.setP2(note.velocity);
                 midiFile[channelToTrack[originalChannel]].push_back(noteOn);
-                midiFile[channelToTrack[originalChannel]].push_back(noteOn);
 
-                // Note Off
+                // Note Off - apply the offset if midiPlayerFix is true
                 smf::MidiEvent noteOff;
-                noteOff.tick = currentTick + duration;
-                noteOff.setP0(0x80 | midiChannel);  // mapped channel
+                if (midiPlayerFix) {
+                    // For the fix, we'll shorten the note very slightly and add a tiny gap
+                    noteOff.tick = currentTick + std::max(1, duration - 1); // Ensure at least 1 tick gap
+                }
+                else {
+                    noteOff.tick = currentTick + duration;
+                }
+                noteOff.setP0(0x80 | midiChannel);
                 noteOff.setP1(note.midiNote + note.relativeOctave * TPM);
                 noteOff.setP2(0);
-                midiFile[channelToTrack[originalChannel]].push_back(noteOff);
                 midiFile[channelToTrack[originalChannel]].push_back(noteOff);
             }
 

@@ -38,7 +38,7 @@ extern "C" {
 	MIDITOSTRUCT_API int fnMidiToStruct(void);
 	*/
 	//for writing struct to midi for playback. Should use actual notes for playback
-	MIDITOSTRUCT_API int writeMidiFromEncoded(EncodedNote* standardNotes, int* noteSize, char* filename, int bpm);
+	MIDITOSTRUCT_API int writeMidiFromEncoded(EncodedNote* standardNotes, int* noteSize, char* filename, int bpm, bool midiPlayerFix);
 	//for encoding midi to struct for the guitar. Outputs in actual notes and place holder notes
 	MIDITOSTRUCT_API int ConvertMidiToStruct(char* fMidiFile, EncodedNote** standardNotes, EncodedNote** placeHolderNotes, int* cgdSize, int channel);
 
