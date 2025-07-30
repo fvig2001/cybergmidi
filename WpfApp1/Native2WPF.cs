@@ -64,8 +64,16 @@ namespace CyberG
                 output.Add(n);
             }
         }
-
-        public static void convertEncodedToStandard(List<EncodedNote> input, ref List<midiPattern> output, bool usePlaceholder)
+        public static void changeEncodedChannel(ref List<EncodedNote> en, int channel)
+        {
+            for (int i = 0; i < en.Count; i++)
+            {
+                EncodedNote n = en[i];
+                n.channel = channel;
+                en[i] = n;
+            }
+        }
+        public static void convertEncodedToStandard(List<EncodedNote> input, ref List<midiPattern> output, bool convertToPlaceholder, bool convertFromPlaceHolder = false)
         {
             int[] rootNotes = { 48, 52, 55, 59, 62, 65, 69 };
             output.Clear();
@@ -78,11 +86,18 @@ namespace CyberG
                 midiPattern n = new midiPattern();
                 n.velocity = input[i].velocity;
                 n.midiNote = input[i].midiNote;
-                if (!usePlaceholder)
+                if (!convertToPlaceholder && !convertFromPlaceHolder)
                 {
                     n.midiNote = input[i].midiNote;
                 }
-                else 
+                else if (convertFromPlaceHolder)
+                {
+                    if (n.midiNote < rootNotes.Count() )
+                    {
+                        n.midiNote = rootNotes[n.midiNote];
+                    }
+                }
+                else
                 {
                     for (int j = 0; j < rootNotes.Length; j++)
                     {
@@ -177,7 +192,16 @@ namespace CyberG
                     encodedList.Add(n);
                 }
             }
-            
+            //midi player workaround
+            EncodedNote m = new EncodedNote();
+            m.noteOrder = encodedList[encodedList.Count() - 1].noteOrder + 1;
+            m.midiNote = 60;
+            m.velocity = 1;
+            m.length = 6;
+            m.lengthTicks = m.length * TPM;
+            m.channel = encodedList[encodedList.Count() - 1].channel;
+            encodedList.Add(m);
+
             for (int i = 0; i < encodedList.Count; i++)
             {
                 mergedEncoded.Add(encodedList[i]);
@@ -198,6 +222,16 @@ namespace CyberG
                     encodedList.Add(n);
                 }
             }
+
+            //midi player workaround
+            EncodedNote m2 = new EncodedNote();
+            m2.noteOrder = encodedList[encodedList.Count() - 1].noteOrder + 1;
+            m2.midiNote = 60;
+            m2.velocity = 1;
+            m2.length = 6;
+            m2.lengthTicks = m2.length * TPM;
+            m2.channel = encodedList[encodedList.Count() - 1].channel;
+            encodedList.Add(m2);
 
             for (int i = 0; i < encodedList.Count; i++)
             {
@@ -223,6 +257,15 @@ namespace CyberG
                     encodedList.Add(n);
                 }
             }
+            //midi player workaround
+            EncodedNote m3 = new EncodedNote();
+            m3.noteOrder = encodedList[encodedList.Count() - 1].noteOrder + 1;
+            m3.midiNote = 60;
+            m3.velocity = 1;
+            m3.length = 6;
+            m3.lengthTicks = m2.length * TPM;
+            m3.channel = encodedList[encodedList.Count() - 1].channel;
+            encodedList.Add(m3);
             for (int i = 0; i < encodedList.Count; i++)
             {
                 mergedEncoded.Add(encodedList[i]);
@@ -272,7 +315,7 @@ namespace CyberG
                 Marshal.StructureToPtr(encoded[i], dest, false);
             }
 
-            bool success = NativeLoader.writeMidiFromEncoded(encPtr, ref combinedSize, midiFilepath, bpm) != 0;
+            bool success = NativeLoader.writeMidiFromEncoded(encPtr, ref combinedSize, midiFilepath, bpm, true) != 0;
 
             Marshal.FreeHGlobal(encPtr);
             return success;
@@ -421,7 +464,7 @@ namespace CyberG
                 }
             }
         }
-        public static bool convertMidiPatternToMidi(string filename, int bpm, bool addSpace = false, bool addFinalRest = false)
+        public static bool convertMidiPatternToMidi(string filename, int bpm, bool useMidiPlayerFix = false, bool addFinalRest = false)
         {
             if (converted.Count() == 0)
             {
@@ -440,7 +483,7 @@ namespace CyberG
             }
             EncodedNote[] enc = new EncodedNote[converted.Count()];
             int size = -1;
-            if (!convertMidiPattern2Encoded(ref enc, ref size, addSpace))
+            if (!convertMidiPattern2Encoded(ref enc, ref size))
             {
                 return false;
             }
@@ -465,7 +508,7 @@ namespace CyberG
                 }
 
                 // Call the native function
-                int result = NativeLoader.writeMidiFromEncoded(encPtr, ref size, filename, bpm);
+                int result = NativeLoader.writeMidiFromEncoded(encPtr, ref size, filename, bpm, useMidiPlayerFix);
                 
                 return result != 0; // assume 0 = failure 
             }

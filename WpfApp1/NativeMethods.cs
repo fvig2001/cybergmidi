@@ -30,7 +30,8 @@ namespace CyberG
             IntPtr standardNotes,   // EncodedNote* standardNotes
             ref int noteSize,       // int* noteSize
             [MarshalAs(UnmanagedType.LPStr)] string filename,
-            int bpm);
+            int bpm,
+            bool midiPlayerFix);
 
         public static WriteMidiFromEncodedDelegate writeMidiFromEncoded;
         

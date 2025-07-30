@@ -84,14 +84,14 @@
                                     <ColumnDefinition/>
                                     <ColumnDefinition Width="25"/>
                                 </Grid.ColumnDefinitions>
-                                <Button Grid.Column="0" Width="25" Name="previousButton" Click="previousButton_Click"/>
+                                <Button Grid.Column="0" Width="25" Name="previousButton" Content="&lt;" Click="previousButton_Click"/>
                                 <Button Grid.Column="2" Width="25" Name="playSampleButton" Height="25" Click="playButton_Click">
                                     <Image Source="Images/play.png"
                                     Stretch="Uniform"
                                     VerticalAlignment="Center"
                                     HorizontalAlignment="Center"/>
                                 </Button>
-                                <Button Grid.Column="4" Width="25" Name="nextButton" Click="nextButton_Click"/>
+                                <Button Grid.Column="4" Width="25" Name="nextButton" Content="&gt;" Click="nextButton_Click"/>
                             </Grid>
                             <Grid Grid.Row="4">
                                 <Grid.ColumnDefinitions>

@@ -19,6 +19,7 @@ using System.IO;
 using System.Windows.Interop;
 using Microsoft.Win32;
 using System.Xml.Linq;
+using System.Reflection;
 
 
 
@@ -68,7 +69,9 @@ namespace CyberG
             }
             return IntPtr.Zero;
         }
+        bool internalHasNotes = false;
         int curID = 0;
+        int curIDtoSet = 0;
         bool curIDExists = false;
         const int GUITAR_CHANNEL = 0;
         const int PIANO_CHANNEL = 1;
@@ -76,7 +79,6 @@ namespace CyberG
         const int BACKING_CHANNEL = 4;
         const int DRUMS_CHANNEL = 9;
         int selected_Channel = 0;
-        bool usePlaceholderSend = true;
         string clearCMD = SerialDevice.CLEAR_GUITAR_DATA;
         string addCMD = SerialDevice.ADD_GUITAR_DATA;
         int selected_Slot = 0;
@@ -89,6 +91,9 @@ namespace CyberG
         //loaded pattern
         private List<EncodedNote> tempPattern = new List<EncodedNote>();
         private List<EncodedNote> tempPatternPlaceholder = new List<EncodedNote>();
+        
+        private List<EncodedNote> importPattern = new List<EncodedNote>();
+        private List<EncodedNote> importPatternPlaceholder = new List<EncodedNote>();
 
         private List<midiPattern> tempPatternSend = new List<midiPattern>();
         private List<midiPattern> tempPatternPreview = new List<midiPattern>();
@@ -122,6 +127,7 @@ namespace CyberG
         private bool doneLoading;
         private const string basePath = "library";
         private string curPatternPath = "guitar";
+        private int firstFreeSlot = -1;
         public PatternWindow(int bpm)
         {
             doneLoading = false;
@@ -133,6 +139,7 @@ namespace CyberG
             setupComboBoxes();
             setupListBoxes();
             setupRadioButtons();
+            setupButtons();
             //setupRightSide(false);
             setupRightSide(true);
 
@@ -222,6 +229,20 @@ namespace CyberG
 
         }
 
+        private void setupButtons()
+        {
+            playButton0.Click += playGeneric_Click;
+            playButton1.Click += playGeneric_Click;
+            playButton2.Click += playGeneric_Click;
+            playButton3.Click += playGeneric_Click;
+            playButton4.Click += playGeneric_Click;
+            playButton5.Click += playGeneric_Click;
+            playButton6.Click += playGeneric_Click;
+            playButton7.Click += playGeneric_Click;
+            playButton8.Click += playGeneric_Click;
+            playButton9.Click += playGeneric_Click;
+        }
+
         private void setupListBoxes()
         {
             patternListBox.Items.Clear();
@@ -234,7 +255,23 @@ namespace CyberG
             {
                 // Get the tag
                 int tag = (int) selectedItem.Tag;
-                if (tag == -1)
+                if (tag == -2)
+                {
+                    bool hasNotes = false;
+                    //not in library
+                    
+                    curIDExists = false;
+                    DrawNotes(importPattern, false);
+                    if (importPattern.Count > 0)
+                    {
+                        hasNotes = true;
+                    }
+                    tempPattern = new List<EncodedNote>(importPattern);
+
+                    saveButton.IsEnabled = hasNotes;
+                    deleteButton.IsEnabled = false;
+                }
+                else if (tag == -1)
                 {
                     bool hasNotes = false;
                     //not in library
@@ -339,10 +376,11 @@ namespace CyberG
                         }
                         if (selected_Channel != DRUMS_CHANNEL)
                         {
+                            tempPatternPlaceholder = new List<EncodedNote>(tempPattern);
                             Native2WPF.ConvertPlaceholderToC(ref tempPattern);
                         }
                     }
-                    else 
+                    else
                     {
                         DrawNotes(tempPattern, false);
                         if (tempPattern.Count > 0)
@@ -350,16 +388,15 @@ namespace CyberG
                             hasNotes = true;
                         }
                     }
-
                     saveButton.IsEnabled = hasNotes;
                     deleteButton.IsEnabled = false;
                 }
                 else
                 {
                     curIDExists = true;
-                    saveButton.IsEnabled = false;
-                    patternNameTextBox.IsEnabled = false;
-                    deleteButton.IsEnabled = false;
+                    saveButton.IsEnabled = true;
+                    patternNameTextBox.IsEnabled = true;
+                    deleteButton.IsEnabled = true;
                     int id = patternDataList[patternListBox.SelectedIndex].id;
                     patternNameTextBox.Text = patternDataList[patternListBox.SelectedIndex].name;
                     //load pattern
@@ -371,7 +408,7 @@ namespace CyberG
                         }
                         else
                         {
-                            tempPatternPlaceholder.Clear();
+                            tempPatternPlaceholder = new List<EncodedNote>(tempPattern);
                         }
                         Native2WPF.convertStandardToEncoded(Native2WPF.converted, ref tempPattern);
                         //DrawNotes(tempPattern, false);
@@ -385,7 +422,7 @@ namespace CyberG
             }
         }
 
-        private void updateRightSide()
+        private void updateRightSide(int selectedID=-1)
         {
             if (curID == 0) //if not available in pattern files (0 means pattern was made manually), put loaded data as pattern
             {
@@ -443,16 +480,14 @@ namespace CyberG
                 patternNameTextBox.IsEnabled = false;
                 saveButton.IsEnabled = false;
                 deleteButton.IsEnabled = false;
-                patternNameTextBox.IsEnabled = true;
             }
             else
             {
                 deleteButton.IsEnabled = false; //can't delete because it doesn't exist
-                patternNameTextBox.IsEnabled = false;
-                saveButton.IsEnabled = false;
-                patternNameTextBox.IsEnabled = false;
+                patternNameTextBox.IsEnabled = true;
+                saveButton.IsEnabled = true;
             }
-            LoadPatterns();
+            LoadPatterns(selectedID);
             //check if ID matches an existing pattern
             //initialize list box
             //if ID == 0 or unlisted, create an entry for it and copy it to tempPattern, but if it's empty, disable save
@@ -748,22 +783,28 @@ namespace CyberG
                     }
                 }
             }
-            else if (command == SerialDevice.GET_DRUM_ID)
-            {
-                if (!checkCommandParamCount(parsedData, 3))
+            else if (command == SerialDevice.CLEAR_BACKING_DATA || command == SerialDevice.CLEAR_BASS_DATA || command == SerialDevice.CLEAR_GUITAR_DATA || command == SerialDevice.CLEAR_DRUMS_DATA)
+            { 
+                if (!checkCommandParamCount(parsedData, 2))
                 {
                     return false;
                 }
-                else
+            }
+            else if (command == SerialDevice.ADD_BACKING_DATA || command == SerialDevice.ADD_BASS_DATA || command == SerialDevice.ADD_GUITAR_DATA || command == SerialDevice.ADD_DRUMS_DATA)
+            {
+                if (!checkCommandParamCount(parsedData, 2))
                 {
-                    nTemp = int.Parse(parsedData[2]);
-                    if (!checkCommandParameterRange(0, MaxID, nTemp))
-                    {
-                        return false;
-                    }
+                    return false;
                 }
             }
-            else if (command == SerialDevice.GET_BACKING_ID || command == SerialDevice.GET_BASS_ID || command == SerialDevice.GET_GUITAR_ID)
+            else if (command == SerialDevice.SET_BACKING_ID || command == SerialDevice.SET_BASS_ID || command == SerialDevice.SET_GUITAR_ID || command == SerialDevice.SET_DRUM_ID)
+            {
+                if (!checkCommandParamCount(parsedData, 2))
+                {
+                    return false;
+                }
+            }
+            else if (command == SerialDevice.GET_DRUM_ID || command == SerialDevice.GET_BACKING_ID || command == SerialDevice.GET_BASS_ID || command == SerialDevice.GET_GUITAR_ID)
             {
                 if (!checkCommandParamCount(parsedData, 3))
                 {
@@ -1173,23 +1214,101 @@ namespace CyberG
             //convert to the target struct
             //convert to midi
         }
+        private void playGeneric_Click(object sender, RoutedEventArgs e)
+        {
+            playButton_Click(sender, e);
+        }
         private void playButton_Click(object sender, RoutedEventArgs e)
         {
+
             string path = tempPath + "\\pattern.mid";
             bool isBacking = false;
+
             if (sender == playSampleButton)
             {
+                Native2WPF.changeEncodedChannel(ref tempPattern, selected_Channel);
+                tempPatternPreview.Clear();
                 //convert tempPattern to midi first
+                
                 Native2WPF.convertEncodedToStandard(tempPattern, ref tempPatternPreview, false);
                 Native2WPF.converted = new List<midiPattern>(tempPatternPreview);
                 path = tempPath + "preview.mid";
                 Native2WPF.convertMidiPatternToMidi(path, int.Parse(bpmTextBox.Text), true, true);
-                
+
             }
             else if (sender == playBackingButton)
             {
                 path = tempPath + "omni.mid";
                 isBacking = true;
+            }
+            else 
+            {
+                int myChannel = GUITAR_CHANNEL;
+                bool convertPlaceholder = true;
+                //determine which button it is:
+                if (sender == playButton0) //guitar 0
+                { 
+                    tempPattern = new List<EncodedNote>(guitarPattern0);
+                }
+                else if (sender == playButton1) //guitar 1
+                {
+                    tempPattern = new List<EncodedNote>(guitarPattern1);
+                }
+                else if (sender == playButton2) //guitar 2
+                {
+                    tempPattern = new List<EncodedNote>(guitarPattern2);
+                }
+                else if (sender == playButton3) //bass
+                {
+                    myChannel = BASS_CHANNEL;
+                    tempPattern = new List<EncodedNote>(bassPattern);
+                }
+                else if (sender == playButton4) //backing
+                {
+                    myChannel = BACKING_CHANNEL;
+                    tempPattern = new List<EncodedNote>(backingPattern);
+                }
+                else if (sender == playButton5) //drum intro
+                {
+                    myChannel = DRUMS_CHANNEL;
+                    convertPlaceholder = false;
+                    tempPattern = new List<EncodedNote>(drumPattern0);
+                }
+                else if (sender == playButton6) //drum loop
+                {
+                    myChannel = DRUMS_CHANNEL;
+                    convertPlaceholder = false;
+                    tempPattern = new List<EncodedNote>(drumPattern1);
+                }
+                else if (sender == playButton7) //drum loop half
+                {
+                    myChannel = DRUMS_CHANNEL;
+                    convertPlaceholder = false;
+                    tempPattern = new List<EncodedNote>(drumPattern2);
+                }
+                else if (sender == playButton8) //drum fill
+                {
+                    myChannel = DRUMS_CHANNEL;
+                    convertPlaceholder = false;
+                    tempPattern = new List<EncodedNote>(drumPattern3);
+                }
+                else //drums end
+                {
+                    myChannel = DRUMS_CHANNEL;
+                    convertPlaceholder = false;
+                    tempPattern = new List<EncodedNote>(drumPattern4);
+                }
+                if (tempPattern.Count == 0)
+                {
+                    MessageBox.Show((string)Application.Current.Resources["NoPatternData"]);
+                    return;
+                }
+                Native2WPF.changeEncodedChannel(ref tempPattern, myChannel);
+                tempPatternPreview.Clear();
+                Native2WPF.convertEncodedToStandard(tempPattern, ref tempPatternPreview, false, convertPlaceholder);
+                Native2WPF.converted = new List<midiPattern>(tempPatternPreview);
+                path = tempPath + "internal.mid";
+                Native2WPF.convertMidiPatternToMidi(path, int.Parse(bpmTextBox.Text), true, true);
             }
             int newBPM = int.Parse(bpmTextBox.Text);
 
@@ -1202,17 +1321,7 @@ namespace CyberG
                     oldBPM = newBPM; // Update BPM tracker
                 }
             }
-            /*
-            else
-            {
-                bool needsRegenerate = (lastMidiBackingState != backingState) || (oldBPM != newBPM);
-                if (needsRegenerate)
-                {
-                    generateBackingMidi();
-                    oldBPM = newBPM; // Update BPM tracker
-                }
-            }
-            */
+
             if (!isPlaying)
             {
                 // Stop any current playback
@@ -1253,16 +1362,27 @@ namespace CyberG
 
                 if (Native2WPF.convertMidiToMidiPattern(dlg.FileName, selected_Channel) && Native2WPF.converted.Count > 0)
                 {
+                    bool noPlaceholder = false;
                     if (selected_Channel != DRUMS_CHANNEL)
                     {
-                        Native2WPF.convertStandardToEncoded(Native2WPF.convertedPlaceholder, ref tempPatternPlaceholder, false);
+                        Native2WPF.convertStandardToEncoded(Native2WPF.convertedPlaceholder, ref importPatternPlaceholder, false);
+                        Native2WPF.convertStandardToEncoded(Native2WPF.converted, ref importPattern);
                     }
                     else 
                     {
-                        tempPatternPlaceholder.Clear();
+                        importPatternPlaceholder.Clear();
+                        Native2WPF.convertStandardToEncoded(Native2WPF.converted, ref importPattern, false);
                     }
-                    Native2WPF.convertStandardToEncoded(Native2WPF.converted, ref tempPattern);
 
+                    var listBoxItem = new ListBoxItem
+                    {
+                        Content = $"{firstFreeSlot} - <Imported>",
+                        Tag = -2 // import
+                    };
+
+                    patternListBox.Items.Add(listBoxItem);
+                    patternListBox.SelectedItem = listBoxItem;
+                    patternListBox.ScrollIntoView(listBoxItem);
 
                 }
             }
@@ -1270,17 +1390,56 @@ namespace CyberG
 
         private void deleteButton_Click(object sender, RoutedEventArgs e)
         {
-
+            if (patternListBox.SelectedIndex < 0 || (int) ((System.Windows.Controls.ListBoxItem) patternListBox.SelectedItem).Tag == -1)
+            {
+                MessageBox.Show("Error! Selected index is invalid");
+                return;
+            }
+            int id = patternDataList[patternListBox.SelectedIndex].id;
+            int oldIndex = patternListBox.SelectedIndex;
+            string path = patternDataList[patternListBox.SelectedIndex].path;
+            
+            if (Directory.Exists(path))
+            {
+                Directory.Delete(path, true);
+                patternDataList.RemoveAt(oldIndex);
+            }
+            int newID = -1;
+            if (oldIndex == patternDataList.Count())
+            {
+                if (internalHasNotes)
+                {
+                    newID = 0;
+                }
+                else
+                {
+                    newID = patternDataList[oldIndex - 1].id;
+                }
+            }
+            else if (oldIndex > patternDataList.Count())
+            {
+                newID = patternDataList[patternDataList.Count() - 1].id;
+            }
+            else
+            {
+                newID = patternDataList[oldIndex + 1].id;
+            }
+            updateRightSide(newID);
         }
 
         private void uploadButton_Click(object sender, RoutedEventArgs e)
         {
-
+            if (tempPatternPlaceholder.Count < 0)
+            {
+                MessageBox.Show((string)Application.Current.Resources["NoPatternToSend"]);
+                return;
+            }
+            int id = patternDataList[patternListBox.SelectedIndex].id;
             if (SerialManager.isDeviceConnected())
             {
                 string param = "";
                 SendCmd(clearCMD, selected_Slot.ToString());
-                Native2WPF.convertEncodedToStandard(tempPattern, ref tempPatternSend, usePlaceholderSend);
+                Native2WPF.convertEncodedToStandard(tempPattern, ref tempPatternSend, false);
                 for (int i = 0; i < tempPatternSend.Count; i++)
                 {
                     param = selected_Slot.ToString();
@@ -1296,6 +1455,28 @@ namespace CyberG
                     param += tempPatternSend[i].relativeOctave;
                     SendCmd(addCMD, param);
                 }
+                if (selected_Channel == DRUMS_CHANNEL)
+                {
+                    SendCmd(SerialDevice.SET_DRUM_ID, selected_Channel.ToString() + "," + id.ToString());
+                    SendCmd(SerialDevice.GET_DRUM_ID, selected_Channel.ToString());
+                }
+                else if (selected_Channel == GUITAR_CHANNEL)
+                {
+                    SendCmd(SerialDevice.SET_GUITAR_ID, selected_Channel.ToString() + "," + id.ToString());
+                    SendCmd(SerialDevice.GET_GUITAR_ID, selected_Channel.ToString());
+                }
+                else if (selected_Channel == BASS_CHANNEL)
+                {
+                    SendCmd(SerialDevice.SET_BASS_ID, selected_Channel.ToString() + "," + id.ToString());
+                    SendCmd(SerialDevice.GET_BASS_ID);
+                }
+                else if (selected_Channel == BACKING_CHANNEL)
+                {
+                    SendCmd(SerialDevice.SET_BACKING_ID, selected_Channel.ToString() + "," + id.ToString());
+                    SendCmd(SerialDevice.GET_BACKING_ID);
+                }
+                curID = id;
+
             }
         }
 
@@ -1332,11 +1513,11 @@ namespace CyberG
                     try
                     {
                         File.WriteAllText(nameFilePath, patternNameTextBox.Text.Trim());
-                        MessageBox.Show("Pattern name saved.");
+                        MessageBox.Show((string)Application.Current.Resources["PatternNameSaved"]);
                         patternData pd = patternDataList[patternIndex];
                         pd.name = patternNameTextBox.Text.Trim();
                         patternDataList[patternIndex] = pd;
-                        ListBoxItem lb = (ListBoxItem) patternListBox.SelectedItem;
+                        ListBoxItem lb = (ListBoxItem)patternListBox.SelectedItem;
                         lb.Content = $"{pd.id} - {pd.name}";
 
                     }
@@ -1344,6 +1525,39 @@ namespace CyberG
                     {
                         MessageBox.Show($"Failed to save name: {ex.Message}");
                     }
+                }
+
+            }
+            else if (patternListBox.SelectedItem is ListBoxItem selectedItem2)
+            {
+                string folderPath = basePath + "\\" + curPatternPath + "\\" + firstFreeSlot.ToString();
+                string nameFilePath = System.IO.Path.Combine(folderPath, "Name.txt");
+
+                try
+                {
+                    //assumes copying from the guitar, so no conversion needed
+                    if (tempPattern.Count > 0 && tempPatternPlaceholder.Count == 0)
+                    {
+                        MessageBox.Show("Error! Temp Pattern placeholder is empty!");
+
+                    }
+                    if (!Directory.Exists(folderPath))
+                    {
+                        Directory.CreateDirectory(folderPath);
+                    }
+                    File.WriteAllText(nameFilePath, patternNameTextBox.Text.Trim());
+                    MessageBox.Show((string)Application.Current.Resources["PatternNameSaved"]);
+                    Native2WPF.convertEncodedToStandard(tempPatternPlaceholder, ref tempPatternSend, false);
+                    Native2WPF.converted = new List<midiPattern>(tempPatternSend);
+                    string midipath = folderPath + "\\data.mid";
+                    Native2WPF.convertMidiPatternToMidi(midipath, int.Parse(bpmTextBox.Text), false, false);
+                    //curID = firstFreeSlot;
+                    patternDataList.Clear();
+                    updateRightSide(firstFreeSlot);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Failed to save name: {ex.Message}");
                 }
             }
         }
@@ -1362,9 +1576,10 @@ namespace CyberG
         }
         private void patternRadioButton_Checked(object sender, RoutedEventArgs e)
         {
+            importPattern.Clear();
+            importPatternPlaceholder.Clear();
             if (!doneLoading) return;
             selected_Slot = 0;
-            usePlaceholderSend = true;
             if ((RadioButton)sender == guitar0PatternRadioButton)
             {
                 selected_Channel = GUITAR_CHANNEL;
@@ -1430,7 +1645,6 @@ namespace CyberG
                 {
                     curID = int.Parse(drumPatternTextBox0.Text);
                 }
-                usePlaceholderSend = false;
                 clearCMD = SerialDevice.CLEAR_DRUMS_DATA;
                 addCMD = SerialDevice.ADD_DRUMS_DATA;
                 selected_Channel = DRUMS_CHANNEL;
@@ -1443,7 +1657,6 @@ namespace CyberG
                 {
                     curID = int.Parse(drumPatternTextBox1.Text);
                 }
-                usePlaceholderSend = false;
                 clearCMD = SerialDevice.CLEAR_DRUMS_DATA;
                 addCMD = SerialDevice.ADD_DRUMS_DATA;
                 selected_Channel = DRUMS_CHANNEL;
@@ -1456,7 +1669,6 @@ namespace CyberG
                 {
                     curID = int.Parse(drumPatternTextBox2.Text);
                 }
-                usePlaceholderSend = false;
                 clearCMD = SerialDevice.CLEAR_DRUMS_DATA;
                 addCMD = SerialDevice.ADD_DRUMS_DATA;
                 selected_Channel = DRUMS_CHANNEL;
@@ -1469,7 +1681,6 @@ namespace CyberG
                 {
                     curID = int.Parse(drumPatternTextBox3.Text);
                 }
-                usePlaceholderSend = false;
                 clearCMD = SerialDevice.CLEAR_DRUMS_DATA;
                 addCMD = SerialDevice.ADD_DRUMS_DATA;
                 selected_Channel = DRUMS_CHANNEL;
@@ -1482,7 +1693,6 @@ namespace CyberG
                 {
                     curID = int.Parse(drumPatternTextBox4.Text);
                 }
-                usePlaceholderSend = false;
                 clearCMD = SerialDevice.CLEAR_DRUMS_DATA;
                 addCMD = SerialDevice.ADD_DRUMS_DATA;
                 selected_Channel = DRUMS_CHANNEL;
@@ -1492,7 +1702,7 @@ namespace CyberG
             updateRightSide();
         }
 
-        private void LoadPatterns()
+        private void LoadPatterns(int selectedID = -1)
         {
             // Clear previous entries
             patternListBox.Items.Clear();
@@ -1500,59 +1710,59 @@ namespace CyberG
 
             // Construct full path
             string rootPath = System.IO.Path.Combine(Directory.GetCurrentDirectory(), basePath, curPatternPath);
-            bool hasInternal = false;
+            
             if (selected_Channel == GUITAR_CHANNEL)
             {
                 if (selected_Slot == 0)
                 {
-                    hasInternal = guitarPattern0.Count > 0;
+                    internalHasNotes = guitarPattern0.Count > 0;
                 }
                 else if (selected_Slot == 1)
                 {
-                    hasInternal = guitarPattern1.Count > 0;
+                    internalHasNotes = guitarPattern1.Count > 0;
                 }
                 else
                 {
-                    hasInternal = guitarPattern2.Count > 0;
+                    internalHasNotes = guitarPattern2.Count > 0;
                 }
             }
             else if (selected_Channel == DRUMS_CHANNEL)
             {
                 if (selected_Slot == 0)
                 {
-                    hasInternal = drumPattern0.Count > 0;
+                    internalHasNotes = drumPattern0.Count > 0;
                 }
                 else if (selected_Slot == 1)
                 {
-                    hasInternal = drumPattern1.Count > 0;
+                    internalHasNotes = drumPattern1.Count > 0;
                 }
                 else if (selected_Slot == 2)
                 {
-                    hasInternal = drumPattern2.Count > 0;
+                    internalHasNotes = drumPattern2.Count > 0;
                 }
                 else if (selected_Slot == 3)
                 {
-                    hasInternal = drumPattern3.Count > 0;
+                    internalHasNotes = drumPattern3.Count > 0;
                 }
                 else
                 {
-                    hasInternal = drumPattern4.Count > 0;
+                    internalHasNotes = drumPattern4.Count > 0;
                 }
             }
             else if (selected_Channel == BASS_CHANNEL)
             {
-                hasInternal = bassPattern.Count > 0;
+                internalHasNotes = bassPattern.Count > 0;
             }
             else if (selected_Channel == BACKING_CHANNEL)
             {
-                hasInternal = backingPattern.Count > 0;
+                internalHasNotes = backingPattern.Count > 0;
             }
             if (!Directory.Exists(rootPath))
             {
                 MessageBox.Show($"Directory does not exist: {rootPath}");
                 return;
             }
-
+            firstFreeSlot = -1;
             // Loop through folders 1 to 65535
             for (int i = 1; i <= 65535; i++)
             {
@@ -1590,10 +1800,13 @@ namespace CyberG
                         MessageBox.Show($"Error reading folder {i}: {ex.Message}");
                     }
                 }
+                else if (!Directory.Exists(folderPath) && firstFreeSlot == -1)
+                {
+                    firstFreeSlot = i;
+                }
             }
-            if (curID == 0 && hasInternal)
+            if (curID == 0 && internalHasNotes)
             {
-                hasInternal = true;
                 var listBoxItem = new ListBoxItem
                 {
                     Content = $"0 - ????",
@@ -1603,13 +1816,13 @@ namespace CyberG
             }
             // Selection logic (moved outside loop)
             //            if (hasInternal && curID == 0)
-            if (curID == 0 && hasInternal)
+            if (curID == 0 && internalHasNotes && selectedID == -1)
             {
                 curIDExists = false;
                 patternListBox.SelectedIndex = patternListBox.Items.Count - 1;
                 patternListBox.ScrollIntoView(patternListBox.Items[patternListBox.Items.Count - 1]);
             }
-            else if (curID != 0)
+            else if (curID != 0 && selectedID == -1)
             {
                 bool found = false;
                 foreach (var item in patternListBox.Items)
@@ -1644,12 +1857,31 @@ namespace CyberG
                     patternListBox.ScrollIntoView(tempBoxItem);
                 }
             }
-            else
-            { 
+            else if (selectedID != -1)
+            {
+                bool found = false;
+                foreach (var item in patternListBox.Items)
+                {
+                    if (item is ListBoxItem listBoxItem && listBoxItem.Content is string content)
+                    {
+                        var parts = content.Split(new[] { " - " }, StringSplitOptions.None);
+                        if (parts.Length >= 2 && int.TryParse(parts[0], out int patternId))
+                        {
+                            if (patternId == selectedID)
+                            {
+                                found = true;
+                                patternListBox.SelectedItem = listBoxItem;
+                                patternListBox.ScrollIntoView(listBoxItem);
+                                break;
+                            }
+                        }
+                    }
+                }
             }
             if (patternListBox.Items.Count == 0)
             {
-                MessageBox.Show("No valid patterns found.");
+                NoteCanvas.Children.Clear();
+                MessageBox.Show((string)Application.Current.Resources["NoPatternDataAtAll"]);
             }
         }
 
