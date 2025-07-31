@@ -926,7 +926,7 @@ bool loadPatternFiles(bool loadFromBackup = false) {
 
 void setup() {
   //strum = 0;
- pinMode(21, INPUT_PULLUP);  // CLK
+  pinMode(21, INPUT_PULLUP);  // CLK
   pinMode(20, INPUT_PULLUP);  // DT
   attachInterrupt(digitalPinToInterrupt(21), onEncoderA, RISING);  // Only track rising edge
   pinMode(NOTE_OFF_PIN, INPUT_PULLUP);
@@ -954,7 +954,7 @@ void setup() {
   //if (debug) {
     Serial.println("Teensy MIDI Debug Start");
   //}
-  Serial3.println("AT\r\n");  // Send AT command
+  //Serial3.println("AT\r\n");  // Send AT command
 
   if (!SD.begin(BUILTIN_SDCARD)) {
     if (debug)
@@ -1308,25 +1308,36 @@ void generateOmnichordNoteMap(uint8_t note)
   }
 
 }
+
 void checkSerialGuitar(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen, uint8_t channel) {
   size_t last_len = 0;
   //uint8_t rootNote = 0;
   // --- Step 1: Read bytes into buffer ---
   while (serialPort.available() && bufferLen < MAX_BUFFER_SIZE - 1) {
-    char c = serialPort.read();
-    sprintf(&buffer[bufferLen], "%02x", (unsigned char)c);
-    bufferLen += 2;
+    buffer[bufferLen++] = serialPort.read();
   }
-  buffer[bufferLen] = '\0';
-
-  while (bufferLen >= 4) {
-    if (strncmp(buffer, "aa55", 4) == 0) {
+  /*
+  if (bufferLen >= 6) {
+    Serial.print("Raw buffer: ");
+    for (uint8_t i = 0; i < bufferLen; i++) {
+      Serial.printf("%02x", buffer[i]);
+    }
+    Serial.println();
+  }
+*/
+  while (bufferLen >= 2) {
+    
+    if (buffer[0] == 0xaa && buffer[1] == 0x55) {
       break;
     }
-    memmove(buffer, buffer + 2, bufferLen - 1);
+    if (passThroughSerial)
+    {
+      serialPort.write(buffer, 2);
+    }
+    memmove(buffer, buffer + 2, bufferLen - 2);
     bufferLen -= 2;
-    buffer[bufferLen] = '\0';
   }
+
   bool ignore;
   // --- Step 5: Main parser loop ---
   while (true) {
@@ -1334,20 +1345,26 @@ void checkSerialGuitar(HardwareSerial& serialPort, char* buffer, uint8_t& buffer
     uint8_t myTranspose = guitarTranspose[preset];
     bool processed = false;
     bool matched = false;
-    if (bufferLen > 12) {
+    if (bufferLen > 6) {
       HexToProgram msg;
       //for (const HexToProgram& msg : hexToProgram) {
         for (uint8_t i = 0; i < 2; i++) {
         msg = hexToProgram(i);
         size_t len = strlen(msg.hex);
-        if (bufferLen >= len && strncmp(buffer, msg.hex, len) == 0) {
+        size_t expectedBytes = len / 2;
+        //if (bufferLen >= len && strncmp(buffer, msg.hex, len) == 0) {
+          if (bufferLen >= expectedBytes && isHexStringEqualToBytes(msg.hex, len, buffer, expectedBytes )) {
           if (debug)
           {
             Serial.printf("Program was pressed %d\n", msg.program);
           }
           sendCC(channel, msg.program, MAX_VELOCITY);
-          memmove(buffer, buffer + len, bufferLen - len + 1);
-          bufferLen -= len;
+          if (passThroughSerial)
+          {
+            serialPort.write(buffer, len/2);
+          }
+          memmove(buffer, buffer + len/2, bufferLen - len/2);
+          bufferLen -= len/2;
           matched = true;
           processed = true;
           break;
@@ -1357,14 +1374,16 @@ void checkSerialGuitar(HardwareSerial& serialPort, char* buffer, uint8_t& buffer
       if (matched) continue;
     }
     MidiMessage msg;
-    if (bufferLen >= 22 and !matched) {
+    if (bufferLen >= 11 and !matched) {
       //for (const MidiMessage& msg : hexToNote) {
         for (uint8_t a = 0; a <= ACTUAL_NECKBUTTONS; a++) {
         msg = hexToNote(a);
         size_t len = strlen(msg.hex);
         last_len = len;
+        size_t expectedBytes = len / 2;
 
-        if (bufferLen >= len && strncmp(buffer, msg.hex, len) == 0) 
+        //if (bufferLen >= len && strncmp(buffer, msg.hex, len) == 0) 
+        if (bufferLen >= expectedBytes && isHexStringEqualToBytes(msg.hex, len, buffer, expectedBytes)) 
         {
           isSustainPressed = false;
           //handling for last 2 rows of guitar neck
@@ -1844,8 +1863,12 @@ void checkSerialGuitar(HardwareSerial& serialPort, char* buffer, uint8_t& buffer
               }
             }
           }
-          memmove(buffer, buffer + len, bufferLen - len + 1);
-          bufferLen -= len;
+          if (passThroughSerial)
+          {
+            serialPort.write(buffer, len/2);
+          }
+          memmove(buffer, buffer + len/2, bufferLen - len/2);
+          bufferLen -= len/2;
           matched = true;
           processed = true;  //did something
           break;
@@ -1853,7 +1876,11 @@ void checkSerialGuitar(HardwareSerial& serialPort, char* buffer, uint8_t& buffer
       }
       if (matched) continue;
       else {
-        memmove(buffer, buffer + last_len, bufferLen - last_len + 1);
+        if (passThroughSerial)
+        {
+          serialPort.write(buffer, last_len/2);
+        }
+        memmove(buffer, buffer + last_len/2, bufferLen - last_len/2);
         bufferLen -= last_len;
       }
       break;
@@ -1863,9 +1890,13 @@ void checkSerialGuitar(HardwareSerial& serialPort, char* buffer, uint8_t& buffer
   }
 
   if (bufferLen > MAX_BUFFER_SIZE - 10) {
-    memmove(buffer, buffer + bufferLen - 60, 60);
-    bufferLen = 60;
-    buffer[bufferLen] = '\0';
+    if (passThroughSerial)
+    {
+      serialPort.write(buffer, bufferLen - 60/2);
+    }
+    memmove(buffer, buffer + bufferLen - 60/2, 60/2);
+    bufferLen = 60/2;
+    
   }
 }
 
@@ -1889,28 +1920,7 @@ void checkSerialBT(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen)
   //}
 }
 
-void checkSerialKnob(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen) {
-while (serialPort.available() && bufferLen < MAX_BUFFER_SIZE - 1) {
-    char c = serialPort.read();
-    sprintf(&buffer[bufferLen], "%02x", (unsigned char)c);
-    bufferLen += 2;
-  }
-  buffer[bufferLen] = '\0';
-  if (bufferLen > 0)
-  {
-     Serial.printf("Raw buffer (KB): %s\n", buffer);
-     bufferLen = 0;
-     buffer[0] = '\0';
-  }
-  
-  
 
-  // --- Clear buffer after processing ---
-
-  
-
-
-}
 bool savePatternFiles(bool saveToBackup = false) {
   if (!savePatternRelatedConfig())
   {
@@ -2505,6 +2515,27 @@ bool decodeCmd(SerialType& serialPort, String cmd, std::vector<String>* params)
   else if (cmd == "DBGR")  //Debug setting read
   {
     snprintf(buffer, sizeof(buffer), "OK00,%d\r\n", debug ? 1 : 0);
+    serialPort.write(buffer);
+  }
+
+
+else if (cmd == "PASW")  //Pass Through Mode
+  {
+    if (params->size() == 0)  //missing parameter
+    {
+      serialPort.write("ER00\r\n");
+      return true;
+    }
+    if (atoi(params->at(0).c_str()) > 1 || atoi(params->at(0).c_str()) < 0) {
+      serialPort.write("ER01\r\n");  //invalid parameter
+      return true;
+    }
+    passThroughSerial = atoi(params->at(0).c_str()) > 0;
+    serialPort.write("OK00\r\n");
+  } 
+  else if (cmd == "PASR")  //Debug setting read
+  {
+    snprintf(buffer, sizeof(buffer), "OK00,%d\r\n", passThroughSerial ? 1 : 0);
     serialPort.write(buffer);
   }
 
@@ -3992,37 +4023,46 @@ void updateButtonPressedStates()
   }
 
 }
+void checkSerialPassThrough(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen, uint8_t channel) {
+    while (serialPort.available()) {
+    char c = serialPort.read();
+    serialPort.write(c);  // echo back to target device
 
+  }
+}
 void checkSerialKB(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen, uint8_t channel) {
   // --- Step 1: Read bytes into buffer ---
   while (serialPort.available() && bufferLen < MAX_BUFFER_SIZE - 1) {
-    char c = serialPort.read();
-    sprintf(&buffer[bufferLen], "%02x", (unsigned char)c);
-    bufferLen += 2;
+    buffer[bufferLen++] = serialPort.read();
   }
-  buffer[bufferLen] = '\0';
-  // if (bufferLen > 0)
-  // {
-  //   Serial.printf("Raw buffer (KB): %s\n", buffer);
-  // }
+  /*
+  if (bufferLen > 0) {
+    Serial.print("Raw buffer: ");
+    for (uint8_t i = 0; i < bufferLen; i++) {
+      Serial.printf("%02x", buffer[i]);
+    }
+    Serial.println();
+  }
+*/
   if (!ignoringIdlePing) {
     //Serial.printf("Raw buffer (KB): %s\n", buffer);
   }
 
   // --- Step 2: If we're ignoring idle ping, skip until we see a valid start ---
   if (ignoringIdlePing) {
-    while (bufferLen >= 2) {
-      if ((buffer[0] == '8' && buffer[1] == '0') || (buffer[0] == '9' && buffer[1] == '0') ||
-          //(bufferLen >= 4 && strncmp(buffer, "f555", 4) == 0)) {
-          (buffer[0] == 'f' && buffer[1] == '5')) {
+    while (bufferLen >= 1) {
+      if (buffer[0] == 80 || buffer[0] == 0x90 || buffer[0] == 0xf5) {
         ignoringIdlePing = false;
         break;  // valid data found, resume normal parsing
       }
 
       // Remove 1 byte (2 hex chars) and keep scanning
-      memmove(buffer, buffer + 2, bufferLen - 1);
-      bufferLen -= 2;
-      buffer[bufferLen] = '\0';
+      if (passThroughSerial)
+      {
+        serialPort.write(buffer, 1);
+      }
+      memmove(buffer, buffer + 1, bufferLen - 1);
+      bufferLen -= 1;
     }
 
     // Still in idle ignore mode, no need to parse
@@ -4031,169 +4071,180 @@ void checkSerialKB(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen,
 
   // --- Step 3: Check for idle ping pattern and enter ignore mode ---
   //keyboard always sends a specific pattern when idle
-  if (bufferLen >= 12 && strncmp(buffer, "f55500282000", 12) == 0) {
+  //if (bufferLen >= 12 && strncmp(buffer, "f55500282000", 12) == 0) {
+    if (bufferLen >= 6 && buffer[0] == 0xf5 && buffer[1] == 0x55 && buffer[2] == 0x00 && buffer[3] == 0x28 && buffer[4] == 0x20 && buffer[5] == 0x00) {
     ignoringIdlePing = true;
     //todo if we do built-in sound, send to the device
     isKeyboard = true;
-    memmove(buffer, buffer + 12, bufferLen - 11);
-    bufferLen -= 12;
-    buffer[bufferLen] = '\0';
+    if (passThroughSerial)
+    {
+      serialPort.write(buffer, 6);
+    }
+    memmove(buffer, buffer + 6, bufferLen - 6);
+    bufferLen -= 6;
+
     return;
   }
   //handling for guitar strum attachment when strummed
-  if (bufferLen >= 16 && strncmp(buffer, "f55500042017", 12) == 0) {
-    isKeyboard = false; 
-    // Get the value of the last 2 bytes
-    uint16_t value = 0;
-    sscanf(buffer + 12, "%04hx", &value);
+  //if (bufferLen >= 16 && strncmp(buffer, "f55500042017", 12) == 0) 
+    if (bufferLen >= 8 && buffer[0] == 0xf5 && buffer[1] == 0x55 && buffer[2] == 0x00 && buffer[3] == 0x04 && buffer[4] == 0x20 && buffer[5] == 0x17)
+    {
+      isKeyboard = false; 
+      // Get the value of the last 2 bytes
+      uint16_t value = 0;
+      //sscanf(buffer + 6, "%04hx", &value);
+      value = ((uint16_t)buffer[6] << 8) | buffer[7];
 
-    // we don't care about this in omnichord mode
-    //if (omniChordModeGuitar[preset] == 0)
-    //{
-    //lastStrum = strum;
-    //Serial.printf("Preset is %d\n", preset);
-    int lastPressed = neckButtonPressed;
+      int lastPressed = neckButtonPressed;
     
-    if (chordHold[preset]) {
-      if (lastPressed == -1 && lastValidNeckButtonPressed != -1) {
-        lastPressed = lastValidNeckButtonPressed;
+      if (chordHold[preset]) 
+      {
+        if (lastPressed == -1 && lastValidNeckButtonPressed != -1) 
+        {
+          lastPressed = lastValidNeckButtonPressed;
+        }
       }
-    }
     if (value >= 0x200 && (lastPressed > -1)) 
-    {
-      //strum = -1;  // up
-      if (omniChordModeGuitar[preset] <= OmniChordOffGuitarType || omniChordModeGuitar[preset] == OmniChordGuitarType) 
       {
-        //if (assignedFretPatternsByPreset[preset][msg.note].getPatternStyle() == SimpleStrum)
-        if (simpleChordSetting[preset] == SimpleStrum)
+        //strum = -1;  // up
+        if (omniChordModeGuitar[preset] <= OmniChordOffGuitarType || omniChordModeGuitar[preset] == OmniChordGuitarType) 
         {
-          if (getPreviousButtonPressed() >= 0)
+          //if (assignedFretPatternsByPreset[preset][msg.note].getPatternStyle() == SimpleStrum)
+          if (simpleChordSetting[preset] == SimpleStrum)
           {
-            cancelGuitarChordNotes(getActualAssignedChord(getPreviousButtonPressed()).assignedGuitarChord);
+            if (getPreviousButtonPressed() >= 0)
+            {
+              cancelGuitarChordNotes(getActualAssignedChord(getPreviousButtonPressed()).assignedGuitarChord);
+            }
+            buildGuitarSequencerNotes(getActualAssignedChord(getCurrentButtonPressed()).assignedGuitarChord, true);
           }
-          buildGuitarSequencerNotes(getActualAssignedChord(getCurrentButtonPressed()).assignedGuitarChord, true);
-        }
-        //else if (assignedFretPatternsByPreset[preset][msg.note].getPatternStyle() == ManualStrum)
-        else if (simpleChordSetting[preset] == ManualStrum)
-        {
-          //update guitar notes to match chord button
-          uint8_t curbut = getCurrentButtonPressed();
-          uint8_t lastbut = getPreviousButtonPressed();
-          //Serial.printf("cur %d last %d\n", curbut, lastbut);
-          if (lastbut != -1 && curbut != -1 && lastbut != curbut && curbut != lastKBPressed)
+          //else if (assignedFretPatternsByPreset[preset][msg.note].getPatternStyle() == ManualStrum)
+          else if (simpleChordSetting[preset] == ManualStrum)
           {
-            //todo check if no 5 is needed            
-            std::vector<uint8_t> chordNotesA;
-            std::vector<uint8_t> chordNotesB;
-            if (enableAllNotesOnChords[preset])
+            //update guitar notes to match chord button
+            uint8_t curbut = getCurrentButtonPressed();
+            uint8_t lastbut = getPreviousButtonPressed();
+            //Serial.printf("cur %d last %d\n", curbut, lastbut);
+            if (lastbut != -1 && curbut != -1 && lastbut != curbut && curbut != lastKBPressed)
             {
-              chordNotesA = getActualAssignedChord(lastbut).getChords().getCompleteChordNotes(true);  //get notes
-              chordNotesB = getActualAssignedChord(curbut).getChords().getCompleteChordNotes(true);  //get notes
+              //todo check if no 5 is needed            
+              std::vector<uint8_t> chordNotesA;
+              std::vector<uint8_t> chordNotesB;
+              if (enableAllNotesOnChords[preset])
+              {
+                chordNotesA = getActualAssignedChord(lastbut).getChords().getCompleteChordNotes(true);  //get notes
+                chordNotesB = getActualAssignedChord(curbut).getChords().getCompleteChordNotes(true);  //get notes
+              }
+              else
+              {
+                chordNotesA = getActualAssignedChord(lastbut).getChords().getCompleteChordNotes3(true);  //get notes
+                chordNotesB = getActualAssignedChord(curbut).getChords().getCompleteChordNotes3(true);  //get notes
+              }
+              //Serial.printf("I was supposed to change notes sample\n");
+              if (SequencerNotes.size() > 0)
+              {
+                updateNotes(chordNotesA, chordNotesB, StaggeredSequencerNotes);
+              }
             }
-            else
-            {
-              chordNotesA = getActualAssignedChord(lastbut).getChords().getCompleteChordNotes3(true);  //get notes
-              chordNotesB = getActualAssignedChord(curbut).getChords().getCompleteChordNotes3(true);  //get notes
-            }
-            //Serial.printf("I was supposed to change notes sample\n");
-            if (SequencerNotes.size() > 0)
-            {
-              updateNotes(chordNotesA, chordNotesB, StaggeredSequencerNotes);
-            }
+            
+            buildAutoManualNotes(true, getCurrentButtonPressed()); //gets next manual note
+            //if there is an existing set of notes, kill them
+            //build get next sequence of notes from pattern
+            //add to StaggeredSequencerNotes but reversed as needed
+            lastKBPressed = curbut;
           }
-          
-          buildAutoManualNotes(true, getCurrentButtonPressed()); //gets next manual note
-          //if there is an existing set of notes, kill them
-          //build get next sequence of notes from pattern
-          //add to StaggeredSequencerNotes but reversed as needed
-          lastKBPressed = curbut;
-        }
-        else //autostrum
+          else //autostrum
+          {
+            cancelAllGuitarNotes();
+            buildAutoManualNotes(true, lastPressed);
+          }
+        } 
+        else  //omnichord mode just transposes the notes
         {
-          cancelAllGuitarNotes();
-          buildAutoManualNotes(true, lastPressed);
+          detector.transposeUp();
         }
+        //queue buttons to be played
       } 
-      else  //omnichord mode just transposes the notes
+      else if (value >= 0x100 && lastPressed > -1) 
       {
-        detector.transposeUp();
-      }
-      //queue buttons to be played
-    } else if (value >= 0x100 && lastPressed > -1) 
-    {
-      //strum = 1;  //down
-      if (omniChordModeGuitar[preset] <= OmniChordOffGuitarType || omniChordModeGuitar[preset] == OmniChordGuitarType) 
+        //strum = 1;  //down
+        if (omniChordModeGuitar[preset] <= OmniChordOffGuitarType || omniChordModeGuitar[preset] == OmniChordGuitarType) 
+        {
+          //if (assignedFretPatternsByPreset[preset][msg.note].getPatternStyle() == SimpleStrum)
+          if (simpleChordSetting[preset] == SimpleStrum)
+          {
+            if (getPreviousButtonPressed() >= 0)
+            {
+              cancelGuitarChordNotes(getActualAssignedChord(getPreviousButtonPressed()).assignedGuitarChord);
+            }
+            buildGuitarSequencerNotes(getActualAssignedChord(getCurrentButtonPressed()).assignedGuitarChord, false);
+          }
+          //else if (assignedFretPatternsByPreset[preset][msg.note].getPatternStyle() == ManualStrum)
+          else if (simpleChordSetting[preset] == ManualStrum)
+          {
+            //update guitar notes to match chord button
+            uint8_t curbut = getCurrentButtonPressed();
+            uint8_t lastbut = getPreviousButtonPressed();
+            if (lastbut != -1 && curbut != -1 && lastbut != curbut && curbut != lastKBPressed)
+            {
+            
+              //todo check if no5 is better
+              std::vector<uint8_t> chordNotesA;
+              std::vector<uint8_t> chordNotesB;
+              if(enableAllNotesOnChords[preset])
+              {
+                chordNotesA = getActualAssignedChord(lastbut).getChords().getCompleteChordNotes(true);  //get notes
+                chordNotesB = getActualAssignedChord(curbut).getChords().getCompleteChordNotes(true);  //get notes
+              }
+              else
+              {
+                chordNotesA = getActualAssignedChord(lastbut).getChords().getCompleteChordNotes3(true);  //get notes
+                chordNotesB = getActualAssignedChord(curbut).getChords().getCompleteChordNotes3(true);  //get notes
+              }
+              if (SequencerNotes.size() > 0)
+              {
+                updateNotes(chordNotesA, chordNotesB, StaggeredSequencerNotes);
+              }
+            }
+            lastKBPressed = curbut;
+            buildAutoManualNotes(false, getCurrentButtonPressed()); //gets next manual note
+          }
+          else //autostrum
+          {
+            cancelAllGuitarNotes();
+            buildAutoManualNotes(false, lastPressed);
+          }
+        } else {
+          detector.transposeDown();
+        }
+        //queue buttons to be played
+      } 
+      else if (value == 0x000) 
       {
-        //if (assignedFretPatternsByPreset[preset][msg.note].getPatternStyle() == SimpleStrum)
-        if (simpleChordSetting[preset] == SimpleStrum)
-        {
-          if (getPreviousButtonPressed() >= 0)
-          {
-            cancelGuitarChordNotes(getActualAssignedChord(getPreviousButtonPressed()).assignedGuitarChord);
-          }
-          buildGuitarSequencerNotes(getActualAssignedChord(getCurrentButtonPressed()).assignedGuitarChord, false);
-        }
-        //else if (assignedFretPatternsByPreset[preset][msg.note].getPatternStyle() == ManualStrum)
-        else if (simpleChordSetting[preset] == ManualStrum)
-        {
-          //update guitar notes to match chord button
-          uint8_t curbut = getCurrentButtonPressed();
-          uint8_t lastbut = getPreviousButtonPressed();
-          if (lastbut != -1 && curbut != -1 && lastbut != curbut && curbut != lastKBPressed)
-          {
-          
-            //todo check if no5 is better
-            std::vector<uint8_t> chordNotesA;
-            std::vector<uint8_t> chordNotesB;
-            if(enableAllNotesOnChords[preset])
-            {
-              chordNotesA = getActualAssignedChord(lastbut).getChords().getCompleteChordNotes(true);  //get notes
-              chordNotesB = getActualAssignedChord(curbut).getChords().getCompleteChordNotes(true);  //get notes
-            }
-            else
-            {
-              chordNotesA = getActualAssignedChord(lastbut).getChords().getCompleteChordNotes3(true);  //get notes
-              chordNotesB = getActualAssignedChord(curbut).getChords().getCompleteChordNotes3(true);  //get notes
-            }
-            if (SequencerNotes.size() > 0)
-            {
-              updateNotes(chordNotesA, chordNotesB, StaggeredSequencerNotes);
-            }
-          }
-          lastKBPressed = curbut;
-          buildAutoManualNotes(false, getCurrentButtonPressed()); //gets next manual note
-        }
-        else //autostrum
-        {
-          cancelAllGuitarNotes();
-          buildAutoManualNotes(false, lastPressed);
-        }
-      } else {
-        detector.transposeDown();
-      }
-      //queue buttons to be played
-    } else if (value == 0x000) {
       //strum = 0;  //neutral
       //do nothing
     }
-    //}
-    //Serial.printf("strum is %d\n", strum);
-    memmove(buffer, buffer + 16, bufferLen - 15);
-    bufferLen -= 16;
-    buffer[bufferLen] = '\0';
+    if (passThroughSerial)
+    {
+      serialPort.write(buffer, 8);
+    }
+    memmove(buffer, buffer + 8, bufferLen - 8);
+    bufferLen -= 8;
     return;
   }
 
   // --- Step 4: Clean junk at start ---
-  while (bufferLen >= 2) {
-    if ((buffer[0] == '8' && buffer[1] == '0') || (buffer[0] == '9' && buffer[1] == '0') ||
-        //(bufferLen >= 4 && strncmp(buffer, "f555", 4) == 0)) {
-        (bufferLen >= 2 && strncmp(buffer, "f5", 2) == 0)) {
+  while (bufferLen >= 1) 
+  {
+    if ((buffer[0] == 0x80 || buffer[0] == 0x90) || (bufferLen >= 1 && buffer[0] == 0xf5)) {
       break;
     }
-    memmove(buffer, buffer + 2, bufferLen - 1);
-    bufferLen -= 2;
-    buffer[bufferLen] = '\0';
+    if (passThroughSerial)
+    {
+      serialPort.write(buffer, 2);
+    }
+    memmove(buffer, buffer + 1, bufferLen - 1);
+    bufferLen -= 1;
   }
 
   // --- Step 5: Main parser loop ---
@@ -4202,19 +4253,11 @@ void checkSerialKB(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen,
   while (true) {
     bool processed = false;
     skipNote = false;
-    if (bufferLen >= 6 && (strncmp(buffer, "80", 2) == 0 || strncmp(buffer, "90", 2) == 0)) {
-      char temp[3];
-      temp[2] = '\0';
-      temp[0] = buffer[0];
-      temp[1] = buffer[1];
-      uint8_t status = strtol(temp, NULL, 16);
-      temp[0] = buffer[2];
-      temp[1] = buffer[3];
-      uint8_t note = strtol(temp, NULL, 16);
-      temp[0] = buffer[4];
-      temp[1] = buffer[5];
-      uint8_t vel = strtol(temp, NULL, 16);
-
+    if (bufferLen >= 3 && (buffer[0] == 0x80 || buffer[0] == 0x90)) {
+      
+      uint8_t status = buffer[0];
+      uint8_t note = buffer[1];
+      uint8_t vel = buffer[2];
       //if omnichord mode, use generated map
       if (omniChordModeGuitar[preset] > OmniChordOffGuitarType && (!isKeyboard || (isKeyboard && omniChordModeGuitar[preset] >= OmniChordStandardType))) {
         if (!chordHold[preset] && neckButtonPressed == -1 && omniChordNewNotes.size() > 0)
@@ -4271,20 +4314,31 @@ void checkSerialKB(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen,
           
         }
       }
-      memmove(buffer, buffer + 6, bufferLen - 5);
-      bufferLen -= 6;
-      buffer[bufferLen] = '\0';
+      if (passThroughSerial)
+      {
+        serialPort.write(buffer, 3);
+      }
+      memmove(buffer, buffer + 3, bufferLen - 3);
+      bufferLen -= 3;
       processed = true;
       continue;
-    } else if (bufferLen >= 4 && strncmp(buffer, "f555", 4) == 0) {
+    } 
+    else if (bufferLen >= 2 && buffer[0] == 0xf5 && buffer[1] == 0x55) 
+    {
       bool matched = false;
       HexToControl msg;
       //for (const HexToControl& msg : hexToControl) {
-        for (uint8_t i = 0; i < 6; i++) {
-        msg = hexToControl(i);
-        size_t len = strlen(msg.hex);
-        //Serial.printf("Raw buffer (KB): %s vs %s %d\n", buffer, msg.hex, len);
-        if (bufferLen >= len && strncmp(buffer, msg.hex, len) == 0) {
+        for (uint8_t i = 0; i < 6; i++) 
+        {
+          msg = hexToControl(i);
+          //size_t len = strlen(msg.hex);
+          size_t len = strlen(msg.hex);
+          size_t expectedBytes = len / 2;
+          //Serial.printf("Raw buffer (KB): %s vs %s %d\n", buffer, msg.hex, len);
+          //if (bufferLen >= len && strncmp(buffer, msg.hex, len) == 0) {
+          if (bufferLen >= expectedBytes && isHexStringEqualToBytes(msg.hex, len, buffer, expectedBytes)) 
+          {
+            Serial.printf("Control! %d\n", msg.cc );
           if (msg.cc != 0) {
             if (msg.cc == 3 || msg.cc == 4) {
               if (playMode == 1)  //started
@@ -4304,9 +4358,13 @@ void checkSerialKB(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen,
               sendProgram(channel, msg.cc);
             }
           }
-
-          memmove(buffer, buffer + len, bufferLen - len + 1);
-          bufferLen -= len;
+          if (passThroughSerial)
+          {
+            serialPort.write(buffer, len);
+          }
+          //memmove(buffer, buffer + len, bufferLen - len + 1);
+	        memmove(buffer, buffer + (len/2), bufferLen - (len/2));
+          bufferLen -= (len/2);
           matched = true;
           break;
         }
@@ -4315,24 +4373,29 @@ void checkSerialKB(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen,
       break;
     } else  //clean up?
     {
-      while (bufferLen >= 2) {
-        if ((buffer[0] == '8' && buffer[1] == '0') || (buffer[0] == '9' && buffer[1] == '0') ||
-            //(bufferLen >= 4 && strncmp(buffer, "f555", 4) == 0)) {
-            (bufferLen >= 2 && strncmp(buffer, "f5", 2) == 0)) {
+      while (bufferLen >= 1) {
+        if ((buffer[0] == 0x80 || buffer[0] == 0x90) ||
+            (bufferLen >= 1 && buffer[0]== 0xf5)) {
           break;
         }
-        memmove(buffer, buffer + 2, bufferLen - 1);
-        bufferLen -= 2;
-        buffer[bufferLen] = '\0';
+        if (passThroughSerial)
+        {
+          serialPort.write(buffer, 1);
+        }
+        memmove(buffer, buffer + 1, bufferLen - 1);
+        bufferLen -= 1;
       }
     }
     if (!processed) break;
   }
 
   if (bufferLen > MAX_BUFFER_SIZE - 10) {
-    memmove(buffer, buffer + bufferLen - 60, 60);
-    bufferLen = 60;
-    buffer[bufferLen] = '\0';
+    if (passThroughSerial)
+    {
+      serialPort.write(buffer, bufferLen - 60/2);
+    }
+    memmove(buffer, buffer + bufferLen - 60/2, 60/2);
+    bufferLen = 60/2;
   }
 }
 
@@ -4960,8 +5023,8 @@ bool saveSimpleConfig() {
     f.print(buffer);
     snprintf(buffer, sizeof(buffer), "CUR_PRESET,%d\n", preset);
     f.print(buffer);
-    //snprintf(buffer, sizeof(buffer), "debug,%d\n", debug);
-    //f.print(buffer);
+    snprintf(buffer, sizeof(buffer), "passThroughSerial,%d\n", passThroughSerial);
+    f.print(buffer);
     //bool stopSoundsOnPresetChange = true;
     snprintf(buffer, sizeof(buffer), "stopSoundsOnPresetChange,%d\n", stopSoundsOnPresetChange ? 1 : 0);
     f.print(buffer);
@@ -5269,8 +5332,8 @@ bool loadSimpleConfig() {
 
     } else if (strcmp(key, "stopSoundsOnPresetChange") == 0) {
       stopSoundsOnPresetChange = atoi(arg1);
-    //} else if (strcmp(key, "debug") == 0) {
-//      debug = atoi(arg1);
+    } else if (strcmp(key, "passThroughSerial") == 0) {
+      passThroughSerial = atoi(arg1);
     } else if (strcmp(key, "midiClockEnable") == 0) {
       midiClockEnable = atoi(arg1);
     } else if (arg2) {
@@ -5446,15 +5509,20 @@ void loop() {
     lastPos = pos;
 
     midiValue = constrain(midiValue + direction, 0, 9);
-    Serial.printf("MIDI Volume %s → %d\n", direction > 0 ? "UP" : "DOWN", midiValue);
+    //Serial.printf("MIDI Volume %s → %d\n", direction > 0 ? "UP" : "DOWN", midiValue);
   }
 
-
-  checkSerialGuitar(Serial1, dataBuffer1, bufferLen1, GUITAR_CHANNEL);
-  checkSerialKB(Serial2, dataBuffer2, bufferLen2, KEYBOARD_CHANNEL);
+  if (fullPassThroughSerial)
+  {
+    checkSerialPassThrough(Serial1, dataBuffer1, bufferLen1, GUITAR_CHANNEL);
+    checkSerialPassThrough(Serial2, dataBuffer2, bufferLen2, KEYBOARD_CHANNEL);
+  }
+  else
+  {
+    checkSerialGuitar(Serial1, dataBuffer1, bufferLen1, GUITAR_CHANNEL);
+    checkSerialKB(Serial2, dataBuffer2, bufferLen2, KEYBOARD_CHANNEL);
+  }
   checkSerialBT(Serial3, dataBuffer3, bufferLen3);
-  //checkSerialKnob(Serial5, dataBuffer5, bufferLen5);
-  
   //checkSerialG2Piano(Serial4, dataBuffer4, bufferLen4, 3);
   checkSerialCmd(Serial, dataBuffer4, bufferLen4);
   bool noteOffState = digitalRead(NOTE_OFF_PIN);

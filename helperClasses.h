@@ -34,6 +34,7 @@ void DebugPrintf(const char* format, ...) {
 
 }
 
+
 enum DrumState{
   DrumNone = -1, //for next only to indicate nothing next is in queue
   DrumStopped = 0,
@@ -547,3 +548,26 @@ typedef struct _noteOffset
 {
   std::vector<int8_t> noteOffsets; //offsets relative to expected note
 } noteOffset;
+
+bool isHexStringEqualToBytes(const char* str, size_t strLen, const char* numValue, size_t numValueLen) {
+  // Each byte should be represented by 2 hex characters
+  if (strLen != numValueLen * 2) {
+    return false;
+  }
+
+  for (size_t i = 0; i < numValueLen; ++i) {
+    char hex[3] = { str[i * 2], str[i * 2 + 1], '\0' };  // 2 hex chars + null terminator
+    char* end;
+    long parsedByte = strtol(hex, &end, 16);  // convert hex string to integer
+
+    if (*end != '\0' || parsedByte < 0 || parsedByte > 255) {
+      return false;  // invalid hex or out of range
+    }
+
+    if ((uint8_t)parsedByte != numValue[i]) {
+      return false;
+    }
+  }
+
+  return true;
+}
