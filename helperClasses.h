@@ -3,6 +3,7 @@
 #include <deque>
 #define MAX_PRESET 6
 #define MAX_VELOCITY 127
+#define DEFAULT_VELOCITY 100
 #define SEMITONESPEROCTAVE 12
 
 // --- MIDI CONSTANTS ---
@@ -12,7 +13,7 @@
 #define GUITAR_CHANNEL 2
 #define KEYBOARD_CHANNEL 1
 #define DRUM_CHANNEL 10
-
+#define EXTERNAL_CHANNEL 16 // backing for omnichord tracks
 #define OMNICHORD_OCTAVE_RANGE 8
 #define OMNICHORD_ROOT_START 48
 extern uint8_t preset;
@@ -321,7 +322,6 @@ std::vector<uint8_t> getCompleteChordNotes3(bool useTranspose = false) const {
 
     int third = -1;
     int color = -1;
-    
     // Pass 1: find the 3rd (either major 3rd = 4 or minor 3rd = 3)
     for (uint8_t interval : notes) {
         if (interval == 3 || interval == 4) {
@@ -329,7 +329,6 @@ std::vector<uint8_t> getCompleteChordNotes3(bool useTranspose = false) const {
             break;
         }
     }
-
     // Pass 2: find the next most important color tone
     // Priority: 7 > 9 > 13 > altered 5ths > 11 > add tones
     for (uint8_t interval : notes) {
@@ -370,16 +369,13 @@ std::vector<uint8_t> getCompleteChordNotes3(bool useTranspose = false) const {
             }
         }
     }
-
     // Add chosen tones if found
     if (third != -1) {
         complete.push_back((rootNote + third + offset) % 128);
     }
-
     if (color != -1 && color != third) {
         complete.push_back((rootNote + color + offset) % 128);
     }
-    
     bool fixed = false;
 
     //fix for power chord
@@ -407,7 +403,6 @@ std::vector<uint8_t> getCompleteChordNotes3(bool useTranspose = false) const {
               if (complete.size() >= 3) break;
           }
       }
-
       // If still not enough, then and only then add the 5th
       if (complete.size() < 3) 
       {
@@ -461,9 +456,9 @@ public:
     holdTime = 0;
     offset = 0;
     channel = -1;
-    velocity = MAX_VELOCITY;
+    velocity = DEFAULT_VELOCITY;
   }
-  SequencerNote(uint8_t newNote, int newholdTime, uint16_t newoffset, uint8_t newchannel, uint8_t newvelocity = MAX_VELOCITY, int8_t oct = 0) {
+  SequencerNote(uint8_t newNote, int newholdTime, uint16_t newoffset, uint8_t newchannel, uint8_t newvelocity = DEFAULT_VELOCITY, int8_t oct = 0) {
     note = newNote;
     holdTime = newholdTime;
     offset = newoffset;

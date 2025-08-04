@@ -2,6 +2,10 @@
 #include "helperClasses.h"
 
 //defines
+#define MIN_SWITCH_PASS_TIME 3000
+#define MUTE_NOTE_AFTER_SWITCH_TIME 1000
+#define FAKENOTETIME 2500
+#define NOTE_PASS_TIMEOUT 60000
 #define MIN_BACKING_TYPE 0
 #define MAX_BACKING_TYPE 10
 #define OMNICHORD_TRANSPOSE_MAX 2
@@ -34,6 +38,8 @@
 #define DRUM_STARTSTOP_BUTTON 26
 #define DRUM_FILL_BUTTON 24
 #define SUSTAIN_BUTTON 22
+#define OCTAVE_DOWN_BUTTON 21
+#define OCTAVE_UP_BUTTON 23
 #define MIDI_BUTTON_CHANNEL_NOTE_OFFSET 0
 #define BT_PRESS_ACTIVATE_COUNT 5
 
@@ -56,20 +62,41 @@
 //#define USE_AND
 // --- PIN DEFINITIONS ---
 #define NOTE_OFF_PIN 10       // Digital input for turning off all notes
-#define START_TRIGGER_PIN 11  // Digital input for triggering CC message
-#define BT_ON_PIN 19
-#define BT_STATUS_PIN 20
+#define START_TRIGGER_PIN 11  // Digital input for triggering CC message, logo change
+//#define BT_ON_PIN 19 // 
+//#define BT_STATUS_PIN 20 //TX5, 20->18
 #define BUTTON_1_PIN 4  //unused due to hardware issues (device turns on)
 #define BUTTON_2_PIN 5
 #define BUTTON_3_PIN 6  //unused due to hardware issues (device hangs)
-
+#define VOLUME_MSB 23 //TX5, 20->22
+#define VOLUME_LSB 22 //RX5, 21->23
 #define MAX_STRUM_STYLE 3
 // Other constants
 #define ACTUAL_NECKBUTTONS 27
 //#define NECKBUTTONS 21
-
+#define PROGRAM_CHANGE 0xC0
+#define PITCH_BEND 0xE0
+#define NOTE_ON 0x90
+#define NOTE_OFF 0x80
+#define START_MIDI 0xFA
+#define CONTINUE_MIDI 0xFB
+#define STOP_MIDI 0xFC
+#define CLOCK_MIDI 0xF8
 
 //state
+uint8_t cyberGOctave = -1; 
+uint8_t cyberGCapo = -1; //problem you can't tell if it's 0 or 12
+bool deviceFaked = false;
+bool BLEConnected = false;
+bool BTClassicConnected = false;
+bool BLEEnabled = false;
+bool BTClassicEnabled = false;
+bool BLEDiscoveryEnabled = false;
+bool BTClassicDiscoveryEnabled = false;
+int volumeOffset = 0;
+bool lastFakeGuitar = false;
+bool toMuteAfterSwitching = false;
+int toMuteAfterSwitchingTime = 0;
 uint8_t lastKBPressed = 255;
 bool buttonPressedChanged = false; //flag for kb know that fret button pressed was changed
 bool isSustain = false; //actual sustain state
@@ -78,9 +105,18 @@ bool bassStart = false;
 bool accompanimentStart = false;
 DrumState drumState = DrumStopped;
 DrumState drumNextState = DrumNone;
+bool muteWasRecentlyPressed = false;
+int muteHoldTime = 0;
+bool logoWasRecentlyPressed = false;
+int logoHoldTime = 0;
+int lastFakeNotePlayTime = millis();
+int lastNotePressTime = millis();
+int lastFakeNoteSendTime = millis();
 bool isStrumUp = false; // used for alternating strumming order
 //int strum; 
 //int lastStrum;
+bool passThroughSerial = true;
+bool fullPassThroughSerial = true;
 bool ignoringIdlePing = false;
 int tickCount = 0;
 int transpose = 0; //piano
@@ -108,9 +144,11 @@ bool presetButtonPressed = false;
 bool debug = DEBUG;
 bool stopSoundsOnPresetChange = true;
 bool midiClockEnable = true;
-
+bool externalUseFixedChannel = true;
 uint8_t backingState = 1; //0 = stock, 1-10 - uses omnichord 108 backing
 //uint16_t deviceBPM = 128;
+std::vector<char> bufferList;
+std::vector<char> bufferList2;
 std::vector<bool> isSimpleChordMode;
 std::vector<bool> enableAllNotesOnChords;
 std::vector<bool> enableButtonMidi;

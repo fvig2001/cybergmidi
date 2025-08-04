@@ -1,5 +1,41 @@
 #pragma once
+#define BTMW 0
+#define BTRA 4
+#define BTOW 2
+#define BTMR 1
+#define BTOR 3
+
 #include "helperClasses.h"
+int GetPresetNote(int root, int interval)
+{
+  int val = 0;
+  int octave = (interval/7) * SEMITONESPEROCTAVE;
+  interval = interval % 7;
+  switch(interval)
+  {
+    case 1: //2nd
+      val = 2;
+      break;
+    case 2: //3rd
+      val = 4;
+      break;
+    case 3: //4th
+      val = 5;
+      break;
+    case 4: //5th
+      val = 7;
+      break;
+    case 5: //6th
+      val = 9;
+      break;
+    case 6: //7th
+      val = 11;
+      break;
+    default:
+      val = 0; //identity octave
+  }
+  return val + root + octave;
+}
 Chord GetPianoChords(uint8_t index)
 {
   switch (index)
@@ -38,6 +74,51 @@ Chord GetPianoChords(uint8_t index)
     default:                       return Chord({ 1, 2});         // dense cluster: 1 b9 9
 
   }
+}
+
+char * getFakeNotesKB(bool isOn, int *size)
+{
+  const int noteCount = 3;
+  const int bytesPerNote = 3;
+  *size = noteCount * bytesPerNote;
+  char* fakeNotes = (char*)malloc(*size);
+   for (int i = 0; i < noteCount; ++i) 
+  {
+    fakeNotes[i * 3 + 0] = isOn ? 0x90 : 0x80;
+  }
+
+  fakeNotes[1] = 0x60; fakeNotes[2] = 0x7F;
+  fakeNotes[4] = 0x64; fakeNotes[5] = 0x7F;
+  fakeNotes[7] = 0x67; fakeNotes[8] = 0x7F;
+  return fakeNotes;
+}
+char * getFakeNotesGuitar(bool isOn, int *size)
+{
+  const int noteCount = 11;
+  *size = noteCount;
+  char* fakeNotes = (char*)malloc(*size);
+  fakeNotes[0] = 0xaa;
+  fakeNotes[1] = 0x55;
+  fakeNotes[2] = 0x00;
+  fakeNotes[3] = 0x0a;
+  fakeNotes[4] = 0x22;
+  fakeNotes[5] = 0x01;
+  
+  if (isOn)
+  {
+    fakeNotes[6] = 0x04;
+  }
+  else
+  {
+    fakeNotes[6] = 0x00;
+  }
+  
+  fakeNotes[6] = 0x00;
+  fakeNotes[7] = 0x00;
+  fakeNotes[8] = 0x00;
+  fakeNotes[9] = 0x00;
+  fakeNotes[10] = 0x00;
+  return fakeNotes;
 }
 
 const std::vector<uint8_t>& GetAllChordsGuitar(uint8_t chordTypeIndex, uint8_t key)
@@ -546,6 +627,71 @@ const std::vector<uint8_t>& GetAllChordsGuitar(uint8_t chordTypeIndex, uint8_t k
   }
 }
 
+const char* hexToOctave(int index, size_t& length) {
+  switch (index) {
+    case 0: { //off
+      static constexpr char data[] = { 0xF5, 0x55, 0x00, 0x03, 0x00, 0x12, 0x01 };
+      length = sizeof(data);
+      return data;
+    }
+    case 1: {
+      static constexpr char data[] = { 0xF5, 0x55, 0x00, 0x03, 0x00, 0x12, 0x02 };
+      length = sizeof(data);
+      return data;
+    }
+    case 2: {
+      static constexpr char data[] = { 0xF5, 0x55, 0x00, 0x03, 0x00, 0x12, 0x03 };
+      length = sizeof(data);
+      return data;
+    }
+    case 3: {
+      static constexpr char data[] = { 0xF5, 0x55, 0x00, 0x03, 0x00, 0x12, 0x04 };
+      length = sizeof(data);
+      return data;
+    }
+    case 4: {
+      static constexpr char data[] = { 0xF5, 0x55, 0x00, 0x03, 0x00, 0x12, 0x05 };
+      length = sizeof(data);
+      return data;
+    }    
+    default: {
+      static constexpr char data[] = { 0xF5, 0x55, 0x00, 0x03, 0x00, 0x12, 0x06 };
+      length = sizeof(data);
+      return data;
+    }
+  }
+}
+uint8_t getCyberGCapo(uint8_t val)
+{
+  switch (val)
+  {
+    case 0x35:
+      return 0;
+    case 0x34:
+      return 1;
+    case 0x33:
+      return 2;
+    case 0x32:
+      return 3;
+    case 0x3D:
+      return 4;
+    case 0x3C:
+      return 5;
+    case 0x3B:
+      return 6;
+    case 0x3A:
+      return 7;
+    case 0x39:
+      return 8;      
+    case 0x38:
+      return 9;            
+    case 0x37:
+      return 10;                  
+    default: //0x36
+      return 11;
+  }
+  
+}
 const MidiMessage hexToNote(uint8_t index)
 {
   switch (index)
@@ -586,6 +732,20 @@ const HexToProgram hexToProgram(uint8_t index)
   {
     case 0:  return { "aa550003220200d8", 3 };
     default: return { "aa5500032202ffd9", 9 }; // note off
+  }
+}
+const uint8_t* hexToProgramBytes(uint8_t index) {
+  // Each message is 8 bytes
+  static const uint8_t msg0[] PROGMEM = { 0xAA, 0x55, 0x00, 0x03, 0x22, 0x02, 0x00, 0xD8 }; //up
+  static const uint8_t msg1[] PROGMEM = { 0xAA, 0x55, 0x00, 0x03, 0x22, 0x02, 0xFF, 0xD9 }; //down
+  static const uint8_t msg2[] PROGMEM = { 0xaa, 0x55, 0x00, 0x0a, 0x22, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00 }; //no button
+  static const uint8_t msg3[] PROGMEM = { 0xaa, 0x55, 0x00, 0x0a, 0x22, 0x01, 0x00, 0x20, 0x00, 0x00, 0x00 }; //octave up
+                                                                                       
+  switch (index) {
+    case 0: return msg0;
+    case 1: return msg1;
+    case 2: return msg2;
+    default: return msg3;
   }
 }
 
