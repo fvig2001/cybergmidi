@@ -4,6 +4,7 @@
 #define BTOW 2
 #define BTMR 1
 #define BTOR 3
+#define BTCR 5
 
 #include "helperClasses.h"
 int GetPresetNote(int root, int interval)
@@ -734,18 +735,56 @@ const HexToProgram hexToProgram(uint8_t index)
     default: return { "aa5500032202ffd9", 9 }; // note off
   }
 }
-const uint8_t* hexToProgramBytes(uint8_t index) {
+const int hexToProgramBytes(uint8_t index, uint8_t *ptr, uint8_t &len) {
   // Each message is 8 bytes
-  static const uint8_t msg0[] PROGMEM = { 0xAA, 0x55, 0x00, 0x03, 0x22, 0x02, 0x00, 0xD8 }; //up
-  static const uint8_t msg1[] PROGMEM = { 0xAA, 0x55, 0x00, 0x03, 0x22, 0x02, 0xFF, 0xD9 }; //down
-  static const uint8_t msg2[] PROGMEM = { 0xaa, 0x55, 0x00, 0x0a, 0x22, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00 }; //no button
-  static const uint8_t msg3[] PROGMEM = { 0xaa, 0x55, 0x00, 0x0a, 0x22, 0x01, 0x00, 0x20, 0x00, 0x00, 0x00 }; //octave up
+  
+  if (lastb1 > (lastb1+2))
+  {
+    lastb0++;
+  }
+  lastb1 +=2;
+  Serial.printf("Last %x %x\n", lastb0, lastb1);
+
+  //const uint8_t msg0[] = { 0xAA, 0x55, 0x00, 0x03, 0x22, 0x02, 0x00, 0xD8,lastb0,lastb1,0x00,0x00 }; //up
+  //const uint8_t msg1[] = { 0xAA, 0x55, 0x00, 0x03, 0x22, 0x02, 0xFF, 0xD9,lastb0,lastb1,0x00,0x00 }; //down
+  const uint8_t msg1[] = { 0xaa, 0x55, 0x00, 0x0a, 0x22, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00,lastb0,lastb1,0x00,0x00 }; //no button
+  const uint8_t msg2[] = { 0xaa, 0x55, 0x00, 0x0a, 0x22, 0x01, 0x00, 0x20, 0x00, 0x00, 0x00,lastb0,lastb1,0x00,0x00 }; //octave up
+  const uint8_t msg3[] = { 0xaa, 0x55, 0x00, 0x0a, 0x22, 0x01, 0x00, 0x00, 0x00, 0x40, 0x00,lastb0,lastb1,0x00,0x00 }; //00
+  const uint8_t msg4[] = { 0xaa, 0x55, 0x00, 0x0a, 0x22, 0x01, 0x00, 0x80, 0x00, 0x00, 0x00 ,lastb0,lastb1,0x00,0x00 }; //octave down
+
                                                                                        
   switch (index) {
-    case 0: return msg0;
-    case 1: return msg1;
-    case 2: return msg2;
-    default: return msg3;
+    case 0: 
+      len = sizeof(msg1);
+      ptr = (uint8_t *)malloc(len);
+      for (int i = 0; i < len; i++)
+      {
+        ptr[i] = msg1[i];
+      }
+      return 1;
+    case 1: 
+          len = sizeof(msg2)/sizeof(uint8_t);
+      ptr = (uint8_t *)malloc(sizeof(msg2));
+      for (int i = 0; i < len; i++)
+      {
+        ptr[i] = msg2[i];
+      }
+      return 1;
+    case 2: len = sizeof(msg3)/sizeof(uint8_t);
+      ptr = (uint8_t *)malloc(sizeof(msg3));
+      for (int i = 0; i < len; i++)
+      {
+        ptr[i] = msg3[i];
+      }
+      return 1;
+    default: len = sizeof(msg4)/sizeof(uint8_t);
+      ptr = (uint8_t *)malloc(sizeof(msg4));
+      for (int i = 0; i < len; i++)
+      {
+        ptr[i] = msg4[i];
+      }
+      return 1;
+
   }
 }
 

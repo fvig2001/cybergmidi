@@ -704,6 +704,16 @@ void setNewBPM(int newBPM) {
   tickTimer.end();
   tickTimer.begin(tickISR, newInterval);  // restart timer with new interval
 }
+void sendBLEOn(uint8_t channel, uint8_t note, uint8_t velocity = 0) {
+  //todo add support for playing sound
+  if (BLEConnected) {
+    char data[] = { (char)(NOTE_ON | channel), note, velocity };
+    Serial7.write(data, 3);
+    Serial.printf("Sent %x %x %x\n", data[0], data[1] , data[2]);
+  }
+  
+  
+}
 void sendNoteOn(uint8_t channel, uint8_t note, uint8_t velocity = DEFAULT_VELOCITY) {
   if (channel <= GUITAR_CHANNEL) {
     lastNotePressTime = millis();
@@ -718,9 +728,10 @@ void sendNoteOn(uint8_t channel, uint8_t note, uint8_t velocity = DEFAULT_VELOCI
     }
   }
   usbMIDI.sendNoteOn(note, velocity, channel);
-  if (BLEEnabled) {
+  if (BLEConnected) {
     char data[] = { (char)(NOTE_ON | channel), note, velocity };
     Serial7.write(data, 3);
+    Serial.printf("Sent %x %x %x\n", data[0], data[1] , data[2]);
   }
   //todo add support for playing sound
   if (debug && DEBUGNOTEPRINT) {
@@ -728,11 +739,20 @@ void sendNoteOn(uint8_t channel, uint8_t note, uint8_t velocity = DEFAULT_VELOCI
   }
 }
 
+void sendBLEOff(uint8_t channel, uint8_t note, uint8_t velocity = 0) {
+  //todo add support for playing sound
+  if (BLEConnected) {
+    char data[] = { (char)(NOTE_OFF | channel), note, velocity };
+    Serial7.write(data, 3);
+  }
+  
+}
 void sendNoteOff(uint8_t channel, uint8_t note, uint8_t velocity = 0) {
   usbMIDI.sendNoteOff(note, velocity, channel);
   //todo add support for playing sound
-  if (BLEEnabled) {
+  if (BLEConnected) {
     char data[] = { (char)(NOTE_OFF | channel), note, velocity };
+    Serial.printf("Sent %x %x %x\n", data[0], data[1] , data[2]);
     Serial7.write(data, 3);
   }
   if (debug && DEBUGNOTEPRINT) {
@@ -938,9 +958,9 @@ void setup() {
   Serial2.begin(250000);  // Keyboard
   Serial3.begin(250000);  // Cyber G to Guitar
   Serial4.begin(250000);  // Cyber G to Piano
-  //Serial5.begin(9600);    // BT Serial Port for commands
-  //Serial6.begin(9600);    // BLE Serial Port for commands
-  //Serial7.begin(250000);  // BLE Midi
+  Serial5.begin(9600);    // BT Serial Port for commands
+  Serial6.begin(9600);    // BLE Serial Port for commands
+  Serial7.begin(500000);  // BLE Midi
   Serial.begin(115200);  // USB debug monitor
 
   usbMIDI.begin();  //external USB device, typically either a USB midi instrument or the midi expression pedals
@@ -979,9 +999,6 @@ void setup() {
   //enable general midi
   byte gm_sysex[] = { 0xF0, 0x7E, 0x7F, 0x09, 0x01, 0xF7 };
   usbMIDI.sendSysEx(sizeof(gm_sysex), gm_sysex, true);
-  if (BLEEnabled) {
-    Serial7.write(gm_sysex, sizeof(gm_sysex));
-  }
   sendProgram(BASS_CHANNEL, PROGRAM_ACOUSTIC_BASS);
   sendProgram(ACCOMPANIMENT_CHANNEL, PROGRAM_HARPSICORD);
   //sendProgram(DRUM_CHANNEL, PROGRAM_DRUMS);
@@ -1021,6 +1038,7 @@ void readExtUSBUnhandledMIDI() {
 
 // Called when a note on is received from the USB MIDI device
 void handleExtUSBNoteOn(byte channel, byte note, byte velocity) {
+  Serial.printf("External USB on!\n");
   int c = channel;
   if (externalUseFixedChannel) {
     c = EXTERNAL_CHANNEL;
@@ -1030,6 +1048,7 @@ void handleExtUSBNoteOn(byte channel, byte note, byte velocity) {
 
   // Send modified message out through Teensy's USB MIDI
   usbMIDI.sendNoteOn(note, velocity, c);
+  sendBLEOn(c, note, velocity);
 }
 
 // Called when a note off is received from the USB MIDI device
@@ -1043,6 +1062,7 @@ void handleExtUSBNoteOff(byte channel, byte note, byte velocity) {
 
   // Send modified message out through Teensy's USB MIDI
   usbMIDI.sendNoteOff(note, velocity, c);
+  sendBLEOff(c, note, velocity);
 }
 
 void sendSustain(uint8_t channel, bool isOn) {
@@ -1104,7 +1124,8 @@ void sendProgram(uint8_t channel, uint8_t program) {
   }
   if (program == 1 || program == 2) {
     usbMIDI.sendProgramChange(curProgram, channel);
-    if (BLEEnabled) {
+    if (BLEEnabled) 
+    {
       char data[] = { (char)(PROGRAM_CHANGE | channel), (char)curProgram };
       Serial7.write(data, 2);
     }
@@ -1113,7 +1134,43 @@ void sendProgram(uint8_t channel, uint8_t program) {
     }
   } else {
     usbMIDI.sendProgramChange(program, channel);
-    if (BLEEnabled) {
+    if (BLEEnabled) 
+    {
+      char data[] = { (char)(PROGRAM_CHANGE | channel), (char)program };
+      Serial7.write(data, 2);
+    }
+    //if (debug) {
+    //Serial.printf("Program: ch=%d set program=%d\n", channel, program);
+    //}
+  }
+}
+
+void sendProgramBLE(uint8_t channel, uint8_t program) {
+  if (program == 2)  //right
+  {
+    curProgram = (curProgram + 1) % 128;
+  } else if (program == 1) {  //left
+    curProgram = curProgram - 1;
+    if (curProgram < 0) {
+      curProgram = 127;
+    }
+  } else {
+    //do nothing;
+  }
+  if (program == 1 || program == 2) {
+    
+    if (BLEEnabled) 
+    {
+      char data[] = { (char)(PROGRAM_CHANGE | channel), (char)curProgram };
+      Serial7.write(data, 2);
+    }
+    if (debug) {
+      Serial.printf("Program BLE: ch=%d program=%d\n", channel, curProgram);
+    }
+  } else {
+    
+    if (BLEEnabled) 
+    {
       char data[] = { (char)(PROGRAM_CHANGE | channel), (char)program };
       Serial7.write(data, 2);
     }
@@ -1443,13 +1500,13 @@ void checkSerialG2KB(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLe
           {
         
         // Extract and print xx and yy
-        uint8_t xx = bufferList[i + 6];
-        uint8_t yy = bufferList[i + 7];
-        uint8_t zz = bufferList[i + 8];
+        //uint8_t xx = bufferList[i + 6];
+        //uint8_t yy = bufferList[i + 7];
+        //uint8_t zz = bufferList[i + 8];
         cyberGCapo = getCyberGCapo(bufferList[i + 6]);
-        Serial.print("Virtual Capo Signal -> XX: ");
-        Serial.printf("%02X, YY: %02X, ZZ: %02X\n", xx, yy, zz);
-        Serial.printf("Capo is %d\n", cyberGCapo);
+        //Serial.print("Virtual Capo Signal -> XX: ");
+        //Serial.printf("%02X, YY: %02X, ZZ: %02X\n", xx, yy, zz);
+        //Serial.printf("Capo is %d\n", cyberGCapo);
 
         // Remove matched 10-byte message
         bufferList.erase(bufferList.begin() + i, bufferList.begin() + i + 9);
@@ -1466,7 +1523,7 @@ void checkSerialG2KB(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLe
         {
           cyberGOctave = bufferList[i + 6];
           
-          Serial.printf("Octave Signal -> cyberGOctave: %02x\n", cyberGOctave);
+          //Serial.printf("Octave Signal -> cyberGOctave: %02x\n", cyberGOctave);
           matchFound = true;
           bufferList.erase(bufferList.begin() + i, bufferList.begin() + i + 7);
         }
@@ -1480,7 +1537,7 @@ void checkSerialG2KB(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLe
   // Step 5: Clear temp buffer
   bufferLen = 0;
 }
-
+int cnted = 0;
 bool wasLastOctave = false;
 void checkSerialGuitar(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen, uint8_t channel) {
   size_t last_len = 0;
@@ -1499,13 +1556,22 @@ void checkSerialGuitar(HardwareSerial& serialPort, char* buffer, uint8_t& buffer
     Serial.println();
   }
 */
+  
   while (bufferLen >= 2) {
-
     if (buffer[0] == 0xaa && buffer[1] == 0x55) {
       break;
     }
+    if (cnted == 0)
+    {
+      lastb0 = buffer[0];
+      lastb1 = buffer[1];
+
+    }
+          cnted++;
+      cnted = cnted%2;
     if (passThroughSerial) {
       serialPort.write(buffer, 2);
+      //Serial.printf("A %02x %02x\n", buffer[0], buffer[1]);
     }
     memmove(buffer, buffer + 2, bufferLen - 2);
     bufferLen -= 2;
@@ -1533,6 +1599,11 @@ void checkSerialGuitar(HardwareSerial& serialPort, char* buffer, uint8_t& buffer
           sendCC(channel, msg.program, MAX_VELOCITY);
 
           if (fullPassThroughSerial) {
+            for (uint8_t z = 0; z < len/2; z++)
+            {
+              //Serial.printf("B %02x", buffer[z]);
+            }
+            //Serial.printf("\n");
             serialPort.write(buffer, len / 2);
           }
 
@@ -1965,6 +2036,11 @@ void checkSerialGuitar(HardwareSerial& serialPort, char* buffer, uint8_t& buffer
             forcePassThrough = true;
           }
           if (fullPassThroughSerial || forcePassThrough) {
+            for (uint8_t z = 0; z < len/2; z++)
+            {
+              //Serial.printf("%02x", buffer[z]);
+            }
+            //Serial.printf("\n");
             serialPort.write(buffer, len / 2);
           }
 
@@ -1980,6 +2056,11 @@ void checkSerialGuitar(HardwareSerial& serialPort, char* buffer, uint8_t& buffer
         if (passThroughSerial) {
           serialPort.write(buffer, last_len / 2);
         }
+        for (uint8_t z = 0; z < last_len/2; z++)
+        {
+          //Serial.printf("D %02x", buffer[z]);
+        }
+        //Serial.printf("\n");
         memmove(buffer, buffer + last_len / 2, bufferLen - last_len / 2);
         bufferLen -= last_len;
       }
@@ -2019,142 +2100,97 @@ std::vector<String> splitAsciiCommand(char* buffer, uint8_t bufferLen) {
   return result;
 }
 
-void checkSerialBTClassic(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen) {
-  String lineout = "";
-  bool error = false;
-  while (serialPort.available()) {
-    char c = serialPort.read();
+void checkSerialBTClassic(std::vector<String>* data, bool isOK, char s0, char s1) {
 
-    if (c == '\r') {
-      continue;
-    } else if (c == '\n') {
-      // Line complete
-      buffer[bufferLen] = '\0';  // Null-terminate the string
-      break;
-    } else {
-      if (bufferLen < MAX_BUFFER_SIZE - 1) {
-        buffer[bufferLen++] = c;
-      } else {
-        // Buffer overflow protection
-        error = true;
-        bufferLen = 0;
-        break;
-      }
-    }
-  }
-  if (error) {
-    bufferLen = 0;
+  if (data->size() == 0) 
+  {
+    Serial.printf("Paco 2\n");
     return;
   }
-  //assume we got data already.
-  std::vector<String> data = splitAsciiCommand(buffer, bufferLen);
-  if (data.size() == 0) {
-    bufferLen = 0;
-    return;
-  }
-  if (data[0] == "OK00") {
-    if (lastCommandBTClassicSent.size() == 0)  //error
+  Serial.printf("Paco 3\n");
+  if (isOK) {
+    if (lastCommandBTClassicSent.size() == 0) return;
+    printf("Received Reply is ");
+    if (isOK)
     {
-      bufferLen = 0;
-      return;
+      Serial.printf("OK%c%c,", s0, s1);
+    }
+    else
+    {
+      Serial.printf("ER%c%c,", s0, s1);
+    }
+    for (uint8_t i = 0; i < data->size();i++)
+    {
+      Serial.printf("%s,", data->at(i).c_str());
     }
     switch (lastCommandBTClassicSent.front()) {
-      case BTMW:  //BTMW //Make discoverable
-      case BTRA:  //BTRA disconnect all
-      case BTOW:  // BTOW  BT On/Off
+      case BTMW:
+      case BTRA:
+      case BTOW:
         break;
-      case BTMR:  //BTMR
-        if (data.size() >= 2) {
-          BTClassicDiscoveryEnabled = atoi(data[1].c_str()) == 1;
+
+      case BTMR:
+        if (data->size() >= 1) {
+          BTClassicDiscoveryEnabled = atoi(data->at(0).c_str()) == 1;
         }
         break;
-      case BTOR:  //BTOR
-        if (data.size() >= 2) {
-          BTClassicEnabled = atoi(data[1].c_str()) == 1;
+
+      case BTOR:
+        if (data->size() >= 1) {
+          BTClassicEnabled = atoi(data->at(0).c_str()) == 1;
         }
         break;
     }
-  } else {
-    if (debug) {
-      Serial.printf("On BT Classic, I received wrong %s\n", data[0].c_str());
-    }
-    if (lastCommandBTClassicSent.size() == 0)  //error
-    {
-      bufferLen = 0;
-      return;
-    }
-  }
+  } 
   lastCommandBTClassicSent.pop_front();
-  bufferLen = 0;
 }
 
-void checkSerialBTBLEMidi(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen) {
-  String lineout = "";
-  bool error = false;
-  while (serialPort.available()) {
-    char c = serialPort.read();
+void checkSerialBTBLEMidi(std::vector<String>* data, bool isOK, char s0, char s1) 
+{
 
-    if (c == '\r') {
-      continue;
-    } else if (c == '\n') {
-      // Line complete
-      buffer[bufferLen] = '\0';  // Null-terminate the string
-      break;
-    } else {
-      if (bufferLen < MAX_BUFFER_SIZE - 1) {
-        buffer[bufferLen++] = c;
-      } else {
-        // Buffer overflow protection
-        error = true;
-        bufferLen = 0;
-        break;
-      }
-    }
-  }
-  if (error) {
-    bufferLen = 0;
+  if (data->size() == 0) 
+  {
+    Serial.printf("Paco 2\n");
     return;
   }
-  //assume we got data already.
-  std::vector<String> data = splitAsciiCommand(buffer, bufferLen);
-  if (data.size() == 0) {
-    bufferLen = 0;
-    return;
-  }
-  if (data[0] == "OK00") {
-    if (lastCommandBLEMidiSent.size() == 0)  //error
+  Serial.printf("Paco 3\n");
+  if (isOK) 
+  {
+    if (lastCommandBLEMidiSent.size() == 0) return;
+    printf("Received Reply is ");
+    if (isOK)
     {
-      bufferLen = 0;
-      return;
+      Serial.printf("OK%c%c,", s0, s1);
     }
-    switch (lastCommandBLEMidiSent.front()) {
-      case BTMW:  //BTMW //Make discoverable
-      case BTRA:  //BTRA disconnect all
-      case BTOW:  // BTOW  BT On/Off
+    else
+    {
+      Serial.printf("ER%c%c,", s0, s1);
+    }
+    for (uint8_t i = 0; i < data->size();i++)
+    {
+      Serial.printf("%s,", data->at(i).c_str());
+    }
+    switch (lastCommandBLEMidiSent.front()) 
+    {
+      case BTMW:
+      case BTRA:
+      case BTOW:
         break;
-      case BTMR:  //BTMR
-        if (data.size() >= 2) {
-          BLEDiscoveryEnabled = atoi(data[1].c_str()) == 1;
+
+      case BTMR:
+        if (data->size() >= 1) {
+          BTClassicDiscoveryEnabled = atoi(data->at(0).c_str()) == 1;
         }
         break;
-      case BTOR:  //BTOR
-        if (data.size() >= 2) {
-          BLEEnabled = atoi(data[1].c_str()) == 1;
+
+      case BTOR:
+        if (data->size() >= 1) {
+          BTClassicEnabled = atoi(data->at(0).c_str()) == 1;
         }
         break;
     }
-  } else {
-    if (debug) {
-      Serial.printf("On BT BLE, I received wrong %s\n", data[0].c_str());
-    }
-    if (lastCommandBLEMidiSent.size() == 0)  //error
-    {
-      bufferLen = 0;
-      return;
-    }
-  }
+  } 
   lastCommandBLEMidiSent.pop_front();
-  bufferLen = 0;
 }
 
 void lightAKey(int key) {
@@ -2304,13 +2340,68 @@ bool savePatternFiles(bool saveToBackup = false) {
 
 
 template<typename SerialType>
-bool decodeCmd(SerialType& serialPort, String cmd, std::vector<String>* params) {
+bool decodeCmd(SerialType& serialPort, String cmd, std::vector<String>* params, int isBT) {
   char buffer[64];
   bool bTemp = false;
   if (debug) {
     Serial.printf("Serial command received is %s\n", cmd.c_str());
   }
-  if (cmd == "MEML") {
+  if (isBT != NOTBT && ((cmd[0] == 'O' && cmd[1] == 'K') || (cmd[0] == 'E' && cmd[1] == 'R')))
+  {
+    if (isBT == BTCLASSIC)
+    {
+      if (lastCommandBTClassicSent.size() == 0)
+      {
+        if (debug)
+        {
+          Serial.printf("Error! Received BT classic reply but I never sent a command\n");  
+        }
+        return true;
+      } 
+      else
+      {
+        Serial.printf("Got a reply for command %d:%d\n", isBT, lastCommandBTClassicSent.front());
+        checkSerialBTClassic(params, cmd[0] == 'O' && cmd[1] == 'K', cmd[2], cmd[3]);
+      }
+      //serial5 handling of reply
+      if (debug)
+      {
+        Serial.printf("Received BT Classic reply: %s", cmd.c_str());
+        for (uint8_t i = 0; i < params->size(); i++)
+        {
+          Serial.printf(",%s", params[i]);
+        }
+        Serial.printf("\n");
+      } 
+    }
+    else
+    {
+      if (lastCommandBLEMidiSent.size() == 0)
+      {
+        if (debug)
+        {
+          Serial.printf("Error! Received BT classic reply but I never sent a command\n");  
+        }
+        return true;
+      } 
+      else
+      {
+        Serial.printf("Got a reply for command %d:%d\n", isBT, lastCommandBLEMidiSent.front());
+        checkSerialBTBLEMidi(params, cmd[0] == 'O' && cmd[1] == 'K', cmd[2], cmd[3]);
+      }
+      //serial6 handling of reply
+      if (debug)
+      {
+        Serial.printf("Received BT BLE reply: %s", cmd.c_str());
+        for (uint8_t i = 0; i < params->size(); i++)
+        {
+          Serial.printf(",%s", params[i]);
+        }
+        Serial.printf("\n");
+      } 
+    }
+  }
+  else if (cmd == "MEML") {
     printMemoryUsage();
     serialPort.write("OK00\r\n");
     // Match found
@@ -2667,6 +2758,7 @@ bool decodeCmd(SerialType& serialPort, String cmd, std::vector<String>* params) 
     //serialPort.write("OK00\r\n");
   }
   //pattern handling end
+  //device connected
   else if (cmd == "CONN") {
     if (params->size() != 1)  //missing parameter
     {
@@ -2686,8 +2778,16 @@ bool decodeCmd(SerialType& serialPort, String cmd, std::vector<String>* params) 
       if (debug) {
         Serial.printf("BTClassicConnected = %d\n", BTClassicConnected ? 1 : 0);
       }
+      if (BLEEnabled) {
+        //send use GM sysex
+        byte gm_sysex[] = { 0xF0, 0x7E, 0x7F, 0x09, 0x01, 0xF7 };
+        Serial7.write(gm_sysex, sizeof(gm_sysex));
+        sendProgramBLE(BASS_CHANNEL, PROGRAM_ACOUSTIC_BASS);
+        sendProgramBLE(ACCOMPANIMENT_CHANNEL, PROGRAM_HARPSICORD);
+      }
       return true;
     }
+    //device disconnected
   } else if (cmd == "DCDC") {
     if (params->size() != 1)  //missing parameter
     {
@@ -2709,14 +2809,116 @@ bool decodeCmd(SerialType& serialPort, String cmd, std::vector<String>* params) 
       }
       return true;
     }
-  } else if (cmd == "PACO") {
+  } 
+  //pass a command to a BT module to test communication
+  else if (cmd =="PASS") {
+    //check size > 1
+    if (params->size() <= 1)
+    {
+      serialPort.write("ER00\r\n");
+      return true;
+    }
+    uint8_t lastSent = 255;
+    int btModule = atoi(params->at(0).c_str());
+    Serial.printf("Send module is %d\n", btModule);
+    if (btModule < BTCLASSIC || btModule > BTBLE)
+    {
+      serialPort.write("ER01\r\n");
+      return true;
+    }
+    if (params->at(1) == "BTMR")
+    {
+      lastSent = BTMR; 
+    }
+    else if (params->at(1) == "BTCR")
+    {
+      lastSent = BTCR;
+    }
+    else if (params->at(1) == "BTRA")
+    {
+      lastSent = BTRA;
+    }
+    else if (params->at(1) == "BTOW")
+    {
+      lastSent = BTOW;
+    }
+    else if (params->at(1) == "BTOR")
+    {
+      lastSent = BTOR;
+    }
+    else if (params->at(1) == "BTMW")
+    {
+      lastSent = BTMW;
+    }
+    if (lastSent == 255)
+    {
+      serialPort.write("ER02\r\n");
+      return true;
+    }
+    String toSend = "";
+    for (uint8_t i = 1; i < params->size(); i++)
+    {
+      if (i != 1)
+      {
+        toSend += ",";
+      }
+      toSend += params->at(i);
+    }
+    toSend+="\r\n";
+    //send data to appropriate serial
+    if (btModule == BTCLASSIC) // classic
+    {
+      lastCommandBTClassicSent.push_back(lastSent);
+      Serial5.write(toSend.c_str());
+    }
+    else
+    {
+      lastCommandBLEMidiSent.push_back(lastSent);
+      Serial6.write(toSend.c_str());
+    }
+    serialPort.write("OK00\r\n");
+
+  }
+  else if (cmd == "PACO") {
+    /*
+    uint8_t* pData = NULL;
+
+    if (params->size() == 0)  //missing parameter
+    {
+      serialPort.write("ER00\r\n");
+      return true;
+    }
+    if (atoi(params->at(0).c_str()) >= 3 || atoi(params->at(0).c_str()) < 0) {
+      serialPort.write("ER01\r\n");  //invalid parameter
+      return true;
+    }
+    uint8_t len = 0;
+    switch (atoi(params->at(0).c_str()))
+    {
+      case 0:
+          hexToProgramBytes(1,pData, len); //off
     
-    char pData6[] = { 0xF5,0x55,0x00,0x06,0x00,0x13,0x14,0x6B,0x00,0x07
+        break;
+        case 1:
+        hexToProgramBytes(2,pData, len); //off
 
+        break;
+        //case 2:
+        default:
+        hexToProgramBytes(3,pData, len); //off
+        break;
 
-  };
+    }
+    Serial1.write(pData, len);
+    free(pData);
 
-    Serial4.write(pData6, sizeof(pData6));  //only last is lit
+  
+*/
+//lastCommandBLEMidiSent.push_back(BTMR);
+lastCommandBTClassicSent.push_back(BTMR);
+//Serial6.write("BTMR\r\n");
+Serial5.write("BTMR\r\n");
+
     serialPort.write("OK00\r\n");
   } else if (cmd == "OCTV") {
     if (params->size() == 0)  //missing parameter
@@ -3782,7 +3984,7 @@ bool decodeCmd(SerialType& serialPort, String cmd, std::vector<String>* params) 
 
 
 template<typename SerialType>
-void checkSerialCmd(SerialType& serialPort, char* buffer, uint8_t& bufferLen) {
+void checkSerialCmd(SerialType& serialPort, char* buffer, uint8_t& bufferLen, int isBT) {
   std::vector<String> params;
   while (serialPort.available()) {
     char c = serialPort.read();
@@ -3803,7 +4005,7 @@ void checkSerialCmd(SerialType& serialPort, char* buffer, uint8_t& bufferLen) {
       char* cmd = strtok(buffer, ",");
       if (cmd && strlen(cmd) == 4) {
         if (debug) {
-          serialPort.printf("Received CMD: %s", cmd);
+          serialPort.printf("Received %d:CMD: %s", isBT, cmd);
         }
 
         //int paramIndex = 1;
@@ -3820,10 +4022,19 @@ void checkSerialCmd(SerialType& serialPort, char* buffer, uint8_t& bufferLen) {
         // Respond with OK
 
       } else {
-        serialPort.write("ER98\r\n");
+        
+
+        
+        if (isBT == 0)
+        {
+          Serial.printf("I strangely got %s\n", buffer);
+          serialPort.write("HA? ER98\r\n");
+        }
       }
-      if (!decodeCmd(serialPort, String(cmd), &params)) {
+      if (!decodeCmd(serialPort, String(cmd), &params, isBT)) 
+      {
         serialPort.write("ER99\r\n");
+        Serial.printf("DecodeCmd failed for %s\n",cmd);
       }
       // Reset buffer for next command
       bufferLen = 0;
@@ -5503,7 +5714,7 @@ void fakeSerialKBPaddle(HardwareSerial& source, HardwareSerial& destination, cha
   // Read serial input
   while (source.available() && bufferLen < 64) {
     buffer[bufferLen++] = source.read();
-    Serial.printf("%02x", buffer[bufferLen-1]);
+    //Serial.printf("%02x", buffer[bufferLen-1]);
   } 
   
   // Check for match
@@ -5539,7 +5750,7 @@ void fakeSerialKBPaddle(HardwareSerial& source, HardwareSerial& destination, cha
         }
 
 
-        Serial.printf("I faked the device\n");
+        //Serial.printf("I faked the device\n");
         
         bufferLen = 0; // Clear after match
         deviceFaked = true;
@@ -5637,7 +5848,8 @@ void loop() {
     lastPos = pos;
 
     midiValue = constrain(midiValue + direction, 0, 9);
-    //Serial.printf("MIDI Volume %s → %d\n", direction > 0 ? "UP" : "DOWN", midiValue);
+    if (debug)
+      Serial.printf("MIDI Volume %s → %d\n", direction > 0 ? "UP" : "DOWN", midiValue);
   }
   //handling of serial data from Neck KB -> Cyber G's rececived data points
   checkSerialGuitar(Serial1, dataBuffer1, bufferLen1, GUITAR_CHANNEL);
@@ -5648,19 +5860,21 @@ void loop() {
   }
   else
   {
-    fakeSerialKBPaddle(Serial4, Serial2, dataBuffer2, bufferLen2);
+    fakeSerialKBPaddle(Serial4, Serial2, dataBuffer2, bufferLen2); //mimick a paddle is connected at start-up to force piano to report correct capo
   }
   //handling of data received from Cyber G to neck and KB
   checkSerialG2Guitar(Serial3, dataBuffer3, bufferLen3);
   
   //handling serial commands from Client to Teensy
-  checkSerialCmd(Serial, dataBuffer4, bufferLen4);  //handling of USB serial
-  //checkSerialCmd(Serial5, dataBuffer5, bufferLen5); //uses same as USB serial port, handling passed data
+  checkSerialCmd(Serial, dataBuffer4, bufferLen4, 0);  //handling of USB serial
+  checkSerialCmd(Serial5, dataBuffer5, bufferLen5, 1); //uses same as USB serial port, handling passed data
+  checkSerialCmd(Serial6, dataBuffer6, bufferLen6, 2); //uses same as USB serial port, handling passed data
   //Handling serial replies from ESP32s to Teensy
-  //checkSerialBTClassic(Serial5, dataBuffer5, bufferLen5); //handling of received data from commands we sent to ESP32
+  
   //checkSerialBTBLEMidi(Serial6, dataBuffer6, bufferLen6); //handling of received data from commands we sent to ESP32
 
   bool noteOffState = digitalRead(NOTE_OFF_PIN);
+
   if (noteOffState != prevNoteOffState && noteOffState == LOW) {
     if (debug) {
       Serial.println("NOTE_OFF_PIN pressed → All notes off");

@@ -61,10 +61,8 @@
 
 //#define USE_AND
 // --- PIN DEFINITIONS ---
-#define NOTE_OFF_PIN 10       // Digital input for turning off all notes
+#define NOTE_OFF_PIN 9       // Digital input for turning off all notes
 #define START_TRIGGER_PIN 11  // Digital input for triggering CC message, logo change
-//#define BT_ON_PIN 19 // 
-//#define BT_STATUS_PIN 20 //TX5, 20->18
 #define BUTTON_1_PIN 4  //unused due to hardware issues (device turns on)
 #define BUTTON_2_PIN 5
 #define BUTTON_3_PIN 6  //unused due to hardware issues (device hangs)
@@ -82,17 +80,21 @@
 #define CONTINUE_MIDI 0xFB
 #define STOP_MIDI 0xFC
 #define CLOCK_MIDI 0xF8
-
+#define NOTBT 0
+#define BTCLASSIC 1
+#define BTBLE 2
 //state
+char lastb0 = 0;
+char lastb1 = 0;
 uint8_t cyberGOctave = -1; 
 uint8_t cyberGCapo = -1; //problem you can't tell if it's 0 or 12
 bool deviceFaked = false;
 bool BLEConnected = false;
 bool BTClassicConnected = false;
-bool BLEEnabled = false;
-bool BTClassicEnabled = false;
-bool BLEDiscoveryEnabled = false;
-bool BTClassicDiscoveryEnabled = false;
+bool BLEEnabled = true;
+bool BTClassicEnabled = true;
+bool BLEDiscoveryEnabled = true;
+bool BTClassicDiscoveryEnabled = true;
 int volumeOffset = 0;
 bool lastFakeGuitar = false;
 bool toMuteAfterSwitching = false;
@@ -169,10 +171,7 @@ std::vector<bool> drumsEnabled;
 std::vector<bool> bassEnabled;
 std::vector<bool> accompanimentEnabled;
 std::vector<bool> properOmniChord5ths;
-//todo use these 
-//std::vector<noteOffset> bassNoteOffsets;
-//std::vector<noteOffset> accompanimentNoteOffsets;
-//std::vector<std::vector<noteOffset>> guitarNoteOffsets;
+
 uint16_t AccompanimentPatternID;
 uint16_t DrumPatternID[5];
 uint16_t BassPatternID;
