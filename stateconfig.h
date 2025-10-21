@@ -156,9 +156,11 @@ std::vector<bool> enableAllNotesOnChords;
 std::vector<bool> enableButtonMidi;
 std::vector<uint8_t> omniChordModeGuitar; //omnichord modes
 std::vector<bool> muteWhenLetGo;
+
+
 std::vector<bool> ignoreSameChord;
 std::vector<uint16_t> presetBPM;
-
+bool isPhantomNotePlaying;
 std::vector<bool> chordHold;
 std::vector<bool> alternateDirection;
 std::vector<bool> useToggleSustain;

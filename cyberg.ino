@@ -598,7 +598,7 @@ void prepareConfig() {
   isSimpleChordMode.clear();
   enableButtonMidi.clear();
   strumSeparation.clear();
-
+  omnichordNoteMode.clear();
   muteWhenLetGo.clear();
   ignoreSameChord.clear();
   chordHold.clear();
@@ -632,7 +632,7 @@ void prepareConfig() {
     temp8 = 1;
     strumSeparation.push_back(temp8);
     muteSeparation.push_back(3);
-
+    omnichordNoteMode.push_back(OmniChordNote12);
     muteWhenLetGo.push_back(false);
     ignoreSameChord.push_back(true);
     ignoreSameChord[4] = false;
@@ -731,7 +731,10 @@ void sendNoteOn(uint8_t channel, uint8_t note, uint8_t velocity = DEFAULT_VELOCI
   if (BLEConnected) {
     char data[] = { (char)(NOTE_ON | channel), note, velocity };
     Serial7.write(data, 3);
-    Serial.printf("Sent %x %x %x\n", data[0], data[1] , data[2]);
+    if (debug && DEBUGNOTEPRINT) 
+    {
+      Serial.printf("Sent %x %x %x\n", data[0], data[1] , data[2]);
+    }
   }
   //todo add support for playing sound
   if (debug && DEBUGNOTEPRINT) {
@@ -815,6 +818,7 @@ void notifyDevice() {
 }
 //generic preset Change handler when vectors aren't enough
 void presetChanged() {
+  isPhantomNotePlaying = false;
   isStrumUp = false;
   isSustain = false;
   isSustainPressed = false;
@@ -1002,7 +1006,8 @@ void setup() {
   sendProgram(BASS_CHANNEL, PROGRAM_ACOUSTIC_BASS);
   sendProgram(ACCOMPANIMENT_CHANNEL, PROGRAM_HARPSICORD);
   //sendProgram(DRUM_CHANNEL, PROGRAM_DRUMS);
-
+  last5 = millis();
+  last6 = millis();
   myusb.begin();
   midi1.setHandleNoteOn(handleExtUSBNoteOn);
   midi1.setHandleNoteOff(handleExtUSBNoteOff);
@@ -1398,15 +1403,25 @@ void generateOmnichordNoteMap(uint8_t note) {
       //chordNotes[i] += 12; //correct too low
     }
   }
-
-  while (omniChordNewNotes.size() < omniChordOrigNotes.size()) {
+    int limit = 0;
+  if (omnichordNoteMode[preset] != OmniChordNote12)
+  {
+      limit = 1;
+  }
+  while (omniChordNewNotes.size() < omniChordOrigNotes.size() + limit) {
     if (omniChordNewNotes.size() != 0) {
       offset += SEMITONESPEROCTAVE;
     }
-    for (uint8_t i = 0; i < chordNotes.size() && omniChordNewNotes.size() < omniChordOrigNotes.size(); i++) {
+    for (uint8_t i = 0; i < chordNotes.size() && omniChordNewNotes.size() < omniChordOrigNotes.size() + limit; i++) {
       omniChordNewNotes.push_back(chordNotes[i] + offset + SEMITONESPEROCTAVE * omniKBTransposeOffset[preset]);
     }
+  }/*
+  Serial.printf("note new note size= %d\n", omniChordNewNotes.size());
+  for (int i = 0; i < (int) omniChordNewNotes.size(); i++)
+  {
+    Serial.printf("[%d] = %d\n", i, omniChordNewNotes[i]);
   }
+  */
 }
 
 void checkSerialG2Guitar(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen) {
@@ -1621,6 +1636,7 @@ void checkSerialGuitar(HardwareSerial& serialPort, char* buffer, uint8_t& buffer
     forcePassThrough = false;
     if (bufferLen >= 11 and !matched) {
       //for (const MidiMessage& msg : hexToNote) {
+      bool handled = false;
       for (uint8_t a = 0; a <= ACTUAL_NECKBUTTONS; a++) {
         msg = hexToNote(a);
         size_t len = strlen(msg.hex);
@@ -1628,7 +1644,8 @@ void checkSerialGuitar(HardwareSerial& serialPort, char* buffer, uint8_t& buffer
         size_t expectedBytes = len / 2;
 
         //if (bufferLen >= len && strncmp(buffer, msg.hex, len) == 0)
-        if (bufferLen >= expectedBytes && isHexStringEqualToBytes(msg.hex, len, buffer, expectedBytes)) {
+        if (!handled && bufferLen >= expectedBytes && isHexStringAndEqualToBytes(msg.hex, len, buffer, expectedBytes)) {
+          handled = true; 
           isSustainPressed = false;
           //handling for last 2 rows of guitar neck
           if (msg.note >= MIN_IGNORED_GUITAR && msg.note <= MAX_IGNORED_GUITAR) {
@@ -1699,7 +1716,8 @@ void checkSerialGuitar(HardwareSerial& serialPort, char* buffer, uint8_t& buffer
               //Serial.printf("Pass through button!\n");
               forcePassThrough = true;
             }
-          } else  //handling for first 7 rows
+          } 
+          else  //handling for first 7 rows
           {
 
             isSustainPressed = false;
@@ -2935,7 +2953,8 @@ Serial5.write("BTMR\r\n");
     Serial4.write(oData, len);
 
     serialPort.write("OK00\r\n");
-  } else if (cmd == "PRSW")  //Set Current Preset
+  } 
+  else if (cmd == "PRSW")  //Set Current Preset
   {
     if (params->size() == 0)  //missing parameter
     {
@@ -2956,7 +2975,9 @@ Serial5.write("BTMR\r\n");
   {
     snprintf(buffer, sizeof(buffer), "OK00,%d\r\n", preset);
     serialPort.write(buffer);
-  } else if (cmd == "DBGW")  //Set Debug setting
+  } 
+  
+  else if (cmd == "DBGW")  //Set Debug setting
   {
     if (params->size() == 0)  //missing parameter
     {
@@ -3093,6 +3114,34 @@ Serial5.write("BTMR\r\n");
       return true;
     }
     snprintf(buffer, sizeof(buffer), "OK00,%d\r\n", presetBPM[atoi(params->at(0).c_str())]);
+    serialPort.write(buffer);
+  }
+
+else if (cmd == "ONMW")  //Set omnichordNoteMode
+  {
+    if (params->size() < 2)  //missing parameter
+    {
+      serialPort.write("ER00\r\n");
+      return true;
+    }
+    if (atoi(params->at(0).c_str()) < 0 || atoi(params->at(0).c_str()) >=MAX_PRESET )
+    {
+      serialPort.write("ER01\r\n");
+      return true;
+    }
+    if (atoi(params->at(1).c_str()) > OmniChordNotePhantom13 || atoi(params->at(1).c_str()) < 0) {
+      serialPort.write("ER01\r\n");  //invalid parameter
+      return true;
+    }
+    omnichordNoteMode[atoi(params->at(0).c_str())] = atoi(params->at(1).c_str());
+    last5 = 0;
+    last6 = 0;
+    omniChordNewNotes.clear();
+    serialPort.write("OK00\r\n");
+  } 
+  else if (cmd == "ONMR")  //Read omnichordNoteMode
+  {
+    snprintf(buffer, sizeof(buffer), "OK00,%d\r\n", omnichordNoteMode[preset]);
     serialPort.write(buffer);
   }
 
@@ -4555,6 +4604,8 @@ void checkSerialKB(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen,
   // --- Step 5: Main parser loop ---
   bool skipNote;
   uint8_t oldNote = 0;
+  
+  bool extraNoteOn = false;
   while (true) {
     bool processed = false;
     skipNote = false;
@@ -4562,6 +4613,7 @@ void checkSerialKB(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen,
 
       uint8_t status = buffer[0];
       uint8_t note = buffer[1];
+      uint8_t note2 = 0;
       uint8_t vel = buffer[2];
       //if omnichord mode, use generated map
       if (omniChordModeGuitar[preset] > OmniChordOffGuitarType && (!isKeyboard || (isKeyboard && omniChordModeGuitar[preset] >= OmniChordStandardType))) {
@@ -4575,9 +4627,11 @@ void checkSerialKB(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen,
           //Serial.printf("Original Note is %d\n", note);
           detector.noteOn(note);
           oldNote = note;
+          
           //lastTransposeValueDetected = detector.getBestTranspose();
           //Serial.printf("lastTransposeValueDetected = %d\n", lastTransposeValueDetected);
-          note = detector.getBestNote(note);
+          detector.getBestNote(note, note2,(status & 0xF0) == 0x90);
+          extraNoteOn = note2 != 255;
         }
       }
       int omniTransposeOffset = 0;
@@ -4588,9 +4642,18 @@ void checkSerialKB(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen,
         if ((status & 0xF0) == 0x90) {
           if (isKeyboard) {
             sendNoteOn(channel, note + transpose + omniTransposeOffset, vel);
-          } else  //guitar paddle has really low note velocity
+            if (note2 != 255)
+            {
+              sendNoteOn(channel, note2 + transpose + omniTransposeOffset, vel);
+            }
+          } 
+          else  //guitar paddle has really low note velocity
           {
             sendNoteOn(channel, note + transpose + omniTransposeOffset);
+            if (note2 != 255)
+            {
+              sendNoteOn(channel, note2 + transpose + omniTransposeOffset);
+            }
           }
           noteShift ns;
           ns.assignedNote = note + transpose;
@@ -4604,11 +4667,22 @@ void checkSerialKB(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen,
               break;
             }
           }
-          if (isKeyboard) {
+          //how to handle anchor
+          if (isKeyboard) 
+          {
             sendNoteOff(channel, note + transpose, vel);
-          } else  //guitar paddle has really low note velocity
+            if (extraNoteOn)
+            {
+              sendNoteOff(channel, note2 + transpose, vel);
+            }
+          } 
+          else  //guitar paddle has really low note velocity
           {
             sendNoteOff(channel, note + transpose + omniTransposeOffset);
+            if (extraNoteOn)
+            {
+              sendNoteOff(channel, note2 + transpose, vel);
+            }
           }
         }
       }
@@ -5289,7 +5363,9 @@ bool saveSimpleConfig() {
       //std::vector<uint8_t> omniChordModeGuitar;
       snprintf(buffer, sizeof(buffer), "omniChordModeGuitar,%d,%d\n", i, omniChordModeGuitar[i]);
       f.print(buffer);
-
+      
+      snprintf(buffer, sizeof(buffer), "omnichordNoteMode,%d,%d\n", i, omnichordNoteMode[i]);
+      f.print(buffer);
       //std::vector<bool> muteWhenLetGo;
       snprintf(buffer, sizeof(buffer), "muteWhenLetGo,%d,%d\n", i, muteWhenLetGo[i] ? 1 : 0);
       f.print(buffer);
@@ -5563,7 +5639,9 @@ bool loadSimpleConfig() {
 
       if (strcmp(key, "omniChordModeGuitar") == 0 && i < omniChordModeGuitar.size())
         omniChordModeGuitar[i] = val;
-
+      
+      else if (strcmp(key, "omnichordNoteMode") == 0 && i < omnichordNoteMode.size())
+        omnichordNoteMode[i] = val;
       else if (strcmp(key, "muteWhenLetGo") == 0 && i < muteWhenLetGo.size())
         muteWhenLetGo[i] = val;
 

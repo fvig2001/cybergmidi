@@ -1,11 +1,13 @@
 #pragma once
 #include <vector>
 #include <deque>
+#define OMNINOTECHORD_PHANTOM_MIN 5
+#define OMNINOTECHORD_PHANTOM_MAX 6
 #define MAX_PRESET 6
 #define MAX_VELOCITY 127
 #define DEFAULT_VELOCITY 100
 #define SEMITONESPEROCTAVE 12
-
+#define PHANTOM_WINDOW 80 //80ms
 // --- MIDI CONSTANTS ---
 #define ACCOMPANIMENT_CHANNEL 5 // backing for omnichord tracks
 #define BASS_CHANNEL 4
@@ -35,6 +37,11 @@ void DebugPrintf(const char* format, ...) {
 
 }
 
+enum OmniChordNoteModes{
+  OmniChordNote12 = 0,
+  OmniChordNoteDouble13 = 1, // double notes on 6
+  OmniChordNotePhantom13 = 2 //add phantom note between 6 and 7
+};
 
 enum DrumState{
   DrumNone = -1, //for next only to indicate nothing next is in queue
@@ -107,6 +114,9 @@ enum Note {
 
 const std::vector<uint8_t> omniChordOrigNotes = { 65, 67, 69, 71, 72, 74, 76, 77, 79, 81, 83, 84 };
 std::vector<uint8_t> omniChordNewNotes;
+std::vector<uint8_t> omnichordNoteMode;
+uint32_t last5;
+uint32_t last6;
 #define LOWEST_MIDI_OCTAVE_NOTE_START 29
 #define LOWEST_MIDI_OCTAVE_NOTE_END 48
 #define HIGHEST_MIDI_OCTAVE_NOTE_START 77
@@ -244,31 +254,90 @@ public:
     //Serial.printf("Detected offset: %d, group: %d\n", offset, bestGroup);
   }
 
-  uint8_t getBestNote(uint8_t note) {
+  void getBestNote(uint8_t &note, uint8_t &note2, bool isOn) {
     //given a transpose
     //uint8_t newNote = note - transpose;
     uint8_t newNote = note - offset * SEMITONESPEROCTAVE;
     uint8_t bestNote = 0;
+    note2 = 255;
+    
     bool found = false;
+    uint8_t foundCur = 0;
     // assumption is newNote is reverted to its original form
     for (uint8_t i = 0; i < omniChordOrigNotes.size() && !found; i++) {
       if (i + 1 >= (int)omniChordOrigNotes.size()) {
         //best Note is last note
         found = true;
         bestNote = omniChordNewNotes[i];
+        foundCur = i;
       } else if (omniChordOrigNotes[i] == newNote) {
         bestNote = omniChordNewNotes[i];
         found = true;
+        foundCur = i;
       }
       //assume if in between, use current note
       else if (i + 1 < (int)omniChordOrigNotes.size() && omniChordOrigNotes[i] < newNote && omniChordOrigNotes[i + 1] > newNote) {
         bestNote = omniChordNewNotes[i];
         found = true;
       } else {
+        //error case?
         //do nothing
       }
     }
-    return bestNote + SEMITONESPEROCTAVE * octaveShift;
+    if (found)
+    {
+      
+      note = bestNote + SEMITONESPEROCTAVE * octaveShift;
+      //play 2 notes on each
+      if (omnichordNoteMode[preset] == OmniChordNoteDouble13)
+      {
+          note2 = omniChordNewNotes[foundCur+1] + SEMITONESPEROCTAVE * octaveShift;
+      }
+      //play note on between 6th and 7th touch if one of them was pressed recently
+      else if (omnichordNoteMode[preset] == OmniChordNotePhantom13)
+      {
+        uint32_t now = millis();
+        if (foundCur == OMNINOTECHORD_PHANTOM_MIN || foundCur == OMNINOTECHORD_PHANTOM_MAX) //check if the other note was strummed recently
+        {
+          if (isOn)
+          {
+            if (foundCur == OMNINOTECHORD_PHANTOM_MIN)
+            {
+              if (now - last6 < PHANTOM_WINDOW)
+              {
+                
+                note2 = omniChordNewNotes[foundCur+2] + SEMITONESPEROCTAVE * octaveShift;
+              }
+              last5 = now;
+              //check if 6 has been played recently
+            }
+            else
+            {
+              if (now - last5 < PHANTOM_WINDOW)
+              {
+                
+                //plays index 6 and 7
+                note = omniChordNewNotes[foundCur+1] + SEMITONESPEROCTAVE * octaveShift;
+                note2 = omniChordNewNotes[foundCur] + SEMITONESPEROCTAVE * octaveShift; //treat this as the phantom note to fix when 5 and 6 are pressed
+              }
+              last6 = now;
+            }
+          }
+          else
+          {
+            note2 = omniChordNewNotes[foundCur+1] + SEMITONESPEROCTAVE * octaveShift;
+          }
+        }
+        else if (foundCur > OMNINOTECHORD_PHANTOM_MIN) //increment to play other notes
+        {
+          if (foundCur + 1 < (int) omniChordNewNotes.size())
+          {
+            note = omniChordNewNotes[foundCur+1];
+          }
+        }
+      }
+    }
+    
   }
   int getBestTranspose() const {
     return offset;
@@ -543,6 +612,31 @@ typedef struct _noteOffset
 {
   std::vector<int8_t> noteOffsets; //offsets relative to expected note
 } noteOffset;
+
+//used for neck to prevent weird cases due to 2 or more being or-ed 
+bool isHexStringAndEqualToBytes(const char* str, size_t strLen, const char* numValue, size_t numValueLen) {
+    // Each byte should be represented by 2 hex characters
+    if (strLen != numValueLen * 2) {
+        return false;
+    }
+
+    for (size_t i = 0; i < numValueLen; ++i) {
+        char hex[3] = { str[i * 2], str[i * 2 + 1], '\0' };  // 2 hex chars + null terminator
+        char* end;
+        long parsedByte = strtol(hex, &end, 16);  // convert hex string to integer
+
+        if (*end != '\0' || parsedByte < 0 || parsedByte > 255) {
+            return false;  // invalid hex or out of range
+        }
+
+        // Instead of equality, check if AND with numValue keeps parsedByte
+        if ( ((uint8_t)parsedByte & (uint8_t)numValue[i]) != (uint8_t)parsedByte ) {
+            return false;
+        }
+    }
+
+    return true;
+}
 
 bool isHexStringEqualToBytes(const char* str, size_t strLen, const char* numValue, size_t numValueLen) {
   // Each byte should be represented by 2 hex characters
