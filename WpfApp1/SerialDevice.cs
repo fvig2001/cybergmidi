@@ -26,7 +26,8 @@ public class SerialDevice
     public const string GET_IGNORE_MODE = "ISCR";
     public const string SET_PROPER_OMNICHORD = "OM5W";
     public const string GET_PROPER_OMNICHORD = "OM5R";
-
+    public const string SET_OMNICHORD_NOTE_MODE = "ONMW";
+    public const string GET_OMNICHORD_NOTE_MODE = "ONMR";
     public const string SET_STRUM_STYLE = "SCSW";
     public const string GET_STRUM_STYLE = "SCSR";
     public const string SET_STRUM_SEPARATION = "STSW";

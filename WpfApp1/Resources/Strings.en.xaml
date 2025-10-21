@@ -104,10 +104,14 @@
     <sys:String x:Key="BackingTrack">Backing Track</sys:String>
     <sys:String x:Key="DrumTrack">Drum Track</sys:String>
     <sys:String x:Key="Capo">Capo</sys:String>
-    <sys:String x:Key="PaddleNoteTranspose">Paddle Note Transpose</sys:String>
+    <sys:String x:Key="PaddleNoteTranspose">Paddle Octave Transpose</sys:String>
     <sys:String x:Key="StrumStyle">Strum Style</sys:String>
     <sys:String x:Key="ChordHold">Chord Hold</sys:String>
     <sys:String x:Key="SustainButtonMode">Sustain Button Mode</sys:String>
+    <sys:String x:Key="OmnichordNoteMode">Omnichord Note Mode</sys:String>
+    <sys:String x:Key="OmnichordNoteMode0">12 Notes</sys:String>
+    <sys:String x:Key="OmnichordNoteMode1">13 Double Notes</sys:String>
+    <sys:String x:Key="OmnichordNoteMode2">13 Phantom Note</sys:String>
     <sys:String x:Key="ChordButtonMode">Chord Button Mode</sys:String>
     <sys:String x:Key="IgnoreSameChordButton">Ignore Same Chord Button</sys:String>
     <sys:String x:Key="ProperOmnichord3rdNote">Proper Omnichord 3rd Note</sys:String>
@@ -155,8 +159,7 @@
     <sys:String x:Key="Upload">Upload</sys:String>
     <sys:String x:Key="Save">Save</sys:String>
     <sys:String x:Key="Close">Close</sys:String>
-    <sys:String x:Key="MidiDLG">MIDI files (*.mid)|*.mid|All files (*.*)|*.*</sys:String>
-    <sys:String x:Key="JSONDLG">JSON files (*.json)|*.json|All files (*.*)|*.*</sys:String>
+
     <sys:String x:Key="CustomBacking">Custom Backing</sys:String>
     <sys:String x:Key="Rock01">Rock 1</sys:String>
     <sys:String x:Key="Rock02">Rock 2</sys:String>
@@ -168,8 +171,5 @@
     <sys:String x:Key="Swing">Swing</sys:String>
     <sys:String x:Key="Waltz">Waltz</sys:String>
     <sys:String x:Key="Hiphop">Hiphop</sys:String>
-    <sys:String x:Key="NoPatternData">Error! This pattern is empty.</sys:String>
-    <sys:String x:Key="NoPatternDataAtAll">No valid patterns found.</sys:String>
-    <sys:String x:Key="PatternNameSaved">Pattern name saved.</sys:String>
-    <sys:String x:Key="NoPatternToSend">Pattern data to send is empty!</sys:String>
+
 </ResourceDictionary>

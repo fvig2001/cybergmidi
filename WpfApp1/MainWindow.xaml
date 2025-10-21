@@ -403,9 +403,9 @@
                     <Grid.RowDefinitions>
                         <RowDefinition Height="1" />
                         <!--Capo-->
-                        <RowDefinition Height="70" />
+                        <RowDefinition Height="50" />
                         <!--KB Transpose-->
-                        <RowDefinition Height="70" />
+                        <RowDefinition Height="50" />
                         <!--Strum Style-->
                         <RowDefinition Height="50" />
                         <!--Chord Hold-->
@@ -421,8 +421,10 @@
                         <!--Proper Omnichord 5ths-->
                         <RowDefinition Height="50" />
                         <!--Strum separation-->
-                        <RowDefinition Height="70" />
+                        <RowDefinition Height="50" />
                         <!--Mute separation-->
+                        <RowDefinition Height="50" />
+                        <!--Omnichord note mode-->
                         <RowDefinition Height="70" />
                         <!--Padding-->
                         <RowDefinition Height="*" />
@@ -432,36 +434,53 @@
 
                     <Grid Grid.Row="1">
                         <Grid.RowDefinitions>
-                            <RowDefinition Height="5"/>
+                            <RowDefinition Height="2"/>
                             <RowDefinition Height="20"/>
                             <RowDefinition Height="20"/>
-                            <RowDefinition Height="20"/>
-                            <RowDefinition Height="5"/>
+                            <RowDefinition Height="2"/>
 
                         </Grid.RowDefinitions>
                         <Label Grid.Row="1" Padding="0" Content="{DynamicResource Capo}" HorizontalAlignment="Left" VerticalAlignment="Top"/>
-                        <TextBox Grid.Row="2" HorizontalAlignment="Left" VerticalAlignment="Top" Name="capoTextbox" Width="40" Text="0" LostFocus="capoTextbox_LostFocus" PreviewKeyDown="capoTextbox_PreviewKeyDown"/>
-                        <Slider Grid.Row="3" Name="capoSlider" Width="40" HorizontalAlignment="Left" ValueChanged="capoSlider_ValueChanged"/>
+                        <Grid Grid.Row="2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="5"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox Grid.Column="0" HorizontalAlignment="Left" VerticalAlignment="Top" Name="capoTextbox" Width="40" Text="0" LostFocus="capoTextbox_LostFocus" PreviewKeyDown="capoTextbox_PreviewKeyDown"/>
+                            <Slider Grid.Column="2" Name="capoSlider" Width="40" HorizontalAlignment="Left" ValueChanged="capoSlider_ValueChanged"/>
+                        </Grid>
+                        
                     </Grid>
                     <Grid Grid.Row="2">
                         <Grid.RowDefinitions>
-                            <RowDefinition Height="5"/>
+                            <RowDefinition Height="2"/>
                             <RowDefinition Height="20"/>
                             <RowDefinition Height="20"/>
-                            <RowDefinition Height="20"/>
-                            <RowDefinition Height="5"/>
+                            <RowDefinition Height="2"/>
 
                         </Grid.RowDefinitions>
                         <Label Grid.Row="1" Padding="0" Content="{DynamicResource PaddleNoteTranspose}" HorizontalAlignment="Left" VerticalAlignment="Top"/>
-                        <TextBox Grid.Row="2" HorizontalAlignment="Left" VerticalAlignment="Top" Name="kbTransposeTextbox" Width="40" Text="0" LostFocus="kbTransposeTextbox_LostFocus" PreviewKeyDown="kbTransposeTextbox_PreviewKeyDown"/>
-                        <Slider Grid.Row="3" Name="kbTransposeSlider" Width="40" HorizontalAlignment="Left" ValueChanged="kbTransposeSlider_ValueChanged"/>
+
+                        <Grid Grid.Row="2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="5"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox Grid.Column="0" HorizontalAlignment="Left" VerticalAlignment="Top" Name="kbTransposeTextbox" Width="40" Text="0" LostFocus="kbTransposeTextbox_LostFocus" PreviewKeyDown="kbTransposeTextbox_PreviewKeyDown"/>
+                            <Slider Grid.Column="2" Name="kbTransposeSlider" Width="40" HorizontalAlignment="Left" ValueChanged="kbTransposeSlider_ValueChanged"/>
+                        </Grid>
+                        
+
+                        
                     </Grid>
                     <Grid Grid.Row="3">
                         <Grid.RowDefinitions>
-                            <RowDefinition Height="5"/>
+                            <RowDefinition Height="2"/>
                             <RowDefinition Height="20"/>
                             <RowDefinition Height="25"/>
-                            <RowDefinition Height="5"/>
+                            <RowDefinition Height="2"/>
 
                         </Grid.RowDefinitions>
                         <Label Grid.Row="1" Padding="0" Content="{DynamicResource StrumStyle}" HorizontalAlignment="Left" VerticalAlignment="Top"/>
@@ -470,10 +489,10 @@
                     </Grid>
                     <Grid Grid.Row="4">
                         <Grid.RowDefinitions>
-                            <RowDefinition Height="5"/>
+                            <RowDefinition Height="2"/>
                             <RowDefinition Height="20"/>
                             <RowDefinition Height="25"/>
-                            <RowDefinition Height="5"/>
+                            <RowDefinition Height="2"/>
 
                         </Grid.RowDefinitions>
                         <Label Grid.Row="1" Padding="0" Content="{DynamicResource ChordHold}" HorizontalAlignment="Left" VerticalAlignment="Top"/>
@@ -486,10 +505,10 @@
                             <ColumnDefinition Width="37*"/>
                         </Grid.ColumnDefinitions>
                         <Grid.RowDefinitions>
-                            <RowDefinition Height="5"/>
+                            <RowDefinition Height="2"/>
                             <RowDefinition Height="20"/>
                             <RowDefinition Height="25"/>
-                            <RowDefinition Height="5"/>
+                            <RowDefinition Height="2"/>
 
                         </Grid.RowDefinitions>
                         <Label Grid.Row="1" Padding="0" Content="{DynamicResource AlternatingStrum}" HorizontalAlignment="Left" VerticalAlignment="Top" Grid.ColumnSpan="2"/>
@@ -498,10 +517,10 @@
                     </Grid>
                     <Grid Grid.Row="6">
                         <Grid.RowDefinitions>
-                            <RowDefinition Height="5"/>
+                            <RowDefinition Height="2"/>
                             <RowDefinition Height="20"/>
                             <RowDefinition Height="25"/>
-                            <RowDefinition Height="5"/>
+                            <RowDefinition Height="2"/>
 
                         </Grid.RowDefinitions>
                         <Label Grid.Row="1" Padding="0" Content="{DynamicResource SustainButtonMode}" HorizontalAlignment="Left" VerticalAlignment="Top"/>
@@ -510,10 +529,10 @@
                     </Grid>
                     <Grid Grid.Row="7">
                         <Grid.RowDefinitions>
-                            <RowDefinition Height="5"/>
+                            <RowDefinition Height="2"/>
                             <RowDefinition Height="20"/>
                             <RowDefinition Height="25"/>
-                            <RowDefinition Height="5"/>
+                            <RowDefinition Height="2"/>
 
                         </Grid.RowDefinitions>
                         <Label Grid.Row="1" Padding="0" Content="{DynamicResource ChordButtonMode}" HorizontalAlignment="Left" VerticalAlignment="Top"/>
@@ -522,10 +541,10 @@
                     </Grid>
                     <Grid Grid.Row="8">
                         <Grid.RowDefinitions>
-                            <RowDefinition Height="5"/>
+                            <RowDefinition Height="2"/>
                             <RowDefinition Height="20"/>
                             <RowDefinition Height="25"/>
-                            <RowDefinition Height="5"/>
+                            <RowDefinition Height="2"/>
 
                         </Grid.RowDefinitions>
                         <Label Grid.Row="1" Padding="0" Content="{DynamicResource IgnoreSameChordButton}" HorizontalAlignment="Left" VerticalAlignment="Top"/>
@@ -534,10 +553,10 @@
                     </Grid>
                     <Grid Grid.Row="9">
                         <Grid.RowDefinitions>
-                            <RowDefinition Height="5"/>
+                            <RowDefinition Height="2"/>
                             <RowDefinition Height="20"/>
                             <RowDefinition Height="25"/>
-                            <RowDefinition Height="5"/>
+                            <RowDefinition Height="2"/>
 
                         </Grid.RowDefinitions>
                         <Label Grid.Row="1" Padding="0" Content="{DynamicResource ProperOmnichord3rdNote}" HorizontalAlignment="Left" VerticalAlignment="Top"/>
@@ -546,29 +565,57 @@
                     </Grid>
                     <Grid Grid.Row="10">
                         <Grid.RowDefinitions>
-                            <RowDefinition Height="5"/>
+                            <RowDefinition Height="2"/>
                             <RowDefinition Height="20"/>
+                            
                             <RowDefinition Height="20"/>
-                            <RowDefinition Height="20"/>
-                            <RowDefinition Height="5"/>
+                            <RowDefinition Height="2"/>
 
                         </Grid.RowDefinitions>
                         <Label Grid.Row="1" Padding="0" Content="{DynamicResource StrumSeparation}" HorizontalAlignment="Left" VerticalAlignment="Top"/>
-                        <TextBox Grid.Row="2" HorizontalAlignment="Left" VerticalAlignment="Top" Name="strumSeparationTextbox" Width="40" Text="0" LostFocus="strumSeparationTextbox_LostFocus" PreviewKeyDown="strumSeparationTextbox_PreviewKeyDown"/>
-                        <Slider Grid.Row="3" Name="strumSeparationSlider" Width="40" HorizontalAlignment="Left" ValueChanged="strumSeparationSlider_ValueChanged"/>
+                        <Grid Grid.Row="2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="5"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox Grid.Column ="0" HorizontalAlignment="Left" VerticalAlignment="Top" Name="strumSeparationTextbox" Width="40" Text="0" LostFocus="strumSeparationTextbox_LostFocus" PreviewKeyDown="strumSeparationTextbox_PreviewKeyDown"/>
+                            <Slider Grid.Column="2" Name="strumSeparationSlider" Width="40" HorizontalAlignment="Left" ValueChanged="strumSeparationSlider_ValueChanged"/>
+                        </Grid>
+                        
                     </Grid>
                     <Grid Grid.Row="11">
                         <Grid.RowDefinitions>
-                            <RowDefinition Height="5"/>
+                            <RowDefinition Height="2"/>
                             <RowDefinition Height="20"/>
                             <RowDefinition Height="20"/>
-                            <RowDefinition Height="20"/>
-                            <RowDefinition Height="5"/>
+                            
+                            <RowDefinition Height="2"/>
 
                         </Grid.RowDefinitions>
                         <Label Grid.Row="1" Padding="0" Content="{DynamicResource MuteSeparation}" HorizontalAlignment="Left" VerticalAlignment="Top"/>
-                        <TextBox Grid.Row="2" HorizontalAlignment="Left" VerticalAlignment="Top" Name="muteSeparationTextbox" Width="40" Text="0" LostFocus="muteSeparationTextbox_LostFocus" PreviewKeyDown="muteSeparationTextbox_PreviewKeyDown"/>
-                        <Slider Grid.Row="3" Name="muteSeparationSlider" Width="40" HorizontalAlignment="Left" ValueChanged="muteSeparationSlider_ValueChanged"/>
+                        <Grid Grid.Row="2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="5"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox Grid.Column="0" HorizontalAlignment="Left" VerticalAlignment="Top" Name="muteSeparationTextbox" Width="40" Text="0" LostFocus="muteSeparationTextbox_LostFocus" PreviewKeyDown="muteSeparationTextbox_PreviewKeyDown"/>
+                            <Slider Grid.Column="2" Name="muteSeparationSlider" Width="40" HorizontalAlignment="Left" ValueChanged="muteSeparationSlider_ValueChanged"/>
+                        </Grid>
+                        
+                    </Grid>
+                    <Grid Grid.Row="12">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="2"/>
+                            <RowDefinition Height="20"/>
+                            <RowDefinition Height="25"/>
+                            <RowDefinition Height="2"/>
+
+                        </Grid.RowDefinitions>
+                        <Label Grid.Row="1" Padding="0" Content="{DynamicResource OmnichordNoteMode}" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+                        <ComboBox Grid.Row="2" HorizontalAlignment="Left" VerticalAlignment="Top" Name="omnichordNoteModeComboBox" Width="140"/>
+
                     </Grid>
                 </Grid>
 

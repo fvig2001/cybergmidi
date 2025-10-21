@@ -39,6 +39,7 @@ namespace CyberG
         private SerialLogWindow _serialLogWindow;
         private DispatcherTimer _serialPingTimer;
         private const int MaxPresetCount = 6;
+        private const int MaxOmnichordNoteModeCount = 2;
         private const int MaxGuitarPatternCount = 3;
         private List<ComboBox> allComboRoots;
         private List<ComboBox> allComboChords;
@@ -310,9 +311,9 @@ namespace CyberG
             SendCmd(SerialDevice.GET_SUSTAIN_MODE, curPreset.ToString());
             SendCmd(SerialDevice.GET_CHORD_MODE, curPreset.ToString());
             SendCmd(SerialDevice.GET_IGNORE_MODE, curPreset.ToString());
-            
             SendCmd(SerialDevice.GET_BPM, curPreset.ToString());
             SendCmd(SerialDevice.GET_BACKING_STATE, "");
+            SendCmd(SerialDevice.GET_OMNICHORD_NOTE_MODE, curPreset.ToString());
             //SendCmd(SerialDevice.GET_DRUM_ID, "");
             //SendCmd(SerialDevice.GET_BASS_ID, "");
             //SendCmd(SerialDevice.GET_BACKING_ID, "");
@@ -804,6 +805,22 @@ namespace CyberG
                     }
                 }
             }
+            else if (command == SerialDevice.GET_OMNICHORD_NOTE_MODE)
+            {
+                if (!checkCommandParamCount(parsedData, 3))
+                {
+                    return false;
+                }
+                else
+                {
+                    nTemp = int.Parse(parsedData[2]);
+                    if (!checkCommandParameterRange(0, MaxOmnichordNoteModeCount, nTemp))
+                    {
+                        return false;
+                    }
+                }
+            }
+
             else if (command == SerialDevice.GET_CHORD_MODE)
             {
                 if (!checkCommandParamCount(parsedData, 3))
@@ -1315,7 +1332,14 @@ namespace CyberG
                                 bassComboBox.SelectedIndex = nTemp;
                             }
                         }
-
+                        else if (command == SerialDevice.GET_OMNICHORD_NOTE_MODE)
+                        {
+                            if (checkReceivedValid(parsedData))
+                            {
+                                nTemp = int.Parse(parsedData[2]);
+                                omnichordNoteModeComboBox.SelectedIndex = nTemp;
+                            }
+                        }
                         else if (command == SerialDevice.GET_CHORD_HOLD)
                         {
                             if (checkReceivedValid(parsedData))
@@ -1759,7 +1783,7 @@ namespace CyberG
         {
             if (!isPresetReading && initDone)
             {
-                SendCmd(SerialDevice.SET_SIMPLE_CHORD_MODE, isSimple ? "1" : "0");
+                SendCmd(SerialDevice.SET_SIMPLE_CHORD_MODE, curPreset.ToString() + "," + (isSimple ? "1" : "0").ToString());
             }
         }
         
@@ -2000,19 +2024,23 @@ namespace CyberG
             alternatingStrumComboBox.SelectedIndex = 0;
             ignoreSameButtonComboBox.SelectedIndex = 0;
             lower5thComboBox.SelectedIndex = 0;
-
             lower5thComboBox.SelectionChanged += lower5thComboBox_SelectionChanged;
+
             var optionsPresets = Enumerable.Range(1, MaxPresetCount)
                                   .Select(i => i.ToString())
                                   .ToArray();
             presetComboBox.ItemsSource = optionsPresets;
             presetComboBox.SelectedIndex = -1;
 
+
             var optionsOmni = new[] { (string)Application.Current.Resources["OmniMode1"], (string)Application.Current.Resources["OmniMode2"], (string)Application.Current.Resources["OmniMode3"], (string)Application.Current.Resources["OmniMode4"] };
             
             modeComboBox.ItemsSource = optionsOmni;
             modeComboBox.SelectedIndex = 0;
-
+            var optionsOmniNote = new[] { (string)Application.Current.Resources["OmnichordNoteMode0"], (string)Application.Current.Resources["OmnichordNoteMode1"], (string)Application.Current.Resources["OmnichordNoteMode2"]};
+            omnichordNoteModeComboBox.ItemsSource = optionsOmniNote;
+            omnichordNoteModeComboBox.SelectedIndex = 0;
+            omnichordNoteModeComboBox.SelectionChanged += omnichordNoteModeComboBox_SelectionChanged;
             var optionsStrumStyle = new[] { (string)Application.Current.Resources["StrumStyle1"], (string)Application.Current.Resources["StrumStyle2"], (string)Application.Current.Resources["StrumStyle3"] };
             strumStyleComboBox.ItemsSource = optionsStrumStyle;
             strumStyleComboBox.SelectedIndex = 0; 
@@ -2128,7 +2156,7 @@ namespace CyberG
         }
         private void GenericComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (isPresetReading || !initDone)
+            if (isPresetReading || !initDone || ((ComboBox)sender).SelectedIndex == -1)
             {
                 return;
             }
@@ -2308,7 +2336,7 @@ namespace CyberG
 
         private void presetComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (curPreset != presetComboBox.SelectedIndex)
+            if (curPreset != presetComboBox.SelectedIndex && presetComboBox.SelectedIndex != -1)
             {
                 curPreset = presetComboBox.SelectedIndex;
                 SendCmd(SerialDevice.SET_PRESET, curPreset.ToString());
@@ -2321,9 +2349,17 @@ namespace CyberG
         }
         private void lower5thComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (!isPresetReading)
+            if (!isPresetReading && lower5thComboBox.SelectedIndex != -1)
             {
                 SendCmd(SerialDevice.SET_PROPER_OMNICHORD, curPreset.ToString() + ',' + lower5thComboBox.SelectedIndex.ToString());
+                return;
+            }
+        }
+        private void omnichordNoteModeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (!isPresetReading && omnichordNoteModeComboBox.SelectedIndex != -1)
+            {
+                SendCmd(SerialDevice.SET_OMNICHORD_NOTE_MODE, curPreset.ToString() + ',' + omnichordNoteModeComboBox.SelectedIndex.ToString());
                 return;
             }
         }
@@ -2393,16 +2429,29 @@ namespace CyberG
             {
                 int index1 = allComboRoots.IndexOf(changedComboBox);
                 int index2 = allComboChords.IndexOf(changedComboBox);
+                if (index1 == -1 && index2 == -1 )
+                {
+                    return;
+                } 
+
                 int row = -1;
                 int col = -1;
                 if (index1 != -1)
                 {
+                    if (allComboRoots[index1].SelectedIndex == -1 || allComboChords[index1].SelectedIndex == -1)
+                    {
+                        return;
+                    }
                     row = index1 / NECK_COLS;
                     col = index1 % NECK_COLS;
                     SendCmd(SerialDevice.SET_NECK_ASSIGNMENT, curPreset.ToString() + ',' + row.ToString() + "," + col.ToString() + "," + allComboRoots[index1].SelectedIndex.ToString() + ',' + allComboChords[index1].SelectedIndex.ToString());
                 }
                 else if (index2 != -1)
                 {
+                    if (allComboRoots[index2].SelectedIndex == -1 || allComboChords[index2].SelectedIndex == -1)
+                    {
+                        return;
+                    }
                     row = index2 / NECK_COLS;
                     col = index2 % NECK_COLS;
                     SendCmd(SerialDevice.SET_NECK_ASSIGNMENT, curPreset.ToString() + ',' + row.ToString() + "," + col.ToString() + "," + allComboRoots[index2].SelectedIndex.ToString() + ',' + allComboChords[index2].SelectedIndex.ToString());
@@ -2442,6 +2491,10 @@ namespace CyberG
                 int col = -1;
                 if (index != -1)
                 {
+                    if (allComboPatterns[index].SelectedIndex == -1)
+                    {
+                        return;
+                    }
                     row = index / NECK_COLS;
                     col = index % NECK_COLS;
                     SendCmd(SerialDevice.SET_NECK_PATTERN, curPreset.ToString() + ',' + row.ToString() + "," + col.ToString() + "," + allComboPatterns[index].SelectedIndex.ToString());
