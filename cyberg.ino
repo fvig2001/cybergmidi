@@ -4681,7 +4681,7 @@ void checkSerialKB(HardwareSerial& serialPort, char* buffer, uint8_t& bufferLen,
             sendNoteOff(channel, note + transpose + omniTransposeOffset);
             if (extraNoteOn)
             {
-              sendNoteOff(channel, note2 + transpose, vel);
+              sendNoteOff(channel, note2 + transpose + omniTransposeOffset, vel);
             }
           }
         }
