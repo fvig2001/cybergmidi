@@ -1,4 +1,4 @@
-﻿using CyberG;
+using CyberG;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -73,6 +73,14 @@ public class SerialDevice
     public const string GET_GUITAR_DATA = "GPRN";
     public const string GET_BASS_DATA = "BPRN";
     public const string GET_BACKING_DATA = "APRN";
+    public const string ADD_BACKING_DATA = "AADD";
+    public const string ADD_BASS_DATA = "BADD";
+    public const string ADD_DRUMS_DATA = "DADD";
+    public const string ADD_GUITAR_DATA = "GADD";
+    public const string CLEAR_BACKING_DATA = "ACLR";
+    public const string CLEAR_BASS_DATA = "BCLR";
+    public const string CLEAR_DRUMS_DATA = "DCLR";
+    public const string CLEAR_GUITAR_DATA = "GCLR";
     
     public const bool ignoreGetPreset = false;
     public const bool ignoreGetKB = false;
