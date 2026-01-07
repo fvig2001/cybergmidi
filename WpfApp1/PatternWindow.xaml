@@ -45,7 +45,7 @@
                                 <!-- Listbox of patterns-->
                                 <RowDefinition/>
                                 <RowDefinition Height="5"/>
-                                <RowDefinition Height="25"/>
+
                                 <RowDefinition Height="5"/>
                                 <!--Management Buttons-->
                                 <RowDefinition Height="25"/>
@@ -53,9 +53,9 @@
                             <!-- Picture-->
                             <Grid Grid.Row="0">
                                 <Grid.RowDefinitions>
-                                    <RowDefinition Height="25"/>
+                                    <RowDefinition Height="20"/>
                                     <RowDefinition Height="5"/>
-                                    <RowDefinition/>
+                                    <RowDefinition Height="*"/>
                                 </Grid.RowDefinitions>
                                 <!-- Pattern name -->
                                 <Grid Grid.Row="0">
@@ -66,27 +66,32 @@
                                     </Grid.ColumnDefinitions>
 
                                     <TextBox Grid.Column="1" Name="patternNameTextBox" Width="150" VerticalContentAlignment="Center"/>
-                                    <Button Grid.Column="2" Name="saveButton" Content="{DynamicResource Save}" Width="40" HorizontalAlignment="Right"/>
+                                    <Button Grid.Column="2" Name="saveButton" Content="{DynamicResource Save}" Width="40" HorizontalAlignment="Right" Click="saveButton_Click"/>
+
                                 </Grid>
-                                <Rectangle Grid.Row="2" Fill="Aqua" Width="200"/>
+                                <Grid Grid.Row="2">
+                                    <Border BorderBrush="Black" BorderThickness="1" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="1">
+                                        <Canvas Name="NoteCanvas" Width="350" Height="185" Background="White"/>
+                                    </Border>
+                                </Grid>
                             </Grid>
                             <!-- Navigation Buttons-->
                             <Grid Grid.Row="2">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="25"/>
                                     <ColumnDefinition/>
-                                    <ColumnDefinition Width="20"/>
+                                    <ColumnDefinition Width="25"/>
                                     <ColumnDefinition/>
                                     <ColumnDefinition Width="25"/>
                                 </Grid.ColumnDefinitions>
-                                <Button Grid.Column="0" Width="25" Name="previousButton"/>
-                                <Button Grid.Column="2" Width="20" Name="playSampleButton" Height="20">
+                                <Button Grid.Column="0" Width="25" Name="previousButton" Content="&lt;" Click="previousButton_Click"/>
+                                <Button Grid.Column="2" Width="25" Name="playSampleButton" Height="25" Click="playButton_Click">
                                     <Image Source="Images/play.png"
                                     Stretch="Uniform"
                                     VerticalAlignment="Center"
                                     HorizontalAlignment="Center"/>
                                 </Button>
-                                <Button Grid.Column="4" Width="25" Name="nextButton"/>
+                                <Button Grid.Column="4" Width="25" Name="nextButton" Content="&gt;" Click="nextButton_Click"/>
                             </Grid>
                             <Grid Grid.Row="4">
                                 <Grid.ColumnDefinitions>
@@ -97,8 +102,8 @@
                                 <ListBox Grid.Column="1" Name="patternListBox"/>
 
                             </Grid>
-                            <Button Grid.Row="6" Name="deleteButton" Content="{DynamicResource Delete}" Width="40" HorizontalAlignment="Center"/>
-                            <Grid Grid.Row="8">
+
+                            <Grid Grid.Row="7">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="100"/>
                                     <ColumnDefinition/>
@@ -108,9 +113,9 @@
 
                                 </Grid.ColumnDefinitions>
 
-                                <Button Grid.Column="0" Name="importMidiButton" Content="{DynamicResource ImportMidi}"/>
-                                <Button Grid.Column="2" Name="importFromDeviceButton" Content="{DynamicResource ImportDevice}"/>
-                                <Button Grid.Column="4" Name="uploadButton" Content="{DynamicResource Upload}"/>
+                                <Button Grid.Column="0" Name="importMidiButton" Content="{DynamicResource ImportMidi}" Click="importMidiButton_Click"/>
+                                <Button Grid.Column="2" Name="deleteButton" Content="{DynamicResource Delete}" Click="deleteButton_Click"/>
+                                <Button Grid.Column="4" Name="uploadButton" Content="{DynamicResource Upload}" Click="uploadButton_Click"/>
 
                             </Grid>
                         </Grid>
