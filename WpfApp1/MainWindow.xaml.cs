@@ -1,4 +1,4 @@
-﻿using Microsoft.Win32;
+using Microsoft.Win32;
 using System.Collections.Generic;
 using System.Text;
 using System.Windows;
@@ -152,7 +152,7 @@ namespace CyberG
                     if (loadedSettings.TryGetValue("backingPatternID", out string backingVal))
                     {
                         lastbackingPatternID = backingPatternID;
-                        backingPatternID = int.Parse(backingVal); 
+                        backingPatternID = int.Parse(backingVal);
                     }
 
                     if (loadedSettings.TryGetValue("bassPatternID", out string bassVal))
@@ -179,7 +179,7 @@ namespace CyberG
                     }
                     //todo Add code to load the pattern from the library if it is not the same:
                     if (lastdrumPatternID != drumPatternID && lastdrumPatternID > 0)
-                    { 
+                    {
                         //load drum pattern
                     }
                     if (lastbackingPatternID != backingPatternID && lastbackingPatternID > 0)
@@ -205,7 +205,7 @@ namespace CyberG
                 }
             }
         }
-        
+
         private void ChangePicDisplayed()
         {
             Dispatcher.Invoke(() =>
@@ -271,13 +271,13 @@ namespace CyberG
             }
             catch (Exception)
             {
-                
+
                 if (SerialManager.isInitialized() && SerialManager.Device.HasDisconnectHandler(OnMainDeviceDisconnectedReceived))
                 {
                     SerialManager.Device.NotifyDisconnect();
                 }
-        
-        
+
+
             }
         }
         private void UpdateReadPresetValues()
@@ -304,8 +304,8 @@ namespace CyberG
 
             SendCmd(SerialDevice.GET_ACCOMPANIMENT_ENABLE, curPreset.ToString());
             SendCmd(SerialDevice.GET_SIMPLE_CHORD_MODE, curPreset.ToString());
-            
-            
+
+
             SendCmd(SerialDevice.GET_CHORD_HOLD, curPreset.ToString());
             SendCmd(SerialDevice.GET_ALTERNATING_STRUM, curPreset.ToString());
             SendCmd(SerialDevice.GET_SUSTAIN_MODE, curPreset.ToString());
@@ -402,7 +402,7 @@ namespace CyberG
 
             SendCmd(SerialDevice.GET_PRESET);
             SendCmd(SerialDevice.GET_ISKB);
-            SendCmd(SerialDevice.GET_BPM,curPreset.ToString());
+            SendCmd(SerialDevice.GET_BPM, curPreset.ToString());
         }
         private void OnMainDeviceDisconnectedReceived(object sender, EventArgs e)
         {
@@ -426,7 +426,7 @@ namespace CyberG
                 {
                     DebugLog.addToLog(debugType.replyDebug, (string)Application.Current.Resources["Command"] + " " + SerialManager.Device.LastCommandSent + " " + (string)Application.Current.Resources["CommandNotOK"]);
                 }
-                else 
+                else
                 {
                     return true;
                 }
@@ -452,7 +452,7 @@ namespace CyberG
             string command = SerialManager.Device.LastCommandSent;
             if (val > max)
             {
-                addToDebugLog(debugType.replyDebug, (string)Application.Current.Resources["Error"] + " " + command + " " + (string)Application.Current.Resources["ErrorDataReceivedAtPosition"] + " " + val.ToString()  + " > " + max.ToString());
+                addToDebugLog(debugType.replyDebug, (string)Application.Current.Resources["Error"] + " " + command + " " + (string)Application.Current.Resources["ErrorDataReceivedAtPosition"] + " " + val.ToString() + " > " + max.ToString());
                 return false;
             }
             if (val < min)
@@ -522,7 +522,7 @@ namespace CyberG
                     }
                 }
             }
-            
+
             else if (command == SerialDevice.SET_SIMPLE_CHORD_MODE)
             {
                 if (!checkCommandParamCount(parsedData, 2))
@@ -603,7 +603,7 @@ namespace CyberG
                     return false;
                 }
             }
-            else if (command == SerialDevice.SET_SUSTAIN_MODE   )
+            else if (command == SerialDevice.SET_SUSTAIN_MODE)
             {
                 if (!checkCommandParamCount(parsedData, 2))
                 {
@@ -851,7 +851,7 @@ namespace CyberG
                     }
                 }
             }
-            
+
             else if (command == SerialDevice.GET_PROPER_OMNICHORD)
             {
                 if (!checkCommandParamCount(parsedData, 3))
@@ -904,7 +904,7 @@ namespace CyberG
                     }
                 }
             }
-            
+
 
 
 
@@ -1055,7 +1055,7 @@ namespace CyberG
             Dispatcher.Invoke(() => {
                 string response = data.Trim();
                 List<string> parsedData = SerialReceiveParser.Parse(response);
-                
+
                 bool isDebug = false;
                 if (parsedData.Count != 0)
                 {
@@ -1073,7 +1073,7 @@ namespace CyberG
                         {
                             dbgMsg += parsedData[i];
                         }
-                        DebugLog.addToLog(debugType.deviceDebug,dbgMsg);
+                        DebugLog.addToLog(debugType.deviceDebug, dbgMsg);
                     }
                     else
                     {
@@ -1487,7 +1487,7 @@ namespace CyberG
                             }
 
                         }
-                        
+
                         else if (command == SerialDevice.GET_DRUM_ID)
                         {
                             if (checkReceivedValid(parsedData))
@@ -1786,7 +1786,7 @@ namespace CyberG
                 SendCmd(SerialDevice.SET_SIMPLE_CHORD_MODE, curPreset.ToString() + "," + (isSimple ? "1" : "0").ToString());
             }
         }
-        
+
         private void kbTransposeTextbox_LostFocus(object sender, RoutedEventArgs e)
         {
             UpdateSliderFromTextBox(kbTransposeSlider, kbTransposeTextbox);
@@ -1903,9 +1903,9 @@ namespace CyberG
             }
             Application.Current.Dispatcher.Invoke(() =>
             {
-                
+
                 if (bpm != curBPM)
-                { 
+                {
                     SerialManager.Device.Send(SerialDevice.SET_BPM, curPreset.ToString() + "," + bpm.ToString()); // Or your custom heartbeat command
                     curBPM = bpm;
                 }
@@ -1970,7 +1970,7 @@ namespace CyberG
                 capoTextbox.Text = e.NewValue.ToString("F0");
                 if (!isPresetReading)
                 {
-                    SendCmd(SerialDevice.SET_CAPO, curPreset.ToString()+"," + capoTextbox.Text);
+                    SendCmd(SerialDevice.SET_CAPO, curPreset.ToString() + "," + capoTextbox.Text);
                 }
             }
         }
@@ -2034,16 +2034,16 @@ namespace CyberG
 
 
             var optionsOmni = new[] { (string)Application.Current.Resources["OmniMode1"], (string)Application.Current.Resources["OmniMode2"], (string)Application.Current.Resources["OmniMode3"], (string)Application.Current.Resources["OmniMode4"] };
-            
+
             modeComboBox.ItemsSource = optionsOmni;
             modeComboBox.SelectedIndex = 0;
-            var optionsOmniNote = new[] { (string)Application.Current.Resources["OmnichordNoteMode0"], (string)Application.Current.Resources["OmnichordNoteMode1"], (string)Application.Current.Resources["OmnichordNoteMode2"]};
+            var optionsOmniNote = new[] { (string)Application.Current.Resources["OmnichordNoteMode0"], (string)Application.Current.Resources["OmnichordNoteMode1"], (string)Application.Current.Resources["OmnichordNoteMode2"] };
             omnichordNoteModeComboBox.ItemsSource = optionsOmniNote;
             omnichordNoteModeComboBox.SelectedIndex = 0;
             omnichordNoteModeComboBox.SelectionChanged += omnichordNoteModeComboBox_SelectionChanged;
             var optionsStrumStyle = new[] { (string)Application.Current.Resources["StrumStyle1"], (string)Application.Current.Resources["StrumStyle2"], (string)Application.Current.Resources["StrumStyle3"] };
             strumStyleComboBox.ItemsSource = optionsStrumStyle;
-            strumStyleComboBox.SelectedIndex = 0; 
+            strumStyleComboBox.SelectedIndex = 0;
             strumStyleComboBox.SelectionChanged += strumStyleComboBox_SelectionChanged;
             var optionsToggleStyle = new[] { (string)Application.Current.Resources["Pressed"], (string)Application.Current.Resources["Toggled"] };
             sustainModeComboBox.ItemsSource = optionsToggleStyle;
@@ -2071,7 +2071,7 @@ namespace CyberG
                 allComboRoots[i].SelectedIndex = 0;
             }
 
-            var optionsChordNoteStyle = new[] 
+            var optionsChordNoteStyle = new[]
             { (string)Application.Current.Resources["ChordNote1"], (string)Application.Current.Resources["ChordNote2"], (string)Application.Current.Resources["ChordNote3"], (string)Application.Current.Resources["ChordNote4"], (string)Application.Current.Resources["ChordNote5"], (string)Application.Current.Resources["ChordNote6"], (string)Application.Current.Resources["ChordNote7"], (string)Application.Current.Resources["ChordNote8"], (string)Application.Current.Resources["ChordNote9"],
               (string)Application.Current.Resources["ChordNote10"], (string)Application.Current.Resources["ChordNote11"], (string)Application.Current.Resources["ChordNote12"], (string)Application.Current.Resources["ChordNote13"], (string)Application.Current.Resources["ChordNote14"], (string)Application.Current.Resources["ChordNote15"], (string)Application.Current.Resources["ChordNote16"], (string)Application.Current.Resources["ChordNote17"], (string)Application.Current.Resources["ChordNote18"],(string)Application.Current.Resources["ChordNote19"],
               (string)Application.Current.Resources["ChordNote20"] ,(string)Application.Current.Resources["ChordNote21"], (string)Application.Current.Resources["ChordNote22"], (string)Application.Current.Resources["ChordNote23"], (string)Application.Current.Resources["ChordNote24"], (string)Application.Current.Resources["ChordNote25"], (string)Application.Current.Resources["ChordNote26"], (string)Application.Current.Resources["ChordNote27"], (string)Application.Current.Resources["ChordNote28"],(string)Application.Current.Resources["ChordNote29"],
@@ -2094,8 +2094,8 @@ namespace CyberG
             }
             allColChords = new List<ComboBox>
             {
-                col0ChordComboBox, 
-                col1ChordComboBox, 
+                col0ChordComboBox,
+                col1ChordComboBox,
                 col2ChordComboBox
             };
 
@@ -2180,7 +2180,7 @@ namespace CyberG
             {
                 SendCmd(SerialDevice.SET_CHORD_HOLD, curPreset.ToString() + ',' + ((ComboBox)sender).SelectedIndex);
                 int toSend = -1;
-                if (((ComboBox)sender).SelectedIndex == 0 )
+                if (((ComboBox)sender).SelectedIndex == 0)
                 {
                     toSend = 1;
                 }
@@ -2252,7 +2252,7 @@ namespace CyberG
             {
                 SendCmd(SerialDevice.GET_PRESET);
             }
-            
+
             AddDisconnectHandler();
         }
 
@@ -2287,12 +2287,12 @@ namespace CyberG
             {
                 await WaitForSerialProcessingAsync();
 
-                
+
 
                 openConnectionWindow();
 
 
-                
+
             }
             catch (TimeoutException ex)
             {
@@ -2429,10 +2429,10 @@ namespace CyberG
             {
                 int index1 = allComboRoots.IndexOf(changedComboBox);
                 int index2 = allComboChords.IndexOf(changedComboBox);
-                if (index1 == -1 && index2 == -1 )
+                if (index1 == -1 && index2 == -1)
                 {
                     return;
-                } 
+                }
 
                 int row = -1;
                 int col = -1;
@@ -2456,7 +2456,7 @@ namespace CyberG
                     col = index2 % NECK_COLS;
                     SendCmd(SerialDevice.SET_NECK_ASSIGNMENT, curPreset.ToString() + ',' + row.ToString() + "," + col.ToString() + "," + allComboRoots[index2].SelectedIndex.ToString() + ',' + allComboChords[index2].SelectedIndex.ToString());
                 }
-                else 
+                else
                 {
                     DebugLog.addToLog(debugType.sendDebug, (string)Application.Current.Resources["InvalidChordRootIndex"]);
                 }
@@ -2465,7 +2465,7 @@ namespace CyberG
 
         private void AllPatternComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (isPresetReading || setAllGuitarPatternComboBox.SelectedIndex==-1)
+            if (isPresetReading || setAllGuitarPatternComboBox.SelectedIndex == -1)
             {
                 return;
             }
