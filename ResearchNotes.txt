@@ -13,3 +13,5 @@ d. Change mode/program messages do nothing
 e. Not sure if because I had low battery but sometimes the first note is ignored even after last note was played 5 seconds before
 7. Still not sure on the purpose of the button of the logo but at least the 2 logo buttons are simple points that short to ground when pressed.
 8. Guitar neck uses capacitative buttons and they support multiple button presses but it's not easy to actually press them at the same time where the device registers them as pressed.
+9. There's a weird bug in the firmware with regards to the keyboard and reading the current pitch shift. It becomes kind of random if the keyboard is the module when turned on but if you switch it to a guitar then swap it back, it becomes consistent with guitar's readings. Current code basically simulates the guitar->keyboard swap but has a weird side effect that the neck lights turn off quicker.
+10. There's nothing of use at the bottom. Only take the board fully out if you need to replace the battery. It's annoying to fix the speaker, earphone and mono out since it's designed awkwardly.
