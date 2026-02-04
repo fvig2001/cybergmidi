@@ -1,9 +1,20 @@
 Proper Wiring instructions for the current build:
 
+0. Program the firmware to the Teensy 4.1. Then cut the 5V from the micro USB port as per instructions on the Teensy site. 
 1. Open the Cyber G
 2. Use like a thin blade like an Exacto knife around the edges of the rubber thing on the logo. Under it are a board and screws
 3. Disconnect the ribbon cable from the board and remove the 5 screws then remove the large screw under
 4. Remove the keyboard/guitar paddle
 5. Remove the screws
 6. You should be able to pull off the top completely
-<To be updated as I have to review it again>
+7. Prepare the solder points, refer to Cyber G Midi Hack_MidiPlus Band Hack.xlsx. Do not solder the stuff for the bluetooth modules yet
+8. For the cut hacks, isolate the X to Cyber G points. For the neck, I cut the wire and connected it to the serial receiver and the other to the serial receiver. For the keyboard, I used a cutter to cut the trace from where it connects and the board. Like I cut on the raised board until it stopped shorting with the pin where the keyboard connects. Then connect the one from the keyboard to the receiver of the teensy and the now disconnected pin to the transmitter of the teensy.
+Beware, if the Teensy stops working, the Cyber G is effectively a brick as the Teensy passes the messages from the accessories.
+9. Solder the wires as described in #7. Ensure that you don't forget to solder the 5V to the now disconnected 5V pin. The Cyber G has to be on for the Teensy to now work even if USB is connected.
+10. Prepare the USB-C hole. I made 3 small dots using an Exacto knife and spun around to make 3 holes. I used a flush cutter to make it into 1 big hole then filed. I used a USB-C with CC pins breakout board with an USB-C female to male extension. I put the female end through and connected the male to the breakout board. I soldered the 4 wires to the teensy via a micro usb cable to the 4 wires. I put this under the keyboard right side.
+11. Prepare another USB-C hole and repeat. You can just use a standard 4 pin USB-C breakout board. I put this above the lineout.
+12. Tape down and test that MIDI works, logo buttons, the 2 buttons near the knob work
+13. Program the 2 WROOM boards and solder
+14. Drill 2 holes for the antennas
+15. Attach the antennas and then tape the bluetooth modules
+16. Close and test and hope for the best.
