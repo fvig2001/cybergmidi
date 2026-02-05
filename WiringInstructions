@@ -18,3 +18,5 @@ Beware, if the Teensy stops working, the Cyber G is effectively a brick as the T
 14. Drill 2 holes for the antennas
 15. Attach the antennas and then tape the bluetooth modules
 16. Close and test and hope for the best.
+
+Also ensure that the teensy has an SD card inside as it is used to store settings.
