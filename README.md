@@ -37,3 +37,8 @@ Why does this mod exist?
 3. Only the keyboard has MIDI but you literally have to remove it from the device to use it (unless you are crazy and put a USB-C connector in front like I did)
 4. The sounds are really bad and they want me to pay $60 to unlock 12 sounds in the Chinese app
 5. I got the Chinese version, which is Chinese only
+
+Notes:
+This only supports the firmware before they added support for the Guitar string neck and module.
+
+I have not updated mine since I don't have plans to get this accessory since they said they have no plans to make purple ones, I already have an Aeroband Guitar which is superior in most ways. It also allegedly takes 2 hours to install. 
